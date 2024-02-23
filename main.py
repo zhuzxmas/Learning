@@ -11,7 +11,7 @@ app = PublicClientApplication(
 
 result = None
 
-# Firstly, check the cache to see if this end user has signed in before..
+# Firstly, check the cache to see if this end user has signed in before...
 accounts = app.get_accounts(username='zhuzx@cnmas.onmicrosoft.com')
 if accounts:
     result = app.acquire_token_silent(["User.Read"], account=accounts[0])
