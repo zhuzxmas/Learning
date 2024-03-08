@@ -14,8 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  run-python-script:
     runs-on: ubuntu-latest
 
     steps:
