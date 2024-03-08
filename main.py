@@ -48,4 +48,5 @@ http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Content-Type': 'application/json'}
 data = requests.get(endpoint, headers=http_headers, stream=False).json()
 output = DataFrame(data['value'])
-output.to_csv('output.csv',mode='a',header=0, index=0, encoding='utf_8_sig')
+print(output)
+# output.to_csv('output.csv',mode='a',header=0, index=0, encoding='utf_8_sig')
