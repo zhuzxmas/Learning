@@ -1,11 +1,19 @@
-import json, requests, datetime
+import json, requests, datetime, configparser
 from pandas import DataFrame
-from msal import ConfidentialClientApplication
 from msal import PublicClientApplication
 
-client_id = '9090f5d5-546e-4a88-aeca-c6a58ba42552'
-scope_list = ["User.Read","User.Read.All","User.ReadWrite.All",
-                        "Schedule.Read.All","Schedule.ReadWrite.All"]
+config = configparser.ConfigParser()
+config.read(['config.cfg', 'config.dev.cfg'])
+azure_settings = config['azure']
+wx_settings = config['wx_public_service']
+
+client_id = azure_settings['client_id']
+scope_list = azure_settings['scope_list']
+wx_APPID = wx_settings['wx_APPID']
+wx_SECRET = wx_settings['wx_SECRET']
+template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
+openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
+# https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 
 app = PublicClientApplication(
     client_id=client_id,
@@ -30,6 +38,35 @@ if not result:
     print(flow["message"])
     print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
 
+    # 获取access_token
+    def get_access_token():
+        url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={wx_APPID}&secret={wx_SECRET}"
+        response = requests.get(url)
+        data = response.json()
+        access_token = data.get("access_token")
+        return access_token
+
+    # 推送模板消息
+    def send_template_message(openid, template_id, data):
+        access_token = get_access_token()
+        url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={access_token}"
+        headers = {'Content-Type': 'application/json'}
+        login_info = {
+            "touser": openid,
+            "template_id": template_id,
+            "data": data
+        }
+        response = requests.post(url, headers=headers, data=json.dumps(login_info))
+        return response.json()
+
+    # 示例数据
+    data = {
+        "code": {"value": flow['user_code']},
+    }
+    # 推送消息
+    result = send_template_message(openid, template_id, data)
+    print(result)  # 打印推送结果
+
     # Ideally you should wait here, in order to save some unnecessary polling
     # input("Press Enter after signing in from another device to proceed, CTRL+C to abort.")
 
@@ -50,3 +87,13 @@ data = requests.get(endpoint, headers=http_headers, stream=False).json()
 output = DataFrame(data['value'])
 print(output)
 # output.to_csv('output.csv',mode='a',header=0, index=0, encoding='utf_8_sig')
+
+### Below are OneDrive Operations ###
+onedrive_url = 'https://graph.microsoft.com/v1.0/'
+# onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
+onedrive_response = requests.get(onedrive_url + 'me/drive/items/01L7SVHIU22CH7U6E6LVDLTWBIKIFJ632O/children', headers = http_headers)
+if (onedrive_response.status_code == 200):
+    onedrive_response = json.loads(onedrive_response.text)
+    items = onedrive_response['value']
+    for entries in range(len(items)):
+        print(items[entries]['name'], '| item-id >', items[entries]['id'])
