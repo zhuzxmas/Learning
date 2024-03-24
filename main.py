@@ -112,7 +112,7 @@ for i in range(0, len(output)):
     learning_records.append(output_temp)
 learning_records = DataFrame(learning_records)
 print(learning_records)
-learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig')
+learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
 ### Below are OneDrive Operations ###
 onedrive_url = 'https://graph.microsoft.com/v1.0/'
