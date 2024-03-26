@@ -89,8 +89,9 @@ output = DataFrame(data['value'])
 
 time_format = "%Y-%m-%dT%H:%M:%S"
 
+learning_record = {'values':[]}
 learning_records = []
-learning_records.append(['Person', 'Start Time', 'End Time', 'Duration', 'Notes'])
+# learning_records.append(['Person', 'Start Time', 'End Time', 'Duration', 'Notes'])
 
 for i in range(0, len(output)):
     output_temp = []
@@ -105,22 +106,36 @@ for i in range(0, len(output)):
     else:
         learning_notes = output.values[i][7]['content']
     output_temp.append(learning_person)
-    output_temp.append(learning_start_time)
-    output_temp.append(learning_end_time)
+    output_temp.append(learning_start_time.strftime("%Y-%m-%d %H:%M:%S"))
+    output_temp.append(learning_end_time.strftime("%Y-%m-%d %H:%M:%S"))
     output_temp.append(learning_duration)
     output_temp.append(learning_notes)
     learning_records.append(output_temp)
-learning_records = DataFrame(learning_records)
-print(learning_records)
-learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
+learning_record['values'] = learning_records
+learning_record = json.dumps(learning_record, indent=4)
+print(learning_record)
+# learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
 ### Below are OneDrive Operations ###
 onedrive_url = 'https://graph.microsoft.com/v1.0/'
 # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
-onedrive_response = requests.get(onedrive_url + 'me/drive/items/01L7SVHIU22CH7U6E6LVDLTWBIKIFJ632O/children', headers = http_headers)
+onedrive_response = requests.post(onedrive_url + 'me/drive/items/\
+                                 01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', \
+                                    headers = http_headers,\
+                                        json = learning_record)
 if (onedrive_response.status_code == 200):
-    onedrive_response = json.loads(onedrive_response.text)
-    items = onedrive_response['value']
-    for entries in range(len(items)):
-        print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
+    print('item added to Onedrive for Business Learning_records.xlsx')
+    data = {
+        "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
+    }
+else:
+    print('Failed!')
+    data = {
+        "code": {"value": "Failed, Check Github"},
+    }
+send_template_message(openid, template_id, data)    # 推送消息
+    # onedrive_response = json.loads(onedrive_response.text)
+    # items = onedrive_response['value']
+    # for entries in range(len(items)):
+    #     print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
 
