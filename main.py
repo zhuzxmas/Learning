@@ -1,19 +1,20 @@
-import json, requests, datetime, configparser
+import json, requests, datetime, configparser, os
 from pandas import DataFrame
 from msal import PublicClientApplication
 
-config = configparser.ConfigParser()
-config.read(['config.cfg', 'config.dev.cfg'])
-azure_settings = config['azure']
-wx_settings = config['wx_public_service']
+if os.path.exists('./config.cfg'):
+    config = configparser.ConfigParser()
+    config.read(['config.cfg', 'config.dev.cfg'])
+    azure_settings = config['azure']
+    wx_settings = config['wx_public_service']
 
-client_id = azure_settings['client_id']
-scope_list = azure_settings['scope_list'].replace(' ','').split(',')
-wx_APPID = wx_settings['wx_APPID']
-wx_SECRET = wx_settings['wx_SECRET']
-template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
-openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
-# https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
+    client_id = azure_settings['client_id']
+    scope_list = azure_settings['scope_list'].replace(' ','').split(',')
+    wx_APPID = wx_settings['wx_APPID']
+    wx_SECRET = wx_settings['wx_SECRET']
+    template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
+    openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
+    # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 
 app = PublicClientApplication(
     client_id=client_id,
