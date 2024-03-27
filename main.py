@@ -17,7 +17,7 @@ if os.path.exists('./config.cfg'):
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 else: # to get this info from Github Secrets
     client_id = os.environ['client_id']
-    scope_list = os.environ['scope_list'].replace(' ','').split(',')
+    scope_list = os.environ['scope_list']
     wx_APPID = os.environ['wx_APPID']
     wx_SECRET = os.environ['wx_SECRET']
     template_id = os.environ['template_id']
