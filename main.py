@@ -15,12 +15,14 @@ if os.path.exists('./config.cfg'):
     template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
     openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
+    days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 else: # to get this info from Github Secrets
     client_id = os.environ['client_id']
     wx_APPID = os.environ['wx_APPID']
     wx_SECRET = os.environ['wx_SECRET']
     template_id = os.environ['template_id']
     openid = os.environ['openid']
+    days_number = 7
 
 config.read(['config1.cfg'])
 azure_settings_scope = config['azure1']
@@ -89,7 +91,6 @@ if not result:
         # or you may even turn off the blocking behavior,
         # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
 
-days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 day_one = datetime.date.today()
 day_seven_ago = day_one - datetime.timedelta(days=days_number)
 
