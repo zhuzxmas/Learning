@@ -2,14 +2,14 @@ import json, requests, datetime, configparser, os
 from pandas import DataFrame
 from msal import PublicClientApplication
 
+config = configparser.ConfigParser()
+
 if os.path.exists('./config.cfg'):
-    config = configparser.ConfigParser()
-    config.read(['config.cfg', 'config.dev.cfg'])
+    config.read(['config.cfg'])
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
 
     client_id = azure_settings['client_id']
-    scope_list = azure_settings['scope_list'].replace(' ','').split(',')
     wx_APPID = wx_settings['wx_APPID']
     wx_SECRET = wx_settings['wx_SECRET']
     template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
@@ -17,12 +17,14 @@ if os.path.exists('./config.cfg'):
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 else: # to get this info from Github Secrets
     client_id = os.environ['client_id']
-    scope_list1 = os.environ['scope_list']
-    scope_list = scope_list1.replace(' ','').split(',')
     wx_APPID = os.environ['wx_APPID']
     wx_SECRET = os.environ['wx_SECRET']
     template_id = os.environ['template_id']
     openid = os.environ['openid']
+
+config.read(['config1.cfg'])
+azure_settings_scope = config['azure1']
+scope_list = azure_settings_scope['scope_list'].replace(' ','').split(',')
 
 print( 'Scope List is: ', scope_list, '\n')
 
