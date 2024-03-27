@@ -130,14 +130,20 @@ learning_record = json.dumps(learning_record, indent=4)
 print(learning_record)
 # learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
-### Below are OneDrive Operations ###
 onedrive_url = 'https://graph.microsoft.com/v1.0/'
+
+body_create_seesion = {'persistChanges': 'true'}
+body_create_seesion = json.dumps(body_create_seesion, indent=4)
+
+### create a seesion id ###
+onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+session_id = json.loads(onedrive_create_session.text)['id']
+
+### Below are OneDrive Operations ###
 # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
-onedrive_response = requests.post(onedrive_url + 'me/drive/items/\
-                                 01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', \
-                                    headers = http_headers,\
-                                        json = learning_record)
-if (onedrive_response.status_code == 200):
+http_headers['Workbook-Session-Id'] = session_id
+onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
+if (onedrive_response.status_code == 201):
     print('item added to Onedrive for Business Learning_records.xlsx')
     data = {
         "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
@@ -148,6 +154,12 @@ else:
         "code": {"value": "Failed, Check Github"},
     }
 send_template_message(openid, template_id, data)    # 推送消息
+
+### close session ###
+onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
+if onedrive_close_session.status_code == 204:
+    print("Close session successfully!")
+
     # onedrive_response = json.loads(onedrive_response.text)
     # items = onedrive_response['value']
     # for entries in range(len(items)):
