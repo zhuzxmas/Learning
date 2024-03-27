@@ -30,4 +30,11 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: run main file
+      env:
+        client_id : ${{secrets.CLIENT_ID}}
+        scope_list : ${{secrets.CLIENT_ID}}
+        wx_APPID : ${{secrets.WX_APPID}}
+        wx_SECRET : ${{secrets.WX_SECRET}}
+        template_id : ${{secrets.TEMPLATE_ID}}
+        openid : ${{secrets.OPENID}}
       run: python -u main.py
