@@ -23,6 +23,8 @@ else: # to get this info from Github Secrets
     template_id = os.environ['template_id']
     openid = os.environ['openid']
 
+print( 'Scope List is: ', scope_list, '\n')
+
 app = PublicClientApplication(
     client_id=client_id,
     authority = 'https://login.microsoftonline.com/common'
