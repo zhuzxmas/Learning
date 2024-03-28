@@ -4,7 +4,7 @@ from msal import PublicClientApplication
 
 config = configparser.ConfigParser()
 
-if os.path.exists('./config.cfg'):
+if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application
     config.read(['config.cfg'])
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
@@ -15,8 +15,9 @@ if os.path.exists('./config.cfg'):
     template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
     openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
-    days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
-else: # to get this info from Github Secrets
+    # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
+    days_number = 7
+else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
     wx_APPID = os.environ['wx_APPID']
     wx_SECRET = os.environ['wx_SECRET']
@@ -24,12 +25,12 @@ else: # to get this info from Github Secrets
     openid = os.environ['openid']
     days_number = 7
 
-config.read(['config1.cfg'])
+config.read(['config1.cfg']) # to get the scopes
 azure_settings_scope = config['azure1']
 scope_list = azure_settings_scope['scope_list'].replace(' ','').split(',')
+# print( 'Scope List is: ', scope_list, '\n')
 
-print( 'Scope List is: ', scope_list, '\n')
-
+### to create msal connection ###
 app = PublicClientApplication(
     client_id=client_id,
     authority = 'https://login.microsoftonline.com/common'
@@ -80,7 +81,7 @@ if not result:
     }
     # 推送消息
     result1 = send_template_message(openid, template_id, data)
-    print(result1)  # 打印推送结果
+    # print(result1)  # 打印推送结果
 
     # Ideally you should wait here, in order to save some unnecessary polling
     # input("Press Enter after signing in from another device to proceed, CTRL+C to abort.")
@@ -127,16 +128,17 @@ for i in range(0, len(output)):
     learning_records.append(output_temp)
 learning_record['values'] = learning_records
 learning_record = json.dumps(learning_record, indent=4)
+print("Below is the learning record: \n")
 print(learning_record)
 # learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
 onedrive_url = 'https://graph.microsoft.com/v1.0/'
-
 body_create_seesion = {'persistChanges': 'true'}
 body_create_seesion = json.dumps(body_create_seesion, indent=4)
 
 ### create a seesion id ###
 onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+print('Create session:: status code is: ',onedrive_create_session.status_code)
 session_id = json.loads(onedrive_create_session.text)['id']
 
 ### Below are OneDrive Operations ###
@@ -149,7 +151,7 @@ if (onedrive_response.status_code == 201):
         "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
     }
 else:
-    print('Failed!')
+    print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
     data = {
         "code": {"value": "Failed, Check Github"},
     }
@@ -159,6 +161,8 @@ send_template_message(openid, template_id, data)    # 推送消息
 onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
 if onedrive_close_session.status_code == 204:
     print("Close session successfully!")
+else:
+    print('Close session failed, status code is: ',onedrive_close_session.status_code)
 
     # onedrive_response = json.loads(onedrive_response.text)
     # items = onedrive_response['value']
