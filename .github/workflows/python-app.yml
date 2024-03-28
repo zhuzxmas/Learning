@@ -4,8 +4,8 @@
 name: Python application
 
 on:
-  # schedule:
-  #   - cron:  '17 6 * * 3'
+  schedule:
+    - cron:  '22 8 * * 3'
   #push:
   #  branches: [ "main" ]
   #pull_request:
