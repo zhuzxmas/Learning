@@ -13,7 +13,7 @@ client_id = azure_settings['client_id']
 https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 第一次登录之后，最好再重新刷新一下页面，才可以获得正确的测试号的 `appid`, `secret`, `template id`, and 你自己的微信号的 `open id`。
 以上信息都是保密的信息，所以可以通过保存到 Github Secrets里面，或者保存在本地的 config文件。
-
+- 保存到本地的文件，可以通过添加到 `.gitignore`文件来实现，直接将需要忽略的文件名称（含后缀）`config.cfg`添加进来就可以了。
 - 微信公众平台测试号，需要先获取 `access_token`, 再通过 `requests.post`把需要的信息发送到微信号里面就可以了。
 
 # To check if file exists:
