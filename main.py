@@ -8,6 +8,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     config.read(['config.cfg'])
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
+    proxy_settings = config['proxy_add']
 
     client_id = azure_settings['client_id']
     wx_APPID = wx_settings['wx_APPID']
@@ -15,6 +16,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     template_id = wx_settings['template_id']  # 在微信公众平台获取模板ID
     openid = wx_settings['openid']  # 用户的openid，可以在用户管理页面获取
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
+    proxy_add = proxy_settings['proxy_add']
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
     days_number = 7
 else: # to get this info from Github Secrets, for Github Action running application
@@ -23,6 +25,7 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     wx_SECRET = os.environ['wx_SECRET']
     template_id = os.environ['template_id']
     openid = os.environ['openid']
+    proxy_add = os.environ['proxy_add']
     days_number = 7
 
 config.read(['config1.cfg']) # to get the scopes
@@ -30,11 +33,23 @@ azure_settings_scope = config['azure1']
 scope_list = azure_settings_scope['scope_list'].replace(' ','').split(',')
 # print( 'Scope List is: ', scope_list, '\n')
 
+proxies = {
+  "http": proxy_add,
+  "https": proxy_add
+}
+
 ### to create msal connection ###
-app = PublicClientApplication(
-    client_id=client_id,
-    authority = 'https://login.microsoftonline.com/common'
-)
+try:
+    app = PublicClientApplication(
+        client_id=client_id,
+        authority = 'https://login.microsoftonline.com/common',
+    )
+except:
+    app = PublicClientApplication(
+        client_id=client_id,
+        authority = 'https://login.microsoftonline.com/common',
+        proxies = proxies
+    )
 
 result = None
 
@@ -57,7 +72,11 @@ if not result:
     # 获取access_token
     def get_access_token():
         url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={wx_APPID}&secret={wx_SECRET}"
-        response = requests.get(url)
+        try:
+            response = requests.get(url)
+        except:
+            response = requests.get(url, proxies=proxies)
+
         data = response.json()
         access_token = data.get("access_token")
         return access_token
@@ -72,7 +91,10 @@ if not result:
             "template_id": template_id,
             "data": data
         }
-        response = requests.post(url, headers=headers, data=json.dumps(login_info))
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(login_info))
+        except:
+            response = requests.post(url, headers=headers, data=json.dumps(login_info),proxies=proxies)
         return response.json()
 
     # 示例数据
@@ -99,11 +121,13 @@ endpoint = "https://graph.microsoft.com/beta/teams/28887499-6bc5-4b2f-a06c-25cc9
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
-data = requests.get(endpoint, headers=http_headers, stream=False).json()
+try:
+    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+except:
+    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 output = data['value']
 
 if output != []: # if there is  learning records, continue below codes.
-    output = DataFrame(output)
     time_format = "%Y-%m-%dT%H:%M:%S"
 
     learning_record = {'values':[]}
@@ -112,16 +136,24 @@ if output != []: # if there is  learning records, continue below codes.
 
     for i in range(0, len(output)):
         output_temp = []
-        learning_person = output.values[i][8]['user']['displayName'] # user name
-        learning_start_time = datetime.datetime.strptime(output.values[i][9]['dateTime'][:-1].split('.')[0],time_format) # start time
+        learning_person = output[i]['createdBy']['user']['displayName'] # user name
+        learning_start_time = datetime.datetime.strptime(output[i]['clockInEvent']['dateTime'][:-1].split('.')[0],time_format) # start time
         learning_start_time = learning_start_time + datetime.timedelta(hours=8) # convert to China Local Time
-        learning_end_time = datetime.datetime.strptime(output.values[i][10]['dateTime'][:-1].split('.')[0],time_format) # end time
+        learning_end_time = datetime.datetime.strptime(output[i]['clockOutEvent']['dateTime'][:-1].split('.')[0],time_format) # end time
         learning_end_time = learning_end_time + datetime.timedelta(hours=8) # convert to China Local Time
-        learning_duration = round((learning_end_time - learning_start_time).seconds/60/60,2) # hours
-        if output.values[i][7] == None:
+        break_event = output[i]['breaks']
+        if break_event == []:
+            learning_duration = round((learning_end_time - learning_start_time).seconds/60/60,2) # hours
+        else:
+            break_time = 0
+            for ii in range(0,len(break_event)):
+                break_time = break_time + round((datetime.datetime.strptime(break_event[ii]['end']['dateTime'][:-1].split('.')[0],time_format) - datetime.datetime.strptime(break_event[ii]['start']['dateTime'][:-1].split('.')[0],time_format)).seconds,0) # seconds
+            learning_duration = round((learning_end_time - learning_start_time).seconds,0) # seconds
+            learning_duration = round((learning_duration - break_time)/60/60,2) #hours
+        if output[i]['notes'] == None:
             learning_notes = ''
         else:
-            learning_notes = output.values[i][7]['content']
+            learning_notes = output[i]['notes']['content']
         output_temp.append(learning_person)
         output_temp.append(learning_start_time.strftime("%Y-%m-%d %H:%M:%S"))
         output_temp.append(learning_end_time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -139,14 +171,20 @@ if output != []: # if there is  learning records, continue below codes.
     body_create_seesion = json.dumps(body_create_seesion, indent=4)
 
     ### create a seesion id ###
-    onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+    try:
+        onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+    except:
+        onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion, proxies=proxies)
     print('Create session:: status code is: ',onedrive_create_session.status_code)
     session_id = json.loads(onedrive_create_session.text)['id']
 
     ### Below are OneDrive Operations ###
     # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
     http_headers['Workbook-Session-Id'] = session_id
-    onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
+    try:
+        onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
+    except:
+        onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
     if (onedrive_response.status_code == 201):
         print('item added to Onedrive for Business Learning_records.xlsx')
         data = {
@@ -160,7 +198,10 @@ if output != []: # if there is  learning records, continue below codes.
     send_template_message(openid, template_id, data)    # 推送消息
 
     ### close session ###
-    onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
+    try:
+        onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
+    except:
+        onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers, proxies=proxies)
     if onedrive_close_session.status_code == 204:
         print("Close session successfully!")
     else:
