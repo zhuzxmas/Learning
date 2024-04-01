@@ -66,8 +66,8 @@ if not result:
         raise ValueError(
             "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4))
 
-    print(flow["message"])
-    print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
+    # print(flow["message"])
+    # print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
 
     # 获取access_token
     def get_access_token():
@@ -162,8 +162,8 @@ if output != []: # if there is  learning records, continue below codes.
         learning_records.append(output_temp)
     learning_record['values'] = learning_records
     learning_record = json.dumps(learning_record, indent=4)
-    print("Below is the learning record: \n")
-    print(learning_record)
+    # print("Below is the learning record: \n")
+    # print(learning_record)
     # learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
     onedrive_url = 'https://graph.microsoft.com/v1.0/'
