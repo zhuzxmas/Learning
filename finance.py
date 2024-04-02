@@ -20,7 +20,8 @@ else:
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
 
-for i in range(0,len(stock_code)):
+# for i in range(0,len(stock_code)):
+for i in range(0,2):
     time.sleep(random.uniform(7, 13))
     if len(str(stock_code[i])) == 6:
         if str(stock_code[i])[0] == 6: # SH stock
@@ -93,16 +94,9 @@ for i in range(0,len(stock_code)):
     time_list = []
     for i in range(0,len(duration)):
         time_list.append(duration[i].split('-')[0])
-for i in range(0,len(time_list)):
-    stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
-    stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
-    stock_price_temp.append(stock_price_high_low)
-stock_price_output = pd.DataFrame([stock_price_temp])
-stock_price_output.columns = duration
-
     for i in range(0,len(time_list)):
         stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
-        stock_price_high_low = str(round(stock_price['High'].min(),2)) + '-' + str(round(stock_price['High'].max(),2))
+        stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
         stock_price_temp.append(stock_price_high_low)
     stock_price_output = pd.DataFrame([stock_price_temp])
     stock_price_output.columns = duration
