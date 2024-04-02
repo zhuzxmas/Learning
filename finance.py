@@ -65,6 +65,25 @@ stock_price_less_than_BookValue_ratio.name = '每股账面价值1.5倍元'
 stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio, stock_0_profit_margin], axis=1)
 stock_output = stock_output.T.astype('float64').round(2)
 stock_output.columns = stock_output.columns.strftime(date_format='%Y-%m-%d')
+
+### To get the stock price for each year ###
+duration = stock_output.columns
+stock_price_temp = []
+
+time_list = []
+for i in range(0,len(duration)):
+    time_list.append(duration[i].split('-')[0])
+
+for i in range(0,len(time_list)):
+    stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
+    stock_price_high_low = str(round(stock_price['High'].min(),2)) + '-' + str(round(stock_price['High'].max(),2))
+    stock_price_temp.append(stock_price_high_low)
+stock_price_output = pd.DataFrame([stock_price_temp])
+stock_price_output.columns = duration
+
+stock_price_output = stock_price_output.rename(index={0:'当年股份范围'})
+stock_output = pd.concat([stock_output,stock_price_output],axis=0)
+
 # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
 print('This is the output for {}: \n'.format(stock))
 print(tabulate(stock_output,headers='keys',tablefmt='simple'))
