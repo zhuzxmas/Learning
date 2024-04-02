@@ -20,21 +20,20 @@ else:
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
 
-# for i in range(0,len(stock_code)):
-for i in range(0,2):
+for iii in range(0,len(stock_code)):
+# for iii in range(280,281):
     time.sleep(random.uniform(7, 13))
-    if len(str(stock_code[i])) == 6:
-        if str(stock_code[i])[0] == 6: # SH stock
-            stock = str(stock_code[i])[0] + '.ss' # SH stock
+    if len(str(stock_code[iii])) == 6:
+        if str(stock_code[iii])[0] == '6': # SH stock
+            stock = str(stock_code[iii]) + '.ss' # SH stock
         else:
-            stock = str(stock_code[i])[0] + '.sz' # SZ stock
+            stock = str(stock_code[iii]) + '.sz' # SZ stock
     else:
-        len_temp = 6 - len(str(stock_code[i]))
+        len_temp = 6 - len(str(stock_code[iii]))
         prefix = ''
         for ii in range(0,len_temp):
             prefix = prefix + '0'
-        stock = prefix + str(stock_code[i]) + '.sz'  # SZ stock
-        stock_nameplate = stock_name[i] # stock nameplate
+        stock = prefix + str(stock_code[iii]) + '.sz'  # SZ stock
 
     stock_target = yf.Ticker(stock)
     stock_target_sales = stock_target.get_cashflow(freq='yearly',proxy=proxy_add)
@@ -76,14 +75,15 @@ for i in range(0,2):
     ### Stock price vs Assets ratio ###
     stock_0_OtherIntangibleAssets = stock_target_balance_sheet.loc['OtherIntangibleAssets']/100000000 #无形资产
     stock_0_TotalLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalLiabilitiesNetMinorityInterest']/100000000 #总负债
-    stock_0_OrdinarySharesNumber = stock_target_balance_sheet.loc['OrdinarySharesNumber'] #普通股数量
+    stock_0_OrdinarySharesNumber = stock_target_balance_sheet.loc['OrdinarySharesNumber']/1000000 #普通股数量
+    stock_0_OrdinarySharesNumber.name = '普通股数量 百万'
     stock_0_BookValue = stock_0_TotalAssets - stock_0_OtherIntangibleAssets - stock_0_TotalLiabilitiesNetMinorityInterest #总账面价值
-    stock_0_BookValue_per_Share = stock_0_BookValue*100000000/stock_0_OrdinarySharesNumber #每股账面价值
+    stock_0_BookValue_per_Share = stock_0_BookValue*100000000/(stock_0_OrdinarySharesNumber*1000000) #每股账面价值
     stock_0_BookValue_per_Share.name = '每股账面价值 元'
     stock_price_less_than_BookValue_ratio = stock_0_BookValue_per_Share*1.5 #按账面价值计算出来的目标股价
     stock_price_less_than_BookValue_ratio.name = '每股账面价值1.5倍元'
 
-    stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio, stock_0_profit_margin], axis=1)
+    stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber,stock_0_profit_margin, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
     stock_output = stock_output.T.astype('float64').round(2)
     stock_output.columns = stock_output.columns.strftime(date_format='%Y-%m-%d')
 
@@ -105,8 +105,8 @@ for i in range(0,2):
     stock_output = pd.concat([stock_output,stock_price_output],axis=0)
 
     # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-    print('This is the output for {}: {} \n'.format(stock, stock_nameplate))
+    print('This is the output for {}: {} \n'.format(stock, stock_name[iii]))
     print(tabulate(stock_output,headers='keys',tablefmt='simple'))
-    print('This is the dividend for {}: {} \n'.format(stock, stock_nameplate))
+    print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
     print(stock_0_dividends)
     print('-----------------------------\n')
