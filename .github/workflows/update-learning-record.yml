@@ -40,4 +40,4 @@ jobs:
         template_id : ${{secrets.TEMPLATE_ID}}
         openid : ${{secrets.OPENID}}
         proxy_add : ${{secrets.PROXY_ADD}}
-      run: python -u main.py
+      run: python -u learning-record.py
