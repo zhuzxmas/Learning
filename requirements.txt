@@ -2,3 +2,4 @@ requests
 pandas
 msal
 yfinance
+tabulate
