@@ -40,77 +40,78 @@ for iii in range(0,len(stock_code)):
     stock_target_balance_sheet = stock_target.get_balance_sheet(freq='yearly',proxy=proxy_add)
     stock_target_income = stock_target.get_income_stmt(freq='yearly',proxy=proxy_add)
 
-    ### How Big The Company Is ###
-    stock_0_TotalRevenue = stock_target_income.loc['TotalRevenue']/100000000 #销售额
-    stock_0_TotalRevenue.name = '销售额 亿元'
-    stock_0_TotalAssets = stock_target_balance_sheet.loc['TotalAssets']/100000000 #总资产
-    stock_0_TotalAssets.name = '总资产 亿元'
-    stock_0_EBIT = stock_target_income.loc['EBIT']/100000000 #息税前利润
-    stock_0_EBIT.name = '息税前利润 亿元'
+    if 'EBIT'  in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet and 'TotalRevenue' in stock_target_income and 'TotalAssets' in stock_target_balance_sheet and 'CurrentLiabilities' in stock_target_balance_sheet and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest and 'DilutedEPS' in stock_target_income and 'OtherIntangibleAssets' in stock_target_balance_sheet and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet and 'OrdinarySharesNumber' in stock_target_balance_sheet:
+        ### How Big The Company Is ###
+        stock_0_TotalRevenue = stock_target_income.loc['TotalRevenue']/100000000 #销售额
+        stock_0_TotalRevenue.name = '销售额 亿元'
+        stock_0_TotalAssets = stock_target_balance_sheet.loc['TotalAssets']/100000000 #总资产
+        stock_0_TotalAssets.name = '总资产 亿元'
+        stock_0_EBIT = stock_target_income.loc['EBIT']/100000000 #息税前利润
+        stock_0_EBIT.name = '息税前利润 亿元'
 
-    ### How Well The Company Financial Status is ###
-    stock_0_CurrentAssets = stock_target_balance_sheet.loc['CurrentAssets']/100000000 #流动资产
-    stock_0_CurrentAssets.name = '流动资产 亿元'
-    stock_0_CurrentLiabilities = stock_target_balance_sheet.loc['CurrentLiabilities']/100000000 #流动负债
-    stock_0_CurrentLiabilities.name = '流动负债 亿元'
-    stock_0_CurrentAssets_vs_Liabilities = stock_target_balance_sheet.loc['CurrentAssets']/stock_target_balance_sheet.loc['CurrentLiabilities'] #流动资产与流动负债之比 应>2
-    stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
-    stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
-    stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
-    stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = stock_0_CurrentAssets - stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest # 流动资产扣除长期负债后应大于0
-    stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities.name = '流动资产-长期负债>0'
+        ### How Well The Company Financial Status is ###
+        stock_0_CurrentAssets = stock_target_balance_sheet.loc['CurrentAssets']/100000000 #流动资产
+        stock_0_CurrentAssets.name = '流动资产 亿元'
+        stock_0_CurrentLiabilities = stock_target_balance_sheet.loc['CurrentLiabilities']/100000000 #流动负债
+        stock_0_CurrentLiabilities.name = '流动负债 亿元'
+        stock_0_CurrentAssets_vs_Liabilities = stock_target_balance_sheet.loc['CurrentAssets']/stock_target_balance_sheet.loc['CurrentLiabilities'] #流动资产与流动负债之比 应>2
+        stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
+        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
+        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
+        stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = stock_0_CurrentAssets - stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest # 流动资产扣除长期负债后应大于0
+        stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities.name = '流动资产-长期负债>0'
 
-    ### Profit Stability of The Company ###
-    stock_0_profit_margin = stock_target_income.loc['DilutedEPS'] #每股稀释后收益，每股收益
-    stock_0_profit_margin.name = '稀释后 每股收益 元'
+        ### Profit Stability of The Company ###
+        stock_0_profit_margin = stock_target_income.loc['DilutedEPS'] #每股稀释后收益，每股收益
+        stock_0_profit_margin.name = '稀释后 每股收益 元'
 
-    ### Dividend Records of The Company ###
-    stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
+        ### Dividend Records of The Company ###
+        stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
 
-    ### PE Ratio of the Company ###
-    stock_PE_ratio_target = 15 # 这个是目标市盈率，股份不超过这个可以考虑入手
-    stock_price_less_than_PE_ratio = stock_PE_ratio_target * stock_0_profit_margin #股份不能超过的值
-    stock_price_less_than_PE_ratio.name = '市盈率15对应股价 元'
+        ### PE Ratio of the Company ###
+        stock_PE_ratio_target = 15 # 这个是目标市盈率，股份不超过这个可以考虑入手
+        stock_price_less_than_PE_ratio = stock_PE_ratio_target * stock_0_profit_margin #股份不能超过的值
+        stock_price_less_than_PE_ratio.name = '市盈率15对应股价 元'
 
-    ### Stock price vs Assets ratio ###
-    stock_0_OtherIntangibleAssets = stock_target_balance_sheet.loc['OtherIntangibleAssets']/100000000 #无形资产
-    stock_0_TotalLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalLiabilitiesNetMinorityInterest']/100000000 #总负债
-    stock_0_OrdinarySharesNumber = stock_target_balance_sheet.loc['OrdinarySharesNumber']/1000000 #普通股数量
-    stock_0_OrdinarySharesNumber.name = '普通股数量 百万'
-    stock_0_BookValue = stock_0_TotalAssets - stock_0_OtherIntangibleAssets - stock_0_TotalLiabilitiesNetMinorityInterest #总账面价值
-    stock_0_BookValue_per_Share = stock_0_BookValue*100000000/(stock_0_OrdinarySharesNumber*1000000) #每股账面价值
-    stock_0_BookValue_per_Share.name = '每股账面价值 元'
-    stock_price_less_than_BookValue_ratio = stock_0_BookValue_per_Share*1.5 #按账面价值计算出来的目标股价
-    stock_price_less_than_BookValue_ratio.name = '每股账面价值1.5倍元'
+        ### Stock price vs Assets ratio ###
+        stock_0_OtherIntangibleAssets = stock_target_balance_sheet.loc['OtherIntangibleAssets']/100000000 #无形资产
+        stock_0_TotalLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalLiabilitiesNetMinorityInterest']/100000000 #总负债
+        stock_0_OrdinarySharesNumber = stock_target_balance_sheet.loc['OrdinarySharesNumber']/1000000 #普通股数量
+        stock_0_OrdinarySharesNumber.name = '普通股数量 百万'
+        stock_0_BookValue = stock_0_TotalAssets - stock_0_OtherIntangibleAssets - stock_0_TotalLiabilitiesNetMinorityInterest #总账面价值
+        stock_0_BookValue_per_Share = stock_0_BookValue*100000000/(stock_0_OrdinarySharesNumber*1000000) #每股账面价值
+        stock_0_BookValue_per_Share.name = '每股账面价值 元'
+        stock_price_less_than_BookValue_ratio = stock_0_BookValue_per_Share*1.5 #按账面价值计算出来的目标股价
+        stock_price_less_than_BookValue_ratio.name = '每股账面价值1.5倍元'
 
-    stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber,stock_0_profit_margin, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
-    stock_output = stock_output.T.astype('float64').round(2)
-    stock_output.columns = stock_output.columns.strftime(date_format='%Y-%m-%d')
+        stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber,stock_0_profit_margin, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
+        stock_output = stock_output.T.astype('float64').round(2)
+        stock_output.columns = stock_output.columns.strftime(date_format='%Y-%m-%d')
 
-    ### To get the stock price for each year ###
-    duration = stock_output.columns
-    stock_price_temp = []
+        ### To get the stock price for each year ###
+        duration = stock_output.columns
+        stock_price_temp = []
 
-    time_list = []
-    for i in range(0,len(duration)):
-        time_list.append(duration[i].split('-')[0])
-    for i in range(0,len(time_list)):
-        stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
-        if stock_price.empty:
-            stock_price_high_low = 'None'
-            stock_price_temp.append(stock_price_high_low)
-        else:
-            stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
-            stock_price_temp.append(stock_price_high_low)
-    stock_price_output = pd.DataFrame([stock_price_temp])
-    stock_price_output.columns = duration
+        time_list = []
+        for i in range(0,len(duration)):
+            time_list.append(duration[i].split('-')[0])
+        for i in range(0,len(time_list)):
+            stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
+            if stock_price.empty:
+                stock_price_high_low = 'None'
+                stock_price_temp.append(stock_price_high_low)
+            else:
+                stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
+                stock_price_temp.append(stock_price_high_low)
+        stock_price_output = pd.DataFrame([stock_price_temp])
+        stock_price_output.columns = duration
 
-    stock_price_output = stock_price_output.rename(index={0:'当年股份范围'})
-    stock_output = pd.concat([stock_output,stock_price_output],axis=0)
+        stock_price_output = stock_price_output.rename(index={0:'当年股份范围'})
+        stock_output = pd.concat([stock_output,stock_price_output],axis=0)
 
-    # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-    print('This is the output for {}: {} \n'.format(stock, stock_name[iii]))
-    print(tabulate(stock_output,headers='keys',tablefmt='simple'))
-    print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
-    print(stock_0_dividends)
-    print('-----------------------------\n')
+        # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
+        print('This is the output for {}: {} \n'.format(stock, stock_name[iii]))
+        print(tabulate(stock_output,headers='keys',tablefmt='simple'))
+        print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
+        print(stock_0_dividends)
+        print('-----------------------------\n')
