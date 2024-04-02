@@ -109,7 +109,7 @@ for iii in range(0,len(stock_code)):
         stock_output = pd.concat([stock_output,stock_price_output],axis=0)
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-        print('This is the output for {}: {} \n'.format(stock, stock_name[iii]))
+        print('This is the output for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
