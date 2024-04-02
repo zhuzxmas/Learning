@@ -76,7 +76,7 @@ for i in range(0,len(duration)):
 
 for i in range(0,len(time_list)):
     stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
-    stock_price_high_low = str(round(stock_price['High'].min(),2)) + '-' + str(round(stock_price['High'].max(),2))
+    stock_price_high_low = str(round(stock_price['High'].min(),0)) + '-' + str(round(stock_price['High'].max(),0))
     stock_price_temp.append(stock_price_high_low)
 stock_price_output = pd.DataFrame([stock_price_temp])
 stock_price_output.columns = duration
