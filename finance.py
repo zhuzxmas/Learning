@@ -22,7 +22,6 @@ else:
 
 for iii in range(0,len(stock_code)):
 # for iii in range(5,7):
-    time.sleep(random.uniform(7, 13))
     if len(str(stock_code[iii])) == 6:
         if str(stock_code[iii])[0] == '6': # SH stock
             stock = str(stock_code[iii]) + '.ss' # SH stock
@@ -40,7 +39,7 @@ for iii in range(0,len(stock_code)):
     stock_target_balance_sheet = stock_target.get_balance_sheet(freq='yearly',proxy=proxy_add)
     stock_target_income = stock_target.get_income_stmt(freq='yearly',proxy=proxy_add)
 
-    if 'EBIT'  in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet and 'TotalRevenue' in stock_target_income and 'TotalAssets' in stock_target_balance_sheet and 'CurrentLiabilities' in stock_target_balance_sheet and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest and 'DilutedEPS' in stock_target_income and 'OtherIntangibleAssets' in stock_target_balance_sheet and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet and 'OrdinarySharesNumber' in stock_target_balance_sheet:
+    if 'EBIT' in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet.index  and 'TotalRevenue' in stock_target_income.index  and 'TotalAssets' in stock_target_balance_sheet.index  and 'CurrentLiabilities' in stock_target_balance_sheet.index and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'DilutedEPS' in stock_target_income.index and 'OtherIntangibleAssets' in stock_target_balance_sheet.index and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'OrdinarySharesNumber' in stock_target_balance_sheet.index:
         ### How Big The Company Is ###
         stock_0_TotalRevenue = stock_target_income.loc['TotalRevenue']/100000000 #销售额
         stock_0_TotalRevenue.name = '销售额 亿元'
@@ -115,3 +114,4 @@ for iii in range(0,len(stock_code)):
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
         print('-----------------------------\n')
+    time.sleep(random.uniform(7, 13))
