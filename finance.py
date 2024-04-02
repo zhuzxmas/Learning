@@ -34,7 +34,7 @@ stock_0_CurrentAssets.name = '流动资产 亿元'
 stock_0_CurrentLiabilities = stock_target_balance_sheet.loc['CurrentLiabilities']/100000000 #流动负债
 stock_0_CurrentLiabilities.name = '流动负债 亿元'
 stock_0_CurrentAssets_vs_Liabilities = stock_target_balance_sheet.loc['CurrentAssets']/stock_target_balance_sheet.loc['CurrentLiabilities'] #流动资产与流动负债之比 应>2
-stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债 >2'
+stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
 stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
 stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
 stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = stock_0_CurrentAssets - stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest # 流动资产扣除长期负债后应大于0
@@ -67,6 +67,6 @@ stock_output = stock_output.T.astype('float64').round(2)
 stock_output.columns = stock_output.columns.strftime(date_format='%Y-%m-%d')
 # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
 print('This is the output for {}: \n'.format(stock))
-print(tabulate(stock_output,headers='keys',tablefmt='psql'))
+print(tabulate(stock_output,headers='keys',tablefmt='github'))
 print('This is the dividend for {}: \n'.format(stock))
 print(stock_0_dividends)
