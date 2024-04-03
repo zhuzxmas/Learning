@@ -2,7 +2,7 @@ import yfinance as yf
 import pandas as pd
 from tabulate import tabulate
 import configparser, os
-import time, random
+import time, random, datetime
 
 stock_code = [688981, 688599, 688561, 688396, 688363, 688303, 688271, 688256, 688223, 688187, 688126, 688111, 688065, 688041, 688036, 688012, 688008, 605499, 605117, 603993, 603986, 603899, 603833, 603806, 603799, 603659, 603501, 603486, 603392, 603369, 603290, 603288, 603260, 603259, 603195, 603019, 601998, 601995, 601989, 601988, 601985, 601939, 601919, 601916, 601901, 601899, 601898, 601888, 601881, 601878, 601877, 601872, 601868, 601865, 601857, 601838, 601818, 601816, 601808, 601800, 601799, 601788, 601766, 601728, 601699, 601698, 601689, 601688, 601669, 601668, 601658, 601633, 601628, 601618, 601615, 601607, 601601, 601600, 601398, 601390, 601377, 601360, 601336, 601328, 601319, 601318, 601288, 601238, 601236, 601229, 601225, 601211, 601186, 601169, 601166, 601155, 601138, 601117, 601111, 601100, 601088, 601066, 601059, 601021, 601012, 601009, 601006, 600999, 600989, 600958, 600941, 600938, 600926, 600919, 600918, 600905, 600900, 600893, 600887, 600886, 600875, 600845, 600837, 600809, 600803, 600795, 600760, 600754, 600745, 600741, 600732, 600690, 600674, 600660, 600606, 600600, 600588, 600585, 600584, 600570, 600547, 600519, 600515, 600489, 600460, 600438, 600436, 600426, 600406, 600372, 600362, 600346, 600332, 600309, 600276, 600233, 600219, 600196, 600188, 600183, 600176, 600150, 600132, 600115, 600111, 600104, 600089, 600085, 600061, 600050, 600048, 600039, 600036, 600031, 600030, 600029, 600028, 600025, 600023, 600019, 600018, 600016, 600015, 600011, 600010, 600009, 600000, 301269, 300999, 300979, 300957, 300919, 300896, 300782, 300763, 300760, 300759, 300751, 300750, 300661, 300628, 300498, 300496, 300454, 300450, 300433, 300413, 300408, 300347, 300316, 300308, 300274, 300223, 300142, 300124, 300122, 300059, 300033, 300015, 300014, 3816, 2938, 2920, 2916, 2841, 2821, 2812, 2736, 2714, 2709, 2648, 2603, 2601, 2594, 2555, 2493, 2475, 2466, 2460, 2459, 2415, 2410, 2371, 2352, 2311, 2304, 2271, 2252, 2241, 2236, 2230, 2202, 2180, 2179, 2142, 2129, 2074, 2050, 2049, 2027, 2007, 2001, 1979, 1289, 999, 983, 977, 963, 938, 895, 877, 876, 858, 800, 792, 786, 776, 768, 733, 725, 708, 661, 651, 625, 617, 596, 568, 538, 425, 408, 338, 333, 301, 166, 157, 100, 69, 63]
 
@@ -95,7 +95,7 @@ for iii in range(0,len(stock_code)):
         for i in range(0,len(duration)):
             time_list.append(duration[i].split('-')[0])
         for i in range(0,len(time_list)):
-            stock_price = stock_target.history(start=time_list[i]+ '-01-01',end=time_list[i] + '-12-31', proxy = proxy_add)
+            stock_price = stock_target.history(start=str(int(time_list[i])+1)+ '-03-15',end=str(int(time_list[i])+2) + '-03-14', proxy = proxy_add)
             if stock_price.empty:
                 stock_price_high_low = 'None'
                 stock_price_temp.append(stock_price_high_low)
@@ -105,13 +105,24 @@ for iii in range(0,len(stock_code)):
         stock_price_output = pd.DataFrame([stock_price_temp])
         stock_price_output.columns = duration
 
-        stock_price_output = stock_price_output.rename(index={0:'当年股份范围'})
+        stock_price_output = stock_price_output.rename(index={0:'后一年股价范围'})
         stock_output = pd.concat([stock_output,stock_price_output],axis=0)
+
+        last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
+        last_7_days_start = (datetime.datetime.now()-datetime.timedelta(days=7)).strftime('%Y-%m-%d')
+        last_7_days_stock_price = stock_target.history(start=last_7_days_start,end=last_7_days_end, proxy = proxy_add)
+        if last_7_days_stock_price.empty:
+            last_7_days_stock_price_high_low = 'None'
+        else:
+            last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
         print('This is the output for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
+        print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
         print('-----------------------------\n')
+    else:
+        print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
     time.sleep(random.uniform(7, 13))
