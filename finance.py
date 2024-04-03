@@ -117,7 +117,7 @@ for iii in range(0,len(stock_code)):
             last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-        print('This is the output for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
+        print('This is the output for No. #{} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
