@@ -24,8 +24,12 @@ else:
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
 
+stock_Top_list = []
+stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
+
 for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行查询
 # for iii in range(5,7):
+    stock_Top_temp = []
     if len(str(stock_code[iii])) == 6:
         if str(stock_code[iii])[0] == '6': # SH stock
             stock = str(stock_code[iii]) + '.ss' # SH stock
@@ -37,6 +41,8 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         for ii in range(0,len_temp):
             prefix = prefix + '0'
         stock = prefix + str(stock_code[iii]) + '.sz'  # SZ stock
+
+    stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
 
     ### 以下是对一只股票进行查询 ###
     stock_target = yf.Ticker(stock)
@@ -55,6 +61,28 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         stock_0_EBIT = stock_target_income.loc['EBIT']/100000000 #息税前利润
         stock_0_EBIT.name = '息税前利润 亿元'
 
+        ### Profit Stability of The Company ###
+        stock_0_profit_margin = stock_target_income.loc['DilutedEPS'] #每股稀释后收益，每股收益
+        stock_0_profit_margin.name = '稀释后 每股收益 元'
+        stock_0_profit_margin_increase = []
+        for ix in range(0,len(stock_0_profit_margin)-1):
+            margin_increase = round((stock_0_profit_margin.values[ix] - stock_0_profit_margin.values[ix+1])/stock_0_profit_margin.values[ix+1],2)
+            stock_0_profit_margin_increase.append(margin_increase)
+        stock_0_profit_margin_increase.append(1) #最后一年作为基数1
+        if any(map(lambda x: x <0, stock_0_profit_margin)): # 查看利润是否有负数
+            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
+            stock_Top_temp.append('false')
+        else:
+            if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
+                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
+                stock_Top_temp.append('false')
+            else:
+                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
+                stock_Top_temp.append('true')
+        stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
+        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
+        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
+
         ### How Well The Company Financial Status is ###
         stock_0_CurrentAssets = stock_target_balance_sheet.loc['CurrentAssets']/100000000 #流动资产
         stock_0_CurrentAssets.name = '流动资产 亿元'
@@ -64,40 +92,27 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
         if any(map(lambda x: x <1.5, stock_0_CurrentAssets_vs_Liabilities)): # 查看流动资产/流动负债是否 <1.5
             CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
+            stock_Top_temp.append('false')
         else:
             CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
+            stock_Top_temp.append('true')
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = stock_0_CurrentAssets - stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest # 流动资产扣除长期负债后应大于0
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities.name = '流动资产-长期负债>0'
 
-        ### Profit Stability of The Company ###
-        stock_0_profit_margin = stock_target_income.loc['DilutedEPS'] #每股稀释后收益，每股收益
-        stock_0_profit_margin.name = '稀释后 每股收益 元'
-        stock_0_profit_margin_increase = []
-        for ix in range(0,len(stock_0_profit_margin)-1):
-            margin_increase = round((stock_0_profit_margin.values[ix] - stock_0_profit_margin.values[ix+1])/stock_0_profit_margin.values[ix+1],2)
-            stock_0_profit_margin_increase.append(margin_increase)
-        stock_0_profit_margin_increase.append(1)
-        if any(map(lambda x: x <0, stock_0_profit_margin)): # 查看利润是否有负数
-            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
-        else:
-            if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
-                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
-            else:
-                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
-        stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
-        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
-        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
-
         ### Dividend Records of The Company ###
         stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
         if len(stock_0_dividends) == 0:
             dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
+            stock_Top_temp.append('false')
         elif len(stock_0_dividends) <7:
             dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
+            stock_Top_temp.append('false')
         else:
             dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
+            stock_Top_temp.append('true')
+        stock_Top_list.append(stock_Top_temp) #记录公司表现，利润，流动负债率，分红
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15 # 这个是目标市盈率，股份不超过这个可以考虑入手
@@ -150,8 +165,8 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
-        print('{}--{}-{}'.format(iii, stock, stock_name[iii]),dividends_perofrmance,'\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),CurrentAssets_vs_Liabilities_performance,'\n')
+        print('{}--{}-{}'.format(iii, stock, stock_name[iii]),dividends_perofrmance,'\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
@@ -163,3 +178,5 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print('                                                                                                \n')
     time.sleep(random.uniform(7, 13))
+stock_Top_list = pd.DataFrame(stock_Top_list, columns= stock_Top_list_columns).sort_values(by=['利润表现好','流动负债不高','分红多'],ascending=False)
+print(tabulate(stock_Top_list,headers='keys',tablefmt='simple',))
