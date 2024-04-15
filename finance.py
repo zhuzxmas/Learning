@@ -72,9 +72,9 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             stock_0_profit_margin_increase.append(margin_increase)
         stock_0_profit_margin_increase.append(1)
         if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
-            profit_margin_performance = 'profit margin is not increasing all the time'
+            profit_margin_performance = 'xxx profit margin is not increasing all the time，利润 不是 一直在增长 xxx'
         else:
-            profit_margin_performance = 'profit margin is good, at least increasing all the time'
+            profit_margin_performance = '√√√√ profit margin is good, at least increasing all the time, √√√√利润最近几年一直在增长'
         stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率']])
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
