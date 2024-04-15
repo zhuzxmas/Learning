@@ -97,7 +97,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         elif len(stock_0_dividends) <7:
             dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
         else:
-            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  x√√√√√√√√√√ '
+            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15 # 这个是目标市盈率，股份不超过这个可以考虑入手
