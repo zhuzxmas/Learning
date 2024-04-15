@@ -13,8 +13,10 @@ config = configparser.ConfigParser()
 if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application
     config.read(['config.cfg'])
     proxy_settings = config['proxy_add']
-    proxy_add = proxy_settings['proxy_add']
-    # proxy_add = None
+    if os.getlogin() == 'cindy.rao':
+        proxy_add = None
+    else:
+        proxy_add = proxy_settings['proxy_add']
 else:
     proxy_add = None
 
@@ -58,7 +60,11 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         stock_0_CurrentLiabilities.name = '流动负债 亿元'
         stock_0_CurrentAssets_vs_Liabilities = stock_target_balance_sheet.loc['CurrentAssets']/stock_target_balance_sheet.loc['CurrentLiabilities'] #流动资产与流动负债之比 应>2
         stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
+        if any(map(lambda x: x <1.5, stock_0_CurrentAssets_vs_Liabilities)): # 查看流动资产/流动负债是否 <1.5
+            CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
+        else:
+            CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
+        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.lo['TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000 #非流动负债合计，我认为是长期负债
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = stock_0_CurrentAssets - stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest # 流动资产扣除长期负债后应大于0
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities.name = '流动资产-长期负债>0'
@@ -71,16 +77,23 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             margin_increase = round((stock_0_profit_margin.values[ix] - stock_0_profit_margin.values[ix+1])/stock_0_profit_margin.values[ix+1],2)
             stock_0_profit_margin_increase.append(margin_increase)
         stock_0_profit_margin_increase.append(1)
-        if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
-            profit_margin_performance = 'xxx  利润  Not 不是 一直在增长 xxx'
+        if any(map(lambda x: x <0, stock_0_profit_margin)): # 查看利润是否有负数
+            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
         else:
-            profit_margin_performance = '√√√√ 利润  Yes  最近几年一直在增长 √√√√'
-        stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
-        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
-        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
+            if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
+                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
+            else:
+                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
+            stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
+            stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
+            stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
 
         ### Dividend Records of The Company ###
         stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
+        if len(stock_0_dividends) <7:
+            dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
+        else:
+            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  x√√√√√√√√√√ '
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15 # 这个是目标市盈率，股份不超过这个可以考虑入手
@@ -134,13 +147,15 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
         print('--------Begin of this one : ↓ ↓ ↓ ↓ ↓  ---------------------\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
+        print('{}--{}-{}'.format(iii, stock, stock_name[iii]),dividends_perofrmance,'\n')
+        print('{}--{}-{}'.format(iii, stock, stock_name[iii]),CurrentAssets_vs_Liabilities_performance,'\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
-        print('\n')
+        print('                                                                                                \n')
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
     time.sleep(random.uniform(7, 13))
