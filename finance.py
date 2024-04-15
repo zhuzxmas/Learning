@@ -132,9 +132,9 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
+        print(profit_margin_performance,'\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
-        print(profit_margin_performance,'\n')
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
