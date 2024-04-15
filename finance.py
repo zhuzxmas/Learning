@@ -92,7 +92,9 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
 
         ### Dividend Records of The Company ###
         stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
-        if len(stock_0_dividends) <7:
+        if len(stock_0_dividends) == 0:
+            dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
+        elif len(stock_0_dividends) <7:
             dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
         else:
             dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  x√√√√√√√√√√ '
