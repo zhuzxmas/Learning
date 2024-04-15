@@ -45,6 +45,8 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
     stock_target_income = stock_target.get_income_stmt(freq='yearly',proxy=proxy_add)
 
     if 'EBIT' in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet.index  and 'TotalRevenue' in stock_target_income.index  and 'TotalAssets' in stock_target_balance_sheet.index  and 'CurrentLiabilities' in stock_target_balance_sheet.index and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'DilutedEPS' in stock_target_income.index and 'OtherIntangibleAssets' in stock_target_balance_sheet.index and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'OrdinarySharesNumber' in stock_target_balance_sheet.index:
+        print('--------Begin of this one : ↓ ↓ ↓ ↓ ↓  ---------------------\n')
+
         ### How Big The Company Is ###
         stock_0_TotalRevenue = stock_target_income.loc['TotalRevenue']/100000000 #销售额
         stock_0_TotalRevenue.name = '销售额 亿元'
@@ -84,9 +86,9 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
                 profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
             else:
                 profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
-            stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
-            stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
-            stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
+        stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
+        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
+        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
 
         ### Dividend Records of The Company ###
         stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
@@ -145,7 +147,6 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-        print('--------Begin of this one : ↓ ↓ ↓ ↓ ↓  ---------------------\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),dividends_perofrmance,'\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),CurrentAssets_vs_Liabilities_performance,'\n')
