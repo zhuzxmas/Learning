@@ -76,7 +76,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         else:
             profit_margin_performance = '√√√√ profit margin is good, at least increasing all the time, √√√√利润最近几年一直在增长'
         stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
-        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率']])
+        stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
 
         ### Dividend Records of The Company ###
