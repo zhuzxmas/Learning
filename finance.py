@@ -72,9 +72,9 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             stock_0_profit_margin_increase.append(margin_increase)
         stock_0_profit_margin_increase.append(1)
         if any(map(lambda x: x <0, stock_0_profit_margin_increase)): # 查看利润同比去年是否有负增长
-            profit_margin_performance = 'xxx profit margin is not increasing all the time，利润 不是 一直在增长 xxx'
+            profit_margin_performance = 'xxx  利润  Not 不是 一直在增长 xxx'
         else:
-            profit_margin_performance = '√√√√ profit margin is good, at least increasing all the time, √√√√利润最近几年一直在增长'
+            profit_margin_performance = '√√√√ 利润  Yes  最近几年一直在增长 √√√√'
         stock_0_profit_margin_increase = pd.DataFrame(stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([['每股利润增长率 x 100%']])
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T
@@ -132,13 +132,14 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-        print(profit_margin_performance,'\n')
+        print('--------Begin of this one : ↓ ↓ ↓ ↓ ↓  ---------------------\n')
+        print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print(tabulate(stock_output,headers='keys',tablefmt='simple'))
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
-        print('-----------------------------\n')
+        print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
     time.sleep(random.uniform(7, 13))
