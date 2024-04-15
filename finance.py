@@ -161,4 +161,5 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print('                                                                                                \n')
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
+        print('                                                                                                \n')
     time.sleep(random.uniform(7, 13))
