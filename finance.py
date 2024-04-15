@@ -14,7 +14,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     config.read(['config.cfg'])
     proxy_settings = config['proxy_add']
     proxy_add = proxy_settings['proxy_add']
-    proxy_add = None
+    # proxy_add = None
 else:
     proxy_add = None
 
