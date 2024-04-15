@@ -139,7 +139,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print('This is the last 7 days stock price for {} {}: {} \n'.format(stock, stock_name[iii], last_7_days_stock_price_high_low))
         print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
         print(stock_0_dividends)
-        print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
+        print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n\n')
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
     time.sleep(random.uniform(7, 13))
