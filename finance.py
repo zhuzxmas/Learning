@@ -165,7 +165,8 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         if last_7_days_stock_price.empty:
             last_7_days_stock_price_high_low = 'None'
         else:
-            last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
+            last_7_days_stock_price_high_low = '{:.2f}'.format(last_7_days_stock_price['High'].min()) + '-' + '{:.2f}'.format(last_7_days_stock_price['High'].max())
+            # last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
