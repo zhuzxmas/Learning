@@ -114,6 +114,17 @@ if not result:
         # or you may even turn off the blocking behavior,
         # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
 
+#### update OneNote Title ###
+#endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/1-5550639376b04dafbe186ccd402d4983!19-642556db-9640-4ed4-9c07-5995cf8a4824/content'
+#http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+#                'Content-Type': 'application/json'}
+#testvalue = [{
+#    'target':'title',
+#    'action':'replace',
+#    'content':'New title'
+#  }]
+#data = requests.patch(endpoint, headers=http_headers, data=json.dumps(testvalue,indent=4))
+
 day_one = datetime.date.today()
 day_seven_ago = day_one - datetime.timedelta(days=days_number)
 
