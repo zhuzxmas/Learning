@@ -40,4 +40,6 @@ jobs:
         template_id : ${{secrets.TEMPLATE_ID}}
         openid : ${{secrets.OPENID}}
         proxy_add : ${{secrets.PROXY_ADD}}
+        finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
+        username : ${{secrets.USERNAME}}
       run: python -u finance.py
