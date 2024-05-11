@@ -3,8 +3,9 @@
 import yfinance as yf
 import pandas as pd
 from tabulate import tabulate
-import configparser, os
-import time, random, datetime
+import configparser, os, requests
+import time, random, datetime, json
+import funcLG
 
 # https://data.eastmoney.com/other/index/hs300.html 沪深300成分股清单
 stock_code = [688981, 688599, 688561, 688396, 688363, 688303, 688271, 688256, 688223, 688187, 688126, 688111, 688065, 688041, 688036, 688012, 688008, 605499, 605117, 603993, 603986, 603899, 603833, 603806, 603799, 603659, 603501, 603486, 603392, 603369, 603290, 603288, 603260, 603259, 603195, 603019, 601998, 601995, 601989, 601988, 601985, 601939, 601919, 601916, 601901, 601899, 601898, 601888, 601881, 601878, 601877, 601872, 601868, 601865, 601857, 601838, 601818, 601816, 601808, 601800, 601799, 601788, 601766, 601728, 601699, 601698, 601689, 601688, 601669, 601668, 601658, 601633, 601628, 601618, 601615, 601607, 601601, 601600, 601398, 601390, 601377, 601360, 601336, 601328, 601319, 601318, 601288, 601238, 601236, 601229, 601225, 601211, 601186, 601169, 601166, 601155, 601138, 601117, 601111, 601100, 601088, 601066, 601059, 601021, 601012, 601009, 601006, 600999, 600989, 600958, 600941, 600938, 600926, 600919, 600918, 600905, 600900, 600893, 600887, 600886, 600875, 600845, 600837, 600809, 600803, 600795, 600760, 600754, 600745, 600741, 600732, 600690, 600674, 600660, 600606, 600600, 600588, 600585, 600584, 600570, 600547, 600519, 600515, 600489, 600460, 600438, 600436, 600426, 600406, 600372, 600362, 600346, 600332, 600309, 600276, 600233, 600219, 600196, 600188, 600183, 600176, 600150, 600132, 600115, 600111, 600104, 600089, 600085, 600061, 600050, 600048, 600039, 600036, 600031, 600030, 600029, 600028, 600025, 600023, 600019, 600018, 600016, 600015, 600011, 600010, 600009, 600000, 301269, 300999, 300979, 300957, 300919, 300896, 300782, 300763, 300760, 300759, 300751, 300750, 300661, 300628, 300498, 300496, 300454, 300450, 300433, 300413, 300408, 300347, 300316, 300308, 300274, 300223, 300142, 300124, 300122, 300059, 300033, 300015, 300014, 3816, 2938, 2920, 2916, 2841, 2821, 2812, 2736, 2714, 2709, 2648, 2603, 2601, 2594, 2555, 2493, 2475, 2466, 2460, 2459, 2415, 2410, 2371, 2352, 2311, 2304, 2271, 2252, 2241, 2236, 2230, 2202, 2180, 2179, 2142, 2129, 2074, 2050, 2049, 2027, 2007, 2001, 1979, 1289, 999, 983, 977, 963, 938, 895, 877, 876, 858, 800, 792, 786, 776, 768, 733, 725, 708, 661, 651, 625, 617, 596, 568, 538, 425, 408, 338, 333, 301, 166, 157, 100, 69, 63]
@@ -29,6 +30,75 @@ else:
 
 stock_Top_list = []
 stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
+
+day_one = datetime.date.today()
+
+login_return = funcLG.func_login() # to login into MS365 and get the return value
+result = login_return['result']
+proxies = login_return['proxies']
+finance_section_id = login_return['finance_section_id']
+
+#### update OneNote page Title ###
+#endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/1-5550639376b04dafbe186ccd402d4983!19-642556db-9640-4ed4-9c07-5995cf8a4824/content'
+#http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+#               'Content-Type': 'application/json'}
+#
+## below is to change the title of this page
+#page_title_value = [{
+#   'target':'title',
+#   'action':'replace',
+#   'content':'Python Test for OneNote API'
+# }]
+#
+#body_data_append = [
+#    {
+#        "target": "body",
+#        "action": "append",
+#        "content": "<div><p>This is the new text to append.</p></div>"
+#    }
+#]
+#
+#data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4))
+#try:
+#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4))
+#except:
+#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4),proxies=proxies)
+
+### Create a OneNote Page ###
+endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
+http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+               'Content-Type': 'application/xhtml+xml'}
+page_title = 'Stock info {}'.format(day_one.strftime('%Y-%m-%d'))
+create_page_initial = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>{}</title>
+</head>
+<body>
+<!-- No content in the body -->
+</body>
+</html>
+""".format(page_title).replace('\n','').strip()
+try:
+    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
+except:
+    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+
+
+#### Append OneNote page content ###
+onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+               'Content-Type': 'application/json'}
+
+## below is to change the title of this page
+#page_title_value = [{
+#   'target':'title',
+#   'action':'replace',
+#   'content':'Python Test for OneNote API'
+# }]
+
 
 for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行查询
 # for iii in range(5,7):
@@ -168,6 +238,23 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
             last_7_days_stock_price_high_low = '{:.2f}'.format(last_7_days_stock_price['High'].min()) + '-' + '{:.2f}'.format(last_7_days_stock_price['High'].max())
             # last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
+        page_content = "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],profit_margin_performance)
+        page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],CurrentAssets_vs_Liabilities_performance)
+        page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
+        page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name[iii],)
+        page_content += stock_output.to_html()
+        page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(stock, stock_name[iii],last_7_days_stock_price_high_low)
+        page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(stock, stock_name[iii])
+        if stock_0_dividends.empty:
+            page_content += "<div><p>No dividend record for {}: {}</p></div>".format(stock, stock_name[iii])
+        else:
+            page_content += stock_0_dividends.to_frame().to_html()
+        page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
+        page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
+        page_content += "<div><p>                                                                                                </p></div>"
+        page_content = page_content.replace('\n','')
+        page_content = page_content.replace('<th></th>','<th>item</th>')
+
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),profit_margin_performance,'\n')
         print('{}--{}-{}'.format(iii, stock, stock_name[iii]),CurrentAssets_vs_Liabilities_performance,'\n')
@@ -179,9 +266,44 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print(stock_0_dividends)
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
+
+
+        #### Append OneNote page content ###
+        body_data_append = [
+            {
+                "target": "body",
+                "action": "append",
+                "content": page_content
+            }
+        ]
+
+        try:
+            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4))
+        except:
+            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4),proxies=proxies)
+
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
         print('                                                                                                \n')
+
+
     time.sleep(random.uniform(7, 13))
+
 stock_Top_list = pd.DataFrame(stock_Top_list, columns= stock_Top_list_columns).sort_values(by=['利润表现好','流动负债不高','分红多'],ascending=False)
 print(tabulate(stock_Top_list,headers='keys',tablefmt='simple',))
+page_content = stock_Top_list.to_html()
+
+
+#### Append OneNote page content ###
+body_data_append = [
+    {
+        "target": "body",
+        "action": "append",
+        "content": page_content
+    }
+]
+
+try:
+    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4))
+except:
+    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4),proxies=proxies)
