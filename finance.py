@@ -252,7 +252,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
         page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
         page_content += "<div><p>                                                                                                </p></div>"
-        page_content = page_content.replace('\n','')
+        # page_content = page_content.replace('\n','')
         page_content = page_content.replace('<th></th>','<th>item</th>')
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
@@ -292,6 +292,8 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
 stock_Top_list = pd.DataFrame(stock_Top_list, columns= stock_Top_list_columns).sort_values(by=['利润表现好','流动负债不高','分红多'],ascending=False)
 print(tabulate(stock_Top_list,headers='keys',tablefmt='simple',))
 page_content = stock_Top_list.to_html()
+# page_content = page_content.replace('\n','')
+page_content = page_content.replace('<th></th>','<th>item</th>')
 
 
 #### Append OneNote page content ###
