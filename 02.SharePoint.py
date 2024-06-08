@@ -30,7 +30,43 @@ except:
 
 # to create a new page in SP:
 endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
+new_page_address_url = input('Please input the URL to create a new page: \n')
+new_page_title = input('Please enter the title of the new page: \n')
+page_body = {
+  "@odata.type": "#microsoft.graph.sitePage",
+  "name": "{}.aspx".format(new_page_address_url),
+  "title": "{}".format(new_page_title),
+  "pageLayout": "article",
+  "showComments": True,
+  "showRecommendedPages": True,
+  "titleArea": {
+    "layout": "colorBlock",
+    "showAuthor": True,
+    "showPublishedDate": True,
+    "showTextBlockAboveTitle": False,
+    "textAboveTitle": "TEXT ABOVE TITLE",
+    "textAlignment": "left",
+    "title": "{}".format(new_page_title)},
+    "publishingState": {"level": "published"},
+    "canvasLayout": {
+        "sections": [
+            {
+                "columns": [
+                    {
+                        "factor": 12,
+                        "webparts": [
+                            {
+                                "innerHtml": 'hello'
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+  }
+page_body = json.dumps(page_body, indent=4)
 try:
-    data = requests.post(endpoint, headers=http_headers, stream=False).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, data = page_body).json()
 except:
-    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data = page_body).json()
