@@ -40,7 +40,7 @@ page_body = {
   "showComments": True,
   "showRecommendedPages": True,
   "titleArea": {
-    "layout": "colorBlock",
+    "layout": "imageAndTitle",
     "showAuthor": True,
     "showPublishedDate": True,
     "showTextBlockAboveTitle": False,
