@@ -41,4 +41,5 @@ jobs:
         openid : ${{secrets.OPENID}}
         proxy_add : ${{secrets.PROXY_ADD}}
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
+        username : ${{secrets.USERNAME}}
       run: python -u learning-record.py
