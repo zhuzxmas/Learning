@@ -28,7 +28,7 @@ try:
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
-# to create a new page in SP:
+# to create a new page in SharePoint:
 endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
 new_page_address_url = input('Please input the URL to create a new page: \n')
 new_page_title = input('Please enter the title of the new page: \n')
