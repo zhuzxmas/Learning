@@ -2,7 +2,7 @@ import json, requests, datetime, os
 from pandas import DataFrame
 import funcLG
 
-login_return = funcLG.func_login() # to login into MS365 and get the return value
+login_return = funcLG.func_login() # to login into MS365 and get the return value info
 result = login_return['result']
 proxies = login_return['proxies']
 
