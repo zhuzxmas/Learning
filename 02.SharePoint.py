@@ -28,6 +28,9 @@ try:
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
+for i in range(len(data['value'])):
+    print(data['value'][i]['title'])
+
 # to create a new page in SharePoint:
 endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
 new_page_address_url = input('Please input the URL to create a new page: \n')
@@ -70,3 +73,24 @@ try:
     data = requests.post(endpoint, headers=http_headers, stream=False, data = page_body).json()
 except:
     data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data = page_body).json()
+
+page_id = data['id']  # Page ID from the response of the creation
+print(f"Page created with ID: {page_id}")
+
+Category_list = {'1':'Life', '2': 'Ford'}
+print(Category_list)
+category_id = input('Please select a category #, like 1 or 2: \n')
+
+update_payload = {
+    '__metadata': {'type': 'SP.Data.SitePagesItem'},
+    "Category": Category_list[category_id]
+}
+update_payload= json.dumps(update_payload, indent=4)
+
+try:
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}', headers=http_headers, stream=False, data = update_payload).json()
+except:
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}', headers=http_headers, stream=False, proxies=proxies, data = update_payload).json()
+
+print("Page updated with category {}".format(Category_list[category_id]))
+
