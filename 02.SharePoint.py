@@ -77,20 +77,20 @@ except:
 page_id = data['id']  # Page ID from the response of the creation
 print(f"Page created with ID: {page_id}")
 
-Category_list = {'1':'Life', '2': 'Ford'}
-print(Category_list)
-category_id = input('Please select a category #, like 1 or 2: \n')
-
 update_payload = {
-    '__metadata': {'type': 'SP.Data.SitePagesItem'},
-    "Category": Category_list[category_id]
+    'promotionKind': 'newsPost',
 }
 update_payload= json.dumps(update_payload, indent=4)
 
 try:
-    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}', headers=http_headers, stream=False, data = update_payload).json()
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, data = update_payload).json()
 except:
-    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}', headers=http_headers, stream=False, proxies=proxies, data = update_payload).json()
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, proxies=proxies, data = update_payload).json()
 
-print("Page updated with category {}".format(Category_list[category_id]))
+Category_list = {'1':'Life', '2': 'Ford'}
+print('-----------------------------------------\n')
+print(Category_list)
+print('-----------------------------------------\n')
+
+print("----------Please go to website to update with category---------\n")
 
