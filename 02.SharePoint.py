@@ -52,22 +52,22 @@ page_body = {
     "title": "{}".format(new_page_title)},
     "publishingState": {"level": "published"},
     "canvasLayout": {
-        "sections": [
-            {
-                "columns": [
-                    {
-                        "factor": 12,
-                        "webparts": [
-                            {
-                                "innerHtml": 'hello'
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-  }
+    "horizontalSections": [
+      {
+        "layout": "oneColumn",
+        "id": "1",
+        "emphasis": "none",
+        "columns": [
+          {
+            "id": "1",
+            "width": 12,
+            "webparts": [
+              {
+                "id": "6f9230af-2a98-4952-b205-9ede4f9ef548",
+                "innerHtml": "<p><b>Hello!</b></p>"
+              }
+            ]
+          }]}]}},
 page_body = json.dumps(page_body, indent=4)
 try:
     data = requests.post(endpoint, headers=http_headers, stream=False, data = page_body).json()
