@@ -6,6 +6,8 @@ login_return = funcLG.func_login() # to login into MS365 and get the return valu
 result = login_return['result']
 proxies = login_return['proxies']
 
+# create sharing link can be done via Microsoft Graph: endpoint is 'https://graph.microsoft.com/v1.0/me/drive/items/{item-id}/createlink'
+
 endpoint = 'https://graph.microsoft.com/v1.0/sites?search={cnmas}'
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
