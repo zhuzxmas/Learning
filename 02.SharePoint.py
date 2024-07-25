@@ -1,5 +1,6 @@
 import json, requests, datetime, os
 from pandas import DataFrame
+from datetime import datetime
 import funcLG
 
 login_return = funcLG.func_login() # to login into MS365 and get the return value info.
@@ -30,8 +31,11 @@ try:
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
-for i in range(len(data['value'])):
-    print(data['value'][i]['title'])
+# to sort the pages by date, from latest to oldest:
+data = data['value']
+data = sorted(data, key=lambda x: datetime.fromisoformat(x['createdDateTime'].replace("Z", "+00:00")),reverse=True)
+for i in range(len(data)):
+    print(data[i]['title'])
 
 # to create a new page in SharePoint:
 endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
@@ -75,11 +79,11 @@ page_body = {
     ]
   }
 },
-page_body = json.dumps(page_body, indent=4)
+page_body = json.dumps(page_body)
 try:
-    data = requests.post(endpoint, headers=http_headers, stream=False, json = page_body).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, json=page_body).json()
 except:
-    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data = page_body).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, json=page_body).json()
     # data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, json = page_body).json()
 
 page_id = data['id']  # Page ID from the response of the creation
