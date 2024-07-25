@@ -69,12 +69,18 @@ page_body = {
                 "innerHtml": "<p><b>Hello!</b></p>"
               }
             ]
-          }]}]}},
+          }
+        ]
+      }
+    ]
+  }
+},
 page_body = json.dumps(page_body, indent=4)
 try:
-    data = requests.post(endpoint, headers=http_headers, stream=False, data = page_body).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, json = page_body).json()
 except:
     data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data = page_body).json()
+    # data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, json = page_body).json()
 
 page_id = data['id']  # Page ID from the response of the creation
 print(f"Page created with ID: {page_id}")
