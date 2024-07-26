@@ -19,6 +19,9 @@ except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 output = data['value']
 
+### to get the OneNote info:
+endpoint = 'https://graph.microsoft.com/v1.0/users/{user-id}/onenote/notebooks/'
+
 # to get the site id for below SP address:
 for i in range(0,len(output)):
     if output[i]['webUrl'] == 'https://cnmas.sharepoint.com/sites/cmmas':
@@ -79,11 +82,11 @@ page_body = {
     ]
   }
 },
-page_body = json.dumps(page_body)
+page_body = json.dumps(page_body, indent=4)
 try:
-    data = requests.post(endpoint, headers=http_headers, stream=False, json=page_body).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, data=page_body).json()
 except:
-    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, json=page_body).json()
+    data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data=page_body).json()
     # data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, json = page_body).json()
 
 page_id = data['id']  # Page ID from the response of the creation
