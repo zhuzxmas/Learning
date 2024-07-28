@@ -109,23 +109,3 @@ print('-----------------------------------------\n')
 
 print("----------Please go to website to update with category---------\n")
 
-
-# to get the favorite pics within a specific folder:
-'''
-https://graph.microsoft.com/v1.0/me/drive/root/children
-	to get the pictures folder id.
-
-https://graph.microsoft.com/v1.0/me/drive/items/01L7SVHIQ4WMCMZDO6MJFJ6OUV54NLDDJ5/children
-	to get the sub-folder within pictures.
-
-
-https://graph.microsoft.com/v1.0/drives/b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc/items/01L7SVHIXFAP3LBGZFQVEZQ7LYCYQEHN6K/children?$select=id,name,isFavorite
-
-https://graph.microsoft.com/v1.0/drives/b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc/items/01L7SVHIQ4WMCMZDO6MJFJ6OUV54NLDDJ5/children
-
-a7bbb8cd-8ad4-450b-83c8-776dc16b601d
-
-https://graph.microsoft.com/v1.0/users/a7bbb8cd-8ad4-450b-83c8-776dc16b601d/drives/b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc/items/01L7SVHIXFAP3LBGZFQVEZQ7LYCYQEHN6K/children?$select=id,name,isFavorite
-
-https://graph.microsoft.com/v1.0/users/a7bbb8cd-8ad4-450b-83c8-776dc16b601d/drives/b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc/items/01L7SVHIWMPZQRTM2CRNB3ZMCMJ2IMSSRD
-'''
