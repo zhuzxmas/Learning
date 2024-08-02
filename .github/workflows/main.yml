@@ -1,0 +1,45 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: finance-quarterly action
+
+on:
+  # schedule:
+  #   - cron:  '22 8 * * 3'
+  #push:
+  #  branches: [ "main" ]
+  #pull_request:
+  #  branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-python-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout repo content
+      uses: actions/checkout@v2
+
+    - name: setup python
+      uses: actions/setup-python@v4
+      
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: run main file
+      env:
+        client_id : ${{secrets.CLIENT_ID}}
+        scope_list : ${{secrets.CLIENT_ID}}
+        wx_APPID : ${{secrets.WX_APPID}}
+        wx_SECRET : ${{secrets.WX_SECRET}}
+        template_id : ${{secrets.TEMPLATE_ID}}
+        openid : ${{secrets.OPENID}}
+        proxy_add : ${{secrets.PROXY_ADD}}
+        finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
+        username : ${{secrets.USERNAME}}
+      run: python -u finance-quarterly.py
