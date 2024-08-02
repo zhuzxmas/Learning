@@ -269,7 +269,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print('                                                                                                \n')
 
 
-        if (profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'):
+        if (profit_margin_performance != 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and CurrentAssets_vs_Liabilities_performance != 'xxxxxxxxx 流动负债过高 xxxxxxxxx' and dividends_perofrmance != 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'):
             #### Append OneNote page content ###
             body_data_append = [
                 {
