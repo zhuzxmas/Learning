@@ -242,7 +242,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         page_content = "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],profit_margin_performance)
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],CurrentAssets_vs_Liabilities_performance)
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
-        page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name[iii],)
+        # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name[iii],)
         page_content += stock_output.to_html()
         page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(stock, stock_name[iii],last_7_days_stock_price_high_low)
         page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(stock, stock_name[iii])
