@@ -269,19 +269,20 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         print('                                                                                                \n')
 
 
-        #### Append OneNote page content ###
-        body_data_append = [
-            {
-                "target": "body",
-                "action": "append",
-                "content": page_content
-            }
-        ]
+        if (profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'):
+            #### Append OneNote page content ###
+            body_data_append = [
+                {
+                    "target": "body",
+                    "action": "append",
+                    "content": page_content
+                }
+            ]
 
-        try:
-            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4))
-        except:
-            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4),proxies=proxies)
+            try:
+                data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4))
+            except:
+                data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append,indent=4),proxies=proxies)
 
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii, stock, stock_name[iii]))
