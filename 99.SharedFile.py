@@ -1,5 +1,6 @@
 import requests
 
+# this is proxy info, ignore if you don't have it'
 proxy_add = 'http://internet.ford.com:83/'
 proxies = {
   "http": proxy_add,
