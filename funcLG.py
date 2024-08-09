@@ -9,6 +9,8 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     proxy_settings = config['proxy_add']
 
     client_id = azure_settings['client_id']
+    client_secret = azure_settings['client_secret']
+    tenant_id = azure_settings['tenant_id']
     finance_section_id = azure_settings['finance_section_id']
 
     username = azure_settings['username']
@@ -21,6 +23,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
+    tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
     username= os.environ['username']
     wx_APPID = os.environ['wx_APPID']
