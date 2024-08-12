@@ -3,7 +3,7 @@ import requests, json, time, configparser, os
 config = configparser.ConfigParser()
 if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application
     config.read(['config.cfg'])
-    aliyun_settings = config['proxy_add']
+    aliyun_settings = config['Aliyun']
     proxy_settings = config['proxy_add']
     proxy_add = proxy_settings['proxy_add']
     qwen_key = aliyun_settings['aliyun_SECRET']
@@ -88,7 +88,7 @@ http_headers = {
 try:
     data_task = requests.get(endpoint_task, headers=http_headers, stream=False)
 except:
-    data_task = requests.get(endpoint_up, headers=http_headers, stream=False, proxies=proxies)
+    data_task = requests.get(endpoint_task, headers=http_headers, stream=False, proxies=proxies)
 
 while data_task.json()['output']['task_status'] == 'RUNNING':
    print('the task is still running...\n')
