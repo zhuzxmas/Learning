@@ -132,7 +132,7 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
 
         ### How Big The Company Is ###
         stock_0_TotalRevenue = stock_target_income.loc['TotalRevenue']/100000000 #销售额
-        stock_0_TotalRevenue.name = '销售额 亿元'
+        stock_0_TotalRevenue.name = '营业总收入 销售额 亿元'
         stock_0_TotalAssets = stock_target_balance_sheet.loc['TotalAssets']/100000000 #总资产
         stock_0_TotalAssets.name = '总资产 亿元'
         stock_0_EBIT = stock_target_income.loc['EBIT']/100000000 #息税前利润
