@@ -23,6 +23,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
+    client_secret = os.environ['client_secret']
     tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
     username= os.environ['username']
