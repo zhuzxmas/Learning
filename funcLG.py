@@ -1,5 +1,5 @@
 import json, requests, configparser, os
-from msal import PublicClientApplication
+from msal import PublicClientApplication, ConfidentialClientApplication
 
 config = configparser.ConfigParser()
 if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application
@@ -92,6 +92,41 @@ def func_login():
             # or you may even turn off the blocking behavior,
             # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
     return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id}
+
+def func_login_secret():
+    scopes = ['https://graph.microsoft.com/.default']
+    # Create a preferably long-lived app instance which maintains a token cache.
+    try:
+        app = ConfidentialClientApplication(
+            client_id=client_id,
+            authority='https://login.microsoftonline.com/{}'.format(tenant_id),
+            client_credential=client_secret,
+        )
+    except:
+        app = ConfidentialClientApplication(
+            client_id=client_id,
+            authority='https://login.microsoftonline.com/{}'.format(tenant_id),
+            client_credential=client_secret,
+            proxies=proxies
+        )
+    # Acquire a token using the client credentials flow
+    result = None
+
+    # Firstly, checks the cache to see if there is a token it can use
+    # If the token is available in the cache, it will return the token
+    result = app.acquire_token_silent(scopes=scopes, account=None)
+
+    if not result:
+        result = app.acquire_token_for_client(scopes=scopes)
+
+    if "access_token" in result:
+        print("Access token:", result['access_token'])
+    else:
+        print(result.get("error"))
+        print(result.get("error_description"))
+        print(result.get("correlation_id"))  # You may need this when reporting a bug
+
+    return {'result':result, 'proxies':proxies}
 
 # 获取access_token
 def get_access_token():
