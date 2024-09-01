@@ -3,3 +3,4 @@ pandas
 msal
 yfinance
 tabulate
+pillow
