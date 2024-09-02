@@ -6,8 +6,9 @@ name: Bing WallPaper action
 on:
   # schedule:
   #   - cron:  '22 8 * * 3'
-  #push:
-  #  branches: [ "main" ]
+  push:
+   branches: [ "main" ]
+   tags: ["MS Power Automate"]
   #pull_request:
   #  branches: [ "main" ]
   workflow_dispatch:
@@ -21,7 +22,7 @@ jobs:
 
     steps:
     - name: checkout repo content
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: setup python
       uses: actions/setup-python@v4
