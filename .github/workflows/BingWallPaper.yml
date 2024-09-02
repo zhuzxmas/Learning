@@ -11,6 +11,8 @@ on:
   #pull_request:
   #  branches: [ "main" ]
   workflow_dispatch:
+  repository_dispatch:
+    types: [ms-powre-automate-event]
 
 permissions:
   contents: read
