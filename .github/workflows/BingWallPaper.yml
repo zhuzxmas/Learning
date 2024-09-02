@@ -6,9 +6,8 @@ name: Bing WallPaper action
 on:
   # schedule:
   #   - cron:  '22 8 * * 3'
-  push:
-   branches: [ "main" ]
-   tags: ["MS Power Automate"]
+  # push:
+  #  branches: [ "main" ]
   #pull_request:
   #  branches: [ "main" ]
   workflow_dispatch:
