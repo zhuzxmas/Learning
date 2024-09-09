@@ -121,7 +121,8 @@ def func_login_secret():
         result = app.acquire_token_for_client(scopes=scopes)
 
     if "access_token" in result:
-        print("Access token:", result['access_token'])
+        print("Access token got successfully!")
+        # print("Access token:", result['access_token'])
     else:
         print(result.get("error"))
         print(result.get("error_description"))
