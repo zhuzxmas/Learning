@@ -30,7 +30,7 @@ def save_img(img_url):  # save downloaded file to directory: dirname
 
 
 # get the real img url by using the raw_img_url address
-def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1"):
+def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160&mkt=zh_CN"):
     global notifymsg
     r = requests.get(raw_img_url)
     rtext = json.loads(r.text)
@@ -45,12 +45,12 @@ def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&id
 
 def add_img_description(notifymsg, filepath):
     # font = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc",20)
-    font_english = ImageFont.truetype("Ubuntu-R.ttf", 20)
-    font_chinese = ImageFont.truetype("msyh.ttc", 20)
+    font_english = ImageFont.truetype("Ubuntu-R.ttf", 44)
+    font_chinese = ImageFont.truetype("msyh.ttc", 44)
 
     imagetemp = Image.open(filepath)
     draw = ImageDraw.Draw(imagetemp)
-    x, y = 10, 980
+    x, y = 10, 1950
 
     # Function to determine the font based on the character
     def get_font(char):
