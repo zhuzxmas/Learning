@@ -1,11 +1,12 @@
 import json, requests, configparser, os
 from msal import PublicClientApplication, ConfidentialClientApplication
 
-client_id = 'xxxx-xxxx-xxxx-xxxx-xxxx-xxxx' # it is also good to make this private
 client_secret = 'xxxx-xxxx-xxxx-xxxx-xxxx' # this is secret, you can not save it publicly
+client_id = 'xxxx-xxxx-xxxx-xxxx-xxxx-xxxx' # it is also good to make this private
 tenant_id = 'xxxx-xxxx-xxxx-xxxx-xxxx' # it is also good to make this private
-scope_list = ['User.Read', 'Files.Read']
+scope_list = ['User.Read', 'Files.Read'] # you can add the premissions you want
 
+# below func_login is to use PublicClientApplication method to get the access token
 def func_login():
     app = PublicClientApplication(
         client_id=client_id,
@@ -13,6 +14,9 @@ def func_login():
         # proxies = proxies
     )
 
+    # for proxies, it could be http://xxx.xxx.com:83/, or something similar if have
+
+    # below uses device flow method, you can also use other method. go to https://learn.microsoft.com/en-us/entra/identity-platform/scenario-desktop-acquire-token?tabs=python for more details
     flow = app.initiate_device_flow(scopes=scope_list)
     if "user_code" not in flow:
         raise ValueError(
@@ -20,8 +24,9 @@ def func_login():
     print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}") # you need to login in.
 
     result = app.acquire_token_by_device_flow(flow)
-    return {'result':result}
+    return {'result':result} # return a dictionary, easy to use
 
+# below func_login is to use ConfidentialClientApplication method to get the access token
 def func_login_secret():
     scopes = ['https://graph.microsoft.com/.default']
 
@@ -53,3 +58,51 @@ def func_login_secret():
 
     return {'result':result}
 
+
+########################################
+######### Example to login in with real user########
+# below is to get the Pictures folder ID within OneDrive.
+
+login_return = func_login() # you can also use to login into MS365 and get the return value info.
+result = login_return['result']
+
+# to get the Pictures folder id from OneDrive for Business:
+endpoint = 'https://graph.microsoft.com/v1.0/me/drive/root/children'
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'}
+try:
+    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+except:
+    pass
+    # below code is for scenarios with proxy.
+    # data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
+for i in range(0, len(data['value'])):
+    if data['value'][i]['name'] == 'Pictures':
+        Picture_folder_id = data['value'][i]['id']
+
+
+
+##################################################
+######### Example to login in by application automatically########
+# to login into MS365 and get the return value
+
+login_return = func_login_secret()
+result = login_return['result']
+
+# the endpoint shall not use /me, since there is no me (no user sign in), per MS Graph API requirement
+endpoint = 'https://graph.microsoft.com/v1.0/users/'
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'}
+
+try:
+    data = requests.get(endpoint, headers=http_headers,
+                        stream=False).json()
+except:
+    pass
+    # data = requests.get(endpoint, headers=http_headers,
+    #                     stream=False, proxies=proxies).json()
+for i in range(0, len(data['value'])):
+    if data['value'][i]['givenName'] == 'ANY USERNAME':
+        user_id = data['value'][i]['id']
