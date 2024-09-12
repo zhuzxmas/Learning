@@ -1,4 +1,4 @@
-import json, requests, configparser, os
+import json, requests
 from msal import PublicClientApplication, ConfidentialClientApplication
 
 client_secret = 'xxxx-xxxx-xxxx-xxxx-xxxx' # this is secret, you can not save it publicly
