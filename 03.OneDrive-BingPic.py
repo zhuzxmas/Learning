@@ -29,7 +29,7 @@ def save_img(img_url):  # save downloaded file to directory: dirname
 # def get_img_url(raw_img_url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=1&n=1"):  # get the real img url by using the raw_img_url address
 
 
-# get the real img url by using the raw_img_url address
+# get the real img url by using the raw_img_url address, for Bing CN WallPaper, use mkt=zh-CN.
 def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160&mkt=zh-CN"):
     global notifymsg
     r = requests.get(raw_img_url)
