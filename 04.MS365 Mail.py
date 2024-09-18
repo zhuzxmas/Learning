@@ -31,15 +31,41 @@ def main():
         if data['value'][i]['givenName'] == 'Nathan':
             user_id = data['value'][i]['id']
 
-    # to get the user OneDrive #id.
-    endpoint = 'https://graph.microsoft.com/v1.0/users/{}/messages/'.format(
-        user_id)
+    # to list mail folders:
+    endpoint = 'https://graph.microsoft.com/v1.0/users/{}/mailFolders'
+    http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'}
+
     try:
         data = requests.get(endpoint, headers=http_headers,
                             stream=False).json()
     except:
         data = requests.get(endpoint, headers=http_headers,
                             stream=False, proxies=proxies).json()
+    for i in range(0, len(data['value'])):
+        if data['value'][i]['displayName'] == 'Inbox':
+            mailFolder_id = data['value'][i]['id']
+
+
+
+    # to get the user latest 10 emails list.
+    endpoint = 'https://graph.microsoft.com/v1.0/users/{}/mailFolders/{}/messages?$orderby=receivedDateTime desc'.format(
+        user_id, mailFolder_id)
+    try:
+        data = requests.get(endpoint, headers=http_headers,
+                            stream=False).json()
+    except:
+        data = requests.get(endpoint, headers=http_headers,
+                            stream=False, proxies=proxies).json()
+    email_list = []
+    for i in range(0, len(data['value'])):
+        email_temp = []
+        email_temp.append(data['value'][i]['subject'])
+        email_temp.append(data['value'][i]['from']['emailAddress']['name'])
+        email_list.append(email_temp)
+    print(email_list)
+
 
 
 
