@@ -71,6 +71,7 @@ def main():
 
 
     # to send an email to someone
+    x_id = 'zh' + 'uzx' + '200' + '6' + '@' + 'out' + 'loo' + 'k'
     email_message= {
         'message': {
             'subject': 'Test email from Microsoft Graph API',
@@ -81,7 +82,7 @@ def main():
             'toRecipients': [
                 {
                     'emailAddress': {
-                        'address': 'zhuzx2006@outlook.com'
+                        'address': x_id
                     }
                 }
             ]
