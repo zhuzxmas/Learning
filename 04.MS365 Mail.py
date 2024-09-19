@@ -87,7 +87,7 @@ def main():
             ]
         },
         'saveToSentItems': True
-    },
+    }
     # email_message = json.dumps(email_message, indent=4)
     email_message = json.dumps(email_message)
     endpoint = 'https://graph.microsoft.com/v1.0/users/{}/sendMail'.format(
@@ -96,7 +96,7 @@ def main():
         data = requests.post(endpoint, headers=http_headers,
                              stream=False, data=email_message).json()
     except:
-        data = requests.get(endpoint, headers=http_headers,
+        data = requests.post(endpoint, headers=http_headers,
                             stream=False, proxies=proxies, data=email_message).json()
 
 
