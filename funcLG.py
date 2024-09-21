@@ -81,7 +81,7 @@ def func_login():
             "code": {"value": flow['user_code']},
         }
         # 推送消息
-        result1 = send_template_message(openid, template_id, data)
+        # result1 = send_template_message(openid, template_id, data)
         # print(result1)  # 打印推送结果
 
         # Ideally you should wait here, in order to save some unnecessary polling
