@@ -81,17 +81,17 @@ if output != []: # if there is  learning records, continue below codes.
         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
     if (onedrive_response.status_code == 201):
         print('item added to Onedrive for Business Learning_records.xlsx')
-        data = {
-            "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
-        }
+        # data = {
+        #     "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
+        # }
     else:
         print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
-        data = {
-            "code": {"value": "Failed, Check Github"},
-        }
-    openid = login_return['openid']
-    template_id = login_return['template_id']
-    funcLG.send_template_message(openid, template_id, data)    # 推送消息
+        # data = {
+        #     "code": {"value": "Failed, Check Github"},
+        # }
+    # openid = login_return['openid']
+    # template_id = login_return['template_id']
+    # funcLG.send_template_message(openid, template_id, data)    # 推送消息
 
     ### close session ###
     try:
