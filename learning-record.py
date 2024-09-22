@@ -7,7 +7,7 @@ result = login_return['result']
 proxies = login_return['proxies']
 site_id = login_return['site_id']
 
-days_number = 67
+days_number = 7
 # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 
 day_one = datetime.date.today()
