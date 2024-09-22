@@ -34,6 +34,7 @@ jobs:
     - name: run main file
       env:
         client_id : ${{secrets.CLIENT_ID}}
+        site_id : ${{secrets.SITE_ID}}
         tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.CLIENT_ID}}
         wx_APPID : ${{secrets.WX_APPID}}
