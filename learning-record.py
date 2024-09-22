@@ -7,7 +7,7 @@ result = login_return['result']
 proxies = login_return['proxies']
 site_id = login_return['site_id']
 
-days_number = 7
+days_number = 67
 # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 
 day_one = datetime.date.today()
@@ -20,28 +20,28 @@ day_seven_ago = day_one - datetime.timedelta(days=days_number)
 # data = requests.get(endpoint_for_site_id, headers=http_headers, stream=False).json()
 # site_id = data['id'].split(',')[1]
 
-endpoint = "https://graph.microsoft.com/v1.0/sites/{site_id}/lists/Learning_records"
+# to get the list ID and username, which is needed for creating new lists item
+endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/Learning_records".format(site_id)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
 try:
-    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+    data = requests.get(endpoint, headers=http_headers, stream=False)
 except:
-    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
-output = data['value']
+    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies)
+if data.status_code == 200:
+    print('Successfully get the list info for Learning_records: \n')
+list_id = data.json()['id']
+user_name = data.json()['createdBy']['user']['displayName']
+user_id = data.json()['createdBy']['user']['id']
 
 
-
-
-
-
-
-
-######### below is the history function for MS Teams Shifts ##########
+######### below is to get MS Teams Shifts info ##########
 endpoint = "https://graph.microsoft.com/beta/teams/28887499-6bc5-4b2f-a06c-25cc971e30ca/schedule/timeCards?$filter=(ClockInEvent/DateTime ge {}T00:00:00Z and ClockInEvent/DateTime le {}T23:59:59Z)".format(day_seven_ago,day_one)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
-                'Content-Type': 'application/json'}
+                'Content-Type': 'application/json',
+                'MS-APP-ACTS-AS': user_id}
 try:
     data = requests.get(endpoint, headers=http_headers, stream=False).json()
 except:
@@ -75,64 +75,79 @@ if output != []: # if there is  learning records, continue below codes.
             learning_notes = ''
         else:
             learning_notes = output[i]['notes']['content']
-        output_temp.append(learning_person)
-        output_temp.append(learning_start_time.strftime("%Y-%m-%d %H:%M:%S"))
-        output_temp.append(learning_end_time.strftime("%Y-%m-%d %H:%M:%S"))
-        output_temp.append(learning_duration)
-        output_temp.append(learning_notes)
-        learning_records.append(output_temp)
-    learning_record['values'] = learning_records
-    learning_record = json.dumps(learning_record, indent=4)
-    # print("Below is the learning record: \n")
-    # print(learning_record)
-    # learning_records.to_csv('Learning_records.csv',mode='a',header=0, index=0, encoding='utf_8_sig') #Files\Learning\Learning_records.csv in OneDrive for Business CN
 
-    onedrive_url = 'https://graph.microsoft.com/v1.0/'
-    body_create_seesion = {'persistChanges': 'true'}
-    body_create_seesion = json.dumps(body_create_seesion, indent=4)
+        # to Create a new Lists Item for Learning_records list:
+        endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/{}/items".format(site_id,list_id)
+        http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'}
+        new_item_data = {
+          "fields": {
+            "Title": learning_person,
+            "field_1": learning_start_time.strftime("%Y-%m-%d %H:%M:%S"), # Start Time
+            "field_2": learning_end_time.strftime("%Y-%m-%d %H:%M:%S"), # End Time
+            "field_3": learning_duration, # Duration
+            "field_4": learning_notes, # Notes
+          }
+        }
+        new_item_data = json.dumps(new_item_data,indent=4)
 
-    ### create a seesion id ###
-    try:
-        onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
-    except:
-        onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion, proxies=proxies)
-    print('Create session:: status code is: ',onedrive_create_session.status_code)
-    session_id = json.loads(onedrive_create_session.text)['id']
-
-    ### Below are OneDrive Operations ###
-    # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
-    http_headers['Workbook-Session-Id'] = session_id
-    try:
-        onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
-    except:
-        onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
-    if (onedrive_response.status_code == 201):
-        print('item added to Onedrive for Business Learning_records.xlsx')
-        # data = {
-        #     "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
-        # }
-    else:
-        print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
-        # data = {
-        #     "code": {"value": "Failed, Check Github"},
-        # }
-    # openid = login_return['openid']
-    # template_id = login_return['template_id']
-    # funcLG.send_template_message(openid, template_id, data)    # 推送消息
-
-    ### close session ###
-    try:
-        onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
-    except:
-        onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers, proxies=proxies)
-    if onedrive_close_session.status_code == 204:
-        print("Close session successfully!")
-    else:
-        print('Close session failed, status code is: ',onedrive_close_session.status_code)
-
-        # onedrive_response = json.loads(onedrive_response.text)
-        # items = onedrive_response['value']
-        # for entries in range(len(items)):
-        #     print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
+        try:
+            data = requests.post(endpoint, headers=http_headers, stream=False, data=new_item_data)
+        except:
+            data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data=new_item_data)
+        if data.status_code == 201:
+            print('Successfully Created a new list item for Learning_records: \n')
+        else:
+            print('Failed, with http code: ' + data.status_code + '.\n')
 else:
-    print('No learning records!')
+    print('No records found in the MS Teams Shift for the last 7 days. \n')
+
+# ######### Excel Operation History (Not used anymore) ##########
+#     onedrive_url = 'https://graph.microsoft.com/v1.0/'
+#     body_create_seesion = {'persistChanges': 'true'}
+#     body_create_seesion = json.dumps(body_create_seesion, indent=4)
+
+#     ### create a seesion id ###
+#     try:
+#         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+#     except:
+#         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion, proxies=proxies)
+#     print('Create session:: status code is: ',onedrive_create_session.status_code)
+#     session_id = json.loads(onedrive_create_session.text)['id']
+
+#     ### Below are OneDrive Operations ###
+#     # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
+#     http_headers['Workbook-Session-Id'] = session_id
+#     try:
+#         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
+#     except:
+#         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
+#     if (onedrive_response.status_code == 201):
+#         print('item added to Onedrive for Business Learning_records.xlsx')
+#         # data = {
+#         #     "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
+#         # }
+#     else:
+#         print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
+#         # data = {
+#         #     "code": {"value": "Failed, Check Github"},
+#         # }
+#     # openid = login_return['openid']
+#     # template_id = login_return['template_id']
+#     # funcLG.send_template_message(openid, template_id, data)    # 推送消息
+
+#     ### close session ###
+#     try:
+#         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
+#     except:
+#         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers, proxies=proxies)
+#     if onedrive_close_session.status_code == 204:
+#         print("Close session successfully!")
+#     else:
+#         print('Close session failed, status code is: ',onedrive_close_session.status_code)
+
+#         # onedrive_response = json.loads(onedrive_response.text)
+#         # items = onedrive_response['value']
+#         # for entries in range(len(items)):
+#         #     print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
