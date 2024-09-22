@@ -2,15 +2,42 @@ import json, requests, datetime, os
 from pandas import DataFrame
 import funcLG
 
-login_return = funcLG.func_login() # to login into MS365 and get the return value
+login_return = funcLG.func_login_secret() # to login into MS365 and get the return value
 result = login_return['result']
 proxies = login_return['proxies']
+site_id = login_return['site_id']
+
 days_number = 7
 # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
 
 day_one = datetime.date.today()
 day_seven_ago = day_one - datetime.timedelta(days=days_number)
 
+# to get the list id and relative info:
+# visit Microsoft Graph API Reference Document https://learn.microsoft.com/en-us/graph/api/site-get?view=graph-rest-1.0 for more information.
+# if  list_url = 'https://xxx-my.sharepoint.com/personal/xxx_yyy_onmicrosoft_com/Lists/Learning_records/AllItems.aspx'
+# then  endpoint_for_site_id = 'https://graph.microsoft.com/v1.0/sites/xxx-my.sharepoint.com:/personal/xxx_yyy_onmicrosoft_com/'
+# data = requests.get(endpoint_for_site_id, headers=http_headers, stream=False).json()
+# site_id = data['id'].split(',')[1]
+
+endpoint = "https://graph.microsoft.com/v1.0/sites/{site_id}/lists/Learning_records"
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'}
+try:
+    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+except:
+    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
+output = data['value']
+
+
+
+
+
+
+
+
+######### below is the history function for MS Teams Shifts ##########
 endpoint = "https://graph.microsoft.com/beta/teams/28887499-6bc5-4b2f-a06c-25cc971e30ca/schedule/timeCards?$filter=(ClockInEvent/DateTime ge {}T00:00:00Z and ClockInEvent/DateTime le {}T23:59:59Z)".format(day_seven_ago,day_one)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
