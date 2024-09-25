@@ -17,30 +17,34 @@ for i in range(len(data)) :
     if data[i]['sportType'] == 102: # swimming
         data_swim.append(data[i])
 
-swimming_info = [['StartTime','Duration','Carolies','Distance']]
+swimming_info = [['recordId','StartTime','Duration-mins','Carolies-kJ','Distance-m']]
 for i in range(len(data_swim)):
     swimming_temp = []
-    swimming_temp.append(data_swim[i]['startTime'])
-    swimming_temp.append(data_swim[i]['totalTime'])
-    swimming_temp.append(data_swim[i]['totalCalories'])
+
+    # The timestamp in milliseconds
+    time_info = data_swim[i]['startTime']
+
+    # Convert the timestamp to seconds
+    time_info = time_info / 1000
+
+    # Create a datetime object from the timestamp
+    time_info_object = datetime.datetime.fromtimestamp(time_info)
+
+    # Print the datetime object
+    print("Datetime object:", time_info_object)
+
+    # Format the datetime object as a string
+    time_info_formated = time_info_object.strftime('%Y-%m-%d %H:%M:%S')
+    print("Formatted time:", time_info_formated)
+
+    swimming_temp.append(data_swim[i]['recordId'])
+    swimming_temp.append(time_info_formated)
+    swimming_temp.append(round(data_swim[i]['totalTime']/1000/60,1)) # mins
+    swimming_temp.append(data_swim[i]['totalCalories'/1000])
     swimming_temp.append(data_swim[i]['totalDistance'])
     swimming_info.append(swimming_temp)
 
 
-# The timestamp in milliseconds
-timestamp_ms = 1723347875000
 
-# Convert the timestamp to seconds
-timestamp_s = timestamp_ms / 1000
-
-# Create a datetime object from the timestamp
-dt_object = datetime.datetime.fromtimestamp(timestamp_s)
-
-# Print the datetime object
-print("Datetime object:", dt_object)
-
-# Format the datetime object as a string
-formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-print("Formatted time:", formatted_time)
 
 pass
