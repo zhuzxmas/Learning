@@ -18,9 +18,6 @@ for i in range(len(data)) :
     if data[i]['sportType'] == 102: # swimming
         data_swim.append(data[i])
 
-# swimming_info = [['StartTime','Duration-mins','Carolies-kJ','Distance-m',\
-#                    'heartBeat-Mean', 'heartBeat-Max', 'LaneDistance', '# Lane', 'Pull times', \
-#                    'Mean Pull times', 'Mean SWOLF', 'Max Speed s', 'Mean Speed s']]
 swimming_info = [['recordId','StartTime','Duration-mins','Carolies-kJ','Distance-m',\
                    'heartBeat-Mean', 'heartBeat-Max', 'LaneDistance', '# Lane', 'Pull times', \
                    'Mean Pull times', 'Mean SWOLF', 'Max Speed s', 'Mean Speed s']]
