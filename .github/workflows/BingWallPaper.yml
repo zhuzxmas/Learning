@@ -36,6 +36,7 @@ jobs:
     - name: run main file
       env:
         client_id : ${{secrets.CLIENT_ID}}
+        site_id : ${{secrets.SITE_ID}}
         client_secret : ${{secrets.CLIENT_SECRET}}
         tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.CLIENT_ID}}
