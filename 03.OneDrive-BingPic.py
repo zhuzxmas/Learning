@@ -30,7 +30,7 @@ def save_img(img_url):  # save downloaded file to directory: dirname
 
 
 # get the real img url by using the raw_img_url address, for Bing CN WallPaper, use mkt=zh-CN.
-def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160&mkt=zh-CN"):
+def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&idx=4&n=1&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160&mkt=zh-CN"):
     global notifymsg
     r = requests.get(raw_img_url)
     rtext = json.loads(r.text)
@@ -71,7 +71,8 @@ def add_img_description(notifymsg, filepath):
         draw.text((x, y), char, fill=(250, 250, 250), font=font)
 
         # Move the x position for the next character
-        x += font.getsize(char)[0]
+        x += font.getsize(char)[0]   # for pillow version == 9.0.1
+        # x += font.getbbox(char)[0]   # for pillow version >= 10.4.1, but further updates are needed, this sentence is not correct.
 
     imagetemp.save(filepath)
 
