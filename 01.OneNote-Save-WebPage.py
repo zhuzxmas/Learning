@@ -2,7 +2,7 @@ import funcLG, requests
 from bs4 import BeautifulSoup
 
 login_return = funcLG.func_login_secret() # to login into MS365 and get the return value
-result = login_return['result']
+result = login_return['result'] # to get the return value
 proxies = login_return['proxies']
 
 web_page_url = input('Please enter your web page url : \n')
