@@ -139,7 +139,7 @@ while x == True:
 
 soup1_consolidate_DataFrame = DataFrame(data_out,columns=['house title','house desc','unit price','total price w RMB', 'History', 'Online starts', 'details','house link'])
 print(soup1_consolidate_DataFrame)
-soup1_consolidate_DataFrame.to_csv('result\ke-{}_{}.csv'.format(city,estate_area),mode='w',header=True, index=False, encoding='utf_8_sig')
+soup1_consolidate_DataFrame.to_csv('ke-{}_{}.csv'.format(city,estate_area),mode='w',header=True, index=False, encoding='utf_8_sig')
 enditem = input("")
 
 
