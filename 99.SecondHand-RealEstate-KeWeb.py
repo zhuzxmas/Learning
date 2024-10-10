@@ -33,6 +33,7 @@ dict_com_kw = {'mas安粮城市广场':'c8741134013957049/',\
                 'mas绿地臻城一期':'c8741133987738181',\
                 'mas西湖花园':'c8741131163630933',\
                 'nj翠屏清华园':'c1411049353593',\
+                'nj托乐嘉旺邻居':'c1411049363601',\
                 'nj翠屏城':'c1411099647284',\
                 'nj银城蓝溪郡':'c1411063103011',\
                 'zj朗诗万都玲珑樾':'c8120034213244822',\
@@ -82,7 +83,8 @@ while x == True:
     soup1_page_info_details = res.json()['data']['data']['getErShouFangList']['list']
     has_more_page = res.json()['data']['data']['getErShouFangList']['hasMoreData']
 
-    for i in range(len(soup1_page_info_details)):
+    houses_number_this_page = len(soup1_page_info_details)
+    for i in range(houses_number_this_page):
         data_out_temp = []
         if len(soup1_page_info_details[i]) != 1:
             house_title = soup1_page_info_details[i]['title']
@@ -102,7 +104,7 @@ while x == True:
         data_out_temp.append(house_totalPrice)
         data_out_temp.append(house_history)
 
-        print('Page {}, Getting info from {} ---\n'.format(page_number,url))
+        print('Page {}: {}/{}, Getting info from {} ---\n'.format(page_number, i, houses_number_this_page, url))
         try:
             res1 = requests.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
         except:
