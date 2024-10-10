@@ -95,12 +95,40 @@ while x == True:
                 house_history = ''
 
             house_url = '=HYPERLINK("' + soup1_page_info_details[i]['jumpUrl'] + '")'
+            url = soup1_page_info_details[i]['jumpUrl']
         data_out_temp.append(house_title)
         data_out_temp.append(house_desc)
         data_out_temp.append(house_unitPrice)
         data_out_temp.append(house_totalPrice)
         data_out_temp.append(house_history)
+
+        print('Getting info from {} ---\n'.format(url))
+        try:
+            res1 = requests.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
+        except:
+            with open(r'''C:\Users\zzhu25\OneDrive - azureford\important-docs\00.PythonScripts\pacfile''') as f:
+                pac = PACFile(f.read())
+            session = PACSession(pac)
+            res1 = session.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
+        time.sleep(random.uniform(7, 13))
+        res1.raise_for_status()
+        res1_info = bs4.BeautifulSoup(res1.content,'lxml').select('script[charset="utf-8"][type="text/javascript"]')[4]
+        res1_info_json = json.loads(res1_info.text.replace(" window.__PRELOADED_STATE__ = ","").replace(';',''))
+        try:
+            list_time = res1_info_json['ershoufangDetail']['houseTrends']['time_line']['list_time']
+        except:
+            list_time = 'no info'
+
+        try:
+            details = str(res1_info_json['ershoufangDetail']['houseInfo']['more_info']['register_info']['list'])
+        except:
+            details = 'no info'
+        data_out_temp.append(list_time)
+        data_out_temp.append(details)
+
+
         data_out_temp.append(house_url)
+
         data_out.append(data_out_temp)
 
     if has_more_page == 1:
@@ -109,7 +137,7 @@ while x == True:
     else:
         x = False
 
-soup1_consolidate_DataFrame = DataFrame(data_out,columns=['house title','house desc','unit price','total price w RMB', 'History','house link'])
+soup1_consolidate_DataFrame = DataFrame(data_out,columns=['house title','house desc','unit price','total price w RMB', 'History', 'Online starts', 'details','house link'])
 print(soup1_consolidate_DataFrame)
 soup1_consolidate_DataFrame.to_csv('result\ke-{}_{}.csv'.format(city,estate_area),mode='w',header=True, index=False, encoding='utf_8_sig')
 enditem = input("")
