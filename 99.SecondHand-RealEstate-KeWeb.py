@@ -102,7 +102,7 @@ while x == True:
         data_out_temp.append(house_totalPrice)
         data_out_temp.append(house_history)
 
-        print('Getting info from {} ---\n'.format(url))
+        print('Page {}, Getting info from {} ---\n'.format(page_number,url))
         try:
             res1 = requests.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
         except:
