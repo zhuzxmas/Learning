@@ -42,6 +42,30 @@ dict_com_kw = {'mas安粮城市广场':'c8741134013957049/',\
                 'nj保利梧桐语花园':'c1411099825154',\
                 }
 
+pprint.pprint(dict_com_kw)
+input('Please press enter to continue: \n')
+
+estate_area = input('Please input the community ==Name== you want to check, you can use any name, it will be used for the filename: \nJust copy and paste if it is existed above; You can also input whatever you want, BUT Chinese Characters are not recommended !!! : \n')
+try:
+    community_code = dict_com_kw[estate_area]
+except:
+    print('\n')
+    print('Now, you need to input the Community Code by Yourself...\n')
+    input('Please press enter to continue: \n')
+
+    print('Since there is no suitable community above, please use your phone or computure to check the community code.')
+    print('======================================')
+    print('How to find the Community Code:\n')
+    print('     ----- 1. Go to http://www.ke.com    \n')
+    print('     ----- 2. Search the Community you want in ke.com website    \n')
+    print('     ----- 3. Click the link for the Community you want from the Search Result    \n')
+    print('     ----- 4. Observe the URI Address for this Community, it will be like    \n')
+    print('     ------------------   https://nj.ke.com/ershoufang/c1411041475490/  ----------  \n')
+    print('     ----- 5. Here, c1411041475490 is what you want, just copy it, you\'ll need to use it later.     \n')
+    print('======================================')
+    community_code = input('Please Input the Community Code: \n')
+
+
 headerinfo = {
 'Host': 'm.ke.com',
 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/113.0',
@@ -53,8 +77,6 @@ headerinfo = {
 'Cache-Control': 'max-age=0',
 }
 
-pprint.pprint(list(dict_com_kw.keys()))
-estate_area = input('Please input the community you want to check: \nJust copy and paste: \n')
 
 # this is for the final output data
 data_out = []
@@ -64,8 +86,8 @@ x = True
 
 
 while x == True:
-    url_temp = 'https://'+ 'm.ke.com/{}/ershoufang/'.format(dict_cit_kw[city])  + dict_com_kw[estate_area] + 'pg' + str(page_number)
-    url_temp = 'https://m.ke.com/liverpool/api/ershoufang/getList?cityId={}&condition=%252F{}pg{}&curPage={}'.format(dict_cit_kw[city], dict_com_kw[estate_area], str(page_number), str(page_number))
+    url_temp = 'https://'+ 'm.ke.com/{}/ershoufang/'.format(dict_cit_kw[city])  + community_code + 'pg' + str(page_number)
+    url_temp = 'https://m.ke.com/liverpool/api/ershoufang/getList?cityId={}&condition=%252F{}pg{}&curPage={}'.format(dict_cit_kw[city], community_code, str(page_number), str(page_number))
     print(url_temp + '\n')
 
     try:
