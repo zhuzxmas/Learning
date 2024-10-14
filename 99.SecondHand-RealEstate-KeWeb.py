@@ -12,6 +12,9 @@ from pandas import DataFrame
 import json
 import pprint
 
+print('###=====================================================================### \n')
+print('### Ke.com 2nd Hand Real Estate Version 0.03   last updated: 2024-10-11 ### \n')
+print('###=====================================================================### \n')
 
 soup1_house_title_list = []
 soup1_house_title_link_list= []
@@ -43,15 +46,15 @@ dict_com_kw = {'mas安粮城市广场':'c8741134013957049/',\
                 }
 
 pprint.pprint(dict_com_kw)
-input('Please press enter to continue: \n')
+input('Please press enter to continue: =======No Need to Input here=======\n')
 
-estate_area = input('Please input the community ==Name== you want to check, you can use any name, it will be used for the filename: \nJust copy and paste if it is existed above; You can also input whatever you want, BUT Chinese Characters are not recommended !!! : \n')
+estate_area = input('Please input the community =====Name===== you want to check, you can use any name, it will be used for the filename: \nJust copy and paste if it is existed above; You can also input whatever you want, BUT Chinese Characters are not recommended !!!\nPlease input ===Community Name===: ')
 try:
     community_code = dict_com_kw[estate_area]
 except:
     print('\n')
     print('Now, you need to input the Community Code by Yourself...\n')
-    input('Please press enter to continue: \n')
+    input('Please press enter to continue:  =======No Need to Input here=======\n')
 
     print('Since there is no suitable community above, please use your phone or computure to check the community code.')
     print('======================================')
@@ -63,7 +66,7 @@ except:
     print('     ------------------   https://nj.ke.com/ershoufang/c1411041475490/  ----------  \n')
     print('     ----- 5. Here, c1411041475490 is what you want, just copy it, you\'ll need to use it later.     \n')
     print('======================================')
-    community_code = input('Please Input the Community Code: \n')
+    community_code = input('Please Input ===Community Code===: \n')
 
 
 headerinfo = {
@@ -78,10 +81,16 @@ headerinfo = {
 }
 
 
-# this is for the final output data
-data_out = []
 
-page_number = 1
+page_number  = input('Please enter a page number you want to start download, Press "Enter" for default 1 : \n' )  or '1'
+page_number = int(page_number)
+print('===================================\n\n\n')
+
+print('Every Page has about 30 houses...\n')
+print('Here, this tool will get the information one by one with Sequence, like 0, 1, 2, 3, 4...\n')
+print('If you want to start from a specific one, Please input it in below. \n')
+sequence_number = input('Please enter a sequence number:  Press "Enter" for default 0 (the very first housen). \n') or '0'
+sequence_number = int(sequence_number)
 x = True
 
 
@@ -93,7 +102,9 @@ while x == True:
     try:
         res = requests.get(url_temp,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
     except:
-        with open(r'''C:\Users\zzhu25\OneDrive - azureford\important-docs\00.PythonScripts\pacfile''') as f:
+        # with open(r'''C:\Users\zzhu25\OneDrive - azureford\important-docs\00.PythonScripts\pacfile''') as f:
+        with open(r'./pacfile') as f: # this line is for python normal usage.
+        # with open(r'./_internal/pacfile') as f: # this line is for pyinstaller to complie an .exe file.
             pac = PACFile(f.read())
         session = PACSession(pac)
         res = session.get(url_temp,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
@@ -106,7 +117,10 @@ while x == True:
     has_more_page = res.json()['data']['data']['getErShouFangList']['hasMoreData']
 
     houses_number_this_page = len(soup1_page_info_details)
-    for i in range(houses_number_this_page):
+    for i in range(sequence_number, houses_number_this_page):
+        # this is for the final output data
+        data_out = []
+
         data_out_temp = []
         if len(soup1_page_info_details[i]) != 1:
             house_title = soup1_page_info_details[i]['title']
@@ -120,6 +134,8 @@ while x == True:
 
             house_url = '=HYPERLINK("' + soup1_page_info_details[i]['jumpUrl'] + '")'
             url = soup1_page_info_details[i]['jumpUrl']
+        data_out_temp.append(page_number)
+        data_out_temp.append(i)
         data_out_temp.append(house_title)
         data_out_temp.append(house_desc)
         data_out_temp.append(house_unitPrice)
@@ -130,7 +146,9 @@ while x == True:
         try:
             res1 = requests.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
         except:
-            with open(r'''C:\Users\zzhu25\OneDrive - azureford\important-docs\00.PythonScripts\pacfile''') as f:
+            # with open(r'''C:\Users\zzhu25\OneDrive - azureford\important-docs\00.PythonScripts\pacfile''') as f:
+            with open(r'./pacfile') as f: # this line is for python normal usage.
+            # with open(r'./_internal/pacfile') as f: # this line is for pyinstaller to complie an .exe file.
                 pac = PACFile(f.read())
             session = PACSession(pac)
             res1 = session.get(url,headers=headerinfo,verify=False,timeout=5) #download above page, send it to res.
@@ -150,10 +168,17 @@ while x == True:
         data_out_temp.append(list_time)
         data_out_temp.append(details)
 
-
         data_out_temp.append(house_url)
 
         data_out.append(data_out_temp)
+
+        soup1_consolidate_DataFrame = DataFrame(data_out,columns=['Page Number','Sequence in this page','house title','house desc','unit price','total price w RMB', 'History', 'Online starts', 'details','house link'])
+        if (page_number == 1 and i == 0):
+            soup1_consolidate_DataFrame.to_csv('ke-{}_{}.csv'.format(city,estate_area),mode='a',header=True, index=False, encoding='utf_8_sig')
+        else:
+            soup1_consolidate_DataFrame.to_csv('ke-{}_{}.csv'.format(city,estate_area),mode='a',header=False, index=False, encoding='utf_8_sig')
+
+        print(soup1_consolidate_DataFrame)
 
     if has_more_page == 1:
         x = True
@@ -161,9 +186,7 @@ while x == True:
     else:
         x = False
 
-soup1_consolidate_DataFrame = DataFrame(data_out,columns=['house title','house desc','unit price','total price w RMB', 'History', 'Online starts', 'details','house link'])
-print(soup1_consolidate_DataFrame)
-soup1_consolidate_DataFrame.to_csv('ke-{}_{}.csv'.format(city,estate_area),mode='w',header=True, index=False, encoding='utf_8_sig')
+
 enditem = input("")
 
 
