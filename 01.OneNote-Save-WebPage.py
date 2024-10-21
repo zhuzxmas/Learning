@@ -18,7 +18,7 @@ if data.status_code == 200:
     soup = BeautifulSoup(data.text, 'html.parser')
 
 
-### Create a OneNote Page ###
+### Create a OneNote Page  ###
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
 http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
                'Content-Type': 'application/xhtml+xml'}
