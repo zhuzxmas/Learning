@@ -24,6 +24,11 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
 else:
     proxy_add = None
 
+login_return = funcLG.func_login() # to login into MS365 and get the return value
+result = login_return['result']
+proxies = login_return['proxies']
+finance_section_id = login_return['finance_section_id']
+
 # config.read(['config1.cfg'])
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
@@ -33,10 +38,6 @@ stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高
 
 day_one = datetime.date.today()
 
-login_return = funcLG.func_login() # to login into MS365 and get the return value
-result = login_return['result']
-proxies = login_return['proxies']
-finance_section_id = login_return['finance_section_id']
 
 #### update OneNote page Title ###
 #endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/1-5550639376b04dafbe186ccd402d4983!19-642556db-9640-4ed4-9c07-5995cf8a4824/content'
@@ -110,16 +111,106 @@ for iii in range(0,len(stock_code)): #在所有的沪深300成分股里面进行
         if len(str(stock_code[iii])) == 6:
             if str(stock_code[iii])[0] == '6': # SH stock
                 stock = str(stock_code[iii]) + '.ss' # SH stock
+                stock_code = str(stock_code[iii]) + '.SH' # SH stock
             else:
                 stock = str(stock_code[iii]) + '.sz' # SZ stock
+                stock_code = str(stock_code[iii]) + '.SZ' # SZ stock
         else:
             len_temp = 6 - len(str(stock_code[iii]))
             prefix = ''
             for ii in range(0,len_temp):
                 prefix = prefix + '0'
             stock = prefix + str(stock_code[iii]) + '.sz'  # SZ stock
+            stock_code = prefix + str(stock_code[iii]) + '.SZ'  # SZ stock
 
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
+
+    p_cash_flow = 'CASH'
+    p_balance_sheet = 'BALANCE'
+    p_income = 'INCOMEQC'
+
+    #=========To Get Info from EastMoney==========================#
+    headers_eastmoney = {
+        'Host': 'datacenter.eastmoney.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
+        'Origin': 'https://emweb.securities.eastmoney.com',
+        'DNT': '1',
+        'Referer': 'https://emweb.securities.eastmoney.com/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+    }
+
+    params_eastmoney_income = {
+        'type': 'RPT_F10_FINANCE_G{}'.format(p_income),
+        'sty': 'APP_F10_G{}'.format(p_income),
+        'filter': '(SECUCODE="{}")'.format(stock_code),
+        'sr': '-1',
+        'st': 'REPORT_DATE',
+        'source': 'HSF10',
+        'client': 'PC',
+        'v': '08650401577442208',
+    }
+    params_eastmoney_cash_flow = {
+        'type': 'RPT_F10_FINANCE_G{}'.format(p_cash_flow),
+        'sty': 'APP_F10_G{}'.format(p_cash_flow),
+        'filter': '(SECUCODE="{}")'.format(stock_code),
+        'sr': '-1',
+        'st': 'REPORT_DATE',
+        'source': 'HSF10',
+        'client': 'PC',
+        'v': '08650401577442208',
+    }
+    params_eastmoney_balance_sheet = {
+        'type': 'RPT_F10_FINANCE_G{}'.format(p_balance_sheet),
+        'sty': 'APP_F10_G{}'.format(p_balance_sheet),
+        'filter': '(SECUCODE="{}")'.format(stock_code),
+        'sr': '-1',
+        'st': 'REPORT_DATE',
+        'source': 'HSF10',
+        'client': 'PC',
+        'v': '08650401577442208',
+    }
+
+    url = "https://datacenter.eastmoney.com/securities/api/data/get"
+
+    try:
+        response_income = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_income)
+    except:
+        response_income = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_income, proxies=proxies)
+    if response_income.status_code == 200:
+        # Process the response data here
+        print(response_income.json())
+    else:
+        print(f"Failed to retrieve data: {response_income.status_code}")
+    time.sleep(random.uniform(30, 60))
+
+    try:
+        response_cash_flow = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_cash_flow)
+    except:
+        response_cash_flow = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_cash_flow, proxies=proxies)
+    if response_cash_flow.status_code == 200:
+        # Process the response data here
+        print(response_cash_flow.json())
+    else:
+        print(f"Failed to retrieve data: {response_cash_flow.status_code}")
+    time.sleep(random.uniform(30, 60))
+
+    try:
+        response_balance_sheet = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_balance_sheet)
+    except:
+        response_balance_sheet = requests.get(url, headers=headers_eastmoney, params=params_eastmoney_balance_sheet, proxies=proxies)
+    if response_balance_sheet.status_code == 200:
+        # Process the response data here
+        print(response_balance_sheet.json())
+    else:
+        print(f"Failed to retrieve data: {response_balance_sheet.status_code}")
+
+
+
+    #=============================================================#
 
     ### 以下是对一只股票进行查询 ###
     stock_target = yf.Ticker(stock)
