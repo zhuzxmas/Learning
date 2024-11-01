@@ -267,7 +267,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             'Sec-Fetch-Site': 'same-site',
         }
 
-        if stock_code:  # for CN stock: to be updated later
+        if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  # for CN stock: to be updated later
             url_eastmoney_income = 'https://datacenter.eastmoney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v=06630889710346992'.format(
                 p_income, p_income, stock_cn, day_one.year, day_one.year, day_one.year)
 
@@ -277,163 +277,162 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             url_eastmoney_balance_sheet = 'https://datacenter.eastmoney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v=035376456081999563'.format(
                 p_balance_sheet, p_balance_sheet, stock_cn, day_one.year, day_one.year, day_one.year)
 
-        else:  # for US stock, to be updated later
-            pass
 
-        try:
-            response_income = requests.get(
-                url_eastmoney_income, headers=headers_eastmoney)
-        except:
-            response_income = requests.get(
-                url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
-        if response_income.status_code == 200:
-            # Process the response data here
-            print(response_income.json())
-        else:
-            print(f"Failed to retrieve data: {response_income.status_code}")
-        time.sleep(random.uniform(30, 60))
+            try:
+                response_income = requests.get(
+                    url_eastmoney_income, headers=headers_eastmoney)
+            except:
+                response_income = requests.get(
+                    url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
+            if response_income.status_code == 200:
+                # Process the response data here
+                print(response_income.json())
+            else:
+                print(f"Failed to retrieve data: {response_income.status_code}")
+            time.sleep(random.uniform(30, 60))
 
-        try:
-            response_cash_flow = requests.get(
-                url_eastmoney_cash_flow, headers=headers_eastmoney)
-        except:
-            response_cash_flow = requests.get(
-                url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
-        if response_cash_flow.status_code == 200:
-            # Process the response data here
-            print(response_cash_flow.json())
-        else:
-            print(f"Failed to retrieve data: {response_cash_flow.status_code}")
-        time.sleep(random.uniform(30, 60))
+            try:
+                response_cash_flow = requests.get(
+                    url_eastmoney_cash_flow, headers=headers_eastmoney)
+            except:
+                response_cash_flow = requests.get(
+                    url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
+            if response_cash_flow.status_code == 200:
+                # Process the response data here
+                print(response_cash_flow.json())
+            else:
+                print(f"Failed to retrieve data: {response_cash_flow.status_code}")
+            time.sleep(random.uniform(30, 60))
 
-        try:
-            response_balance_sheet = requests.get(
-                url_eastmoney_balance_sheet, headers=headers_eastmoney)
-        except:
-            response_balance_sheet = requests.get(
-                url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
-        if response_balance_sheet.status_code == 200:
-            # Process the response data here
-            print(response_balance_sheet.json())
-        else:
-            print(
-                f"Failed to retrieve data: {response_balance_sheet.status_code}")
-        time.sleep(random.uniform(30, 60))
+            try:
+                response_balance_sheet = requests.get(
+                    url_eastmoney_balance_sheet, headers=headers_eastmoney)
+            except:
+                response_balance_sheet = requests.get(
+                    url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
+            if response_balance_sheet.status_code == 200:
+                # Process the response data here
+                print(response_balance_sheet.json())
+            else:
+                print(
+                    f"Failed to retrieve data: {response_balance_sheet.status_code}")
+            time.sleep(random.uniform(30, 60))
 
-        df_income_stock = df(response_income.json()['result']['data'])
-        df_cash_flow = df(response_cash_flow.json()['result']['data'])
-        df_balance_sheet = df(response_balance_sheet.json()['result']['data'])
+            df_income_stock = df(response_income.json()['result']['data'])
+            df_cash_flow = df(response_cash_flow.json()['result']['data'])
+            df_balance_sheet = df(response_balance_sheet.json()['result']['data'])
 
-        df_income_stock = df_income_stock.set_index('REPORT_DATE_NAME')
-        df_cash_flow = df_cash_flow.set_index('REPORT_DATE_NAME')
-        df_balance_sheet = df_balance_sheet.set_index('REPORT_DATE_NAME')
+            df_income_stock = df_income_stock.set_index('REPORT_DATE_NAME')
+            df_cash_flow = df_cash_flow.set_index('REPORT_DATE_NAME')
+            df_balance_sheet = df_balance_sheet.set_index('REPORT_DATE_NAME')
 
-        quarter_mapping_income = {
-            '一季度': '-03-31',
-            '二季度': '-06-30',
-            '三季度': '-09-30',
-        }
-        new_index_income = df_income_stock.index.to_series().replace(quarter_mapping_income, regex=True)
-        df_income_stock = df_income_stock.set_index(pd.Index(new_index_income, name='REPORT_DATE_NAME'))
+            quarter_mapping_income = {
+                '一季度': '-03-31',
+                '二季度': '-06-30',
+                '三季度': '-09-30',
+            }
+            new_index_income = df_income_stock.index.to_series().replace(quarter_mapping_income, regex=True)
+            df_income_stock = df_income_stock.set_index(pd.Index(new_index_income, name='REPORT_DATE_NAME'))
 
-        quarter_mapping_cash_flow = {
-            '一季报': '-03-31',
-            '中报': '-06-30',
-            '三季报': '-09-30',
-        }
-        new_index_cash_flow = df_cash_flow.index.to_series().replace(quarter_mapping_cash_flow, regex=True)
-        df_cash_flow = df_cash_flow.set_index(pd.Index(new_index_cash_flow, name='REPORT_DATE_NAME'))
-        df_balance_sheet = df_balance_sheet.set_index(pd.Index(new_index_cash_flow, name='REPORT_DATE_NAME'))
+            quarter_mapping_cash_flow = {
+                '一季报': '-03-31',
+                '中报': '-06-30',
+                '三季报': '-09-30',
+            }
+            new_index_cash_flow = df_cash_flow.index.to_series().replace(quarter_mapping_cash_flow, regex=True)
+            df_cash_flow = df_cash_flow.set_index(pd.Index(new_index_cash_flow, name='REPORT_DATE_NAME'))
+            df_balance_sheet = df_balance_sheet.set_index(pd.Index(new_index_cash_flow, name='REPORT_DATE_NAME'))
 
-        ### How Big The Company Is ###
-        # 销售额
-        stock_0_TotalRevenue_m = df_income_stock['TOTAL_OPERATE_INCOME']/100000000
-        stock_0_TotalRevenue_m.name = '营业总收入 销售额 亿元'
-        # 总资产
-        stock_0_TotalAssets_m = df_balance_sheet['TOTAL_ASSETS']/100000000
-        stock_0_TotalAssets_m.name = '总资产 亿元'
-        stock_0_EBIT_m = df_income_stock['OPERATE_PROFIT']/100000000  # 息税前利润
-        stock_0_EBIT_m.name = '营业收入 息税前利润 亿元'
+            ### How Big The Company Is ###
+            # 销售额
+            stock_0_TotalRevenue_m = df_income_stock['TOTAL_OPERATE_INCOME']/100000000
+            stock_0_TotalRevenue_m.name = '营业总收入 销售额 亿元'
+            # 总资产
+            stock_0_TotalAssets_m = df_balance_sheet['TOTAL_ASSETS']/100000000
+            stock_0_TotalAssets_m.name = '总资产 亿元'
+            stock_0_EBIT_m = df_income_stock['OPERATE_PROFIT']/100000000  # 息税前利润
+            stock_0_EBIT_m.name = '营业收入 息税前利润 亿元'
 
-        ### Profit Stability of The Company ###
-        # 每股稀释后收益 季度，每股收益
-        stock_0_profit_margin_m = df_income_stock['DILUTED_EPS']
-        stock_0_profit_margin_m.name = '稀释后 每季度每股收益 元'
+            ### Profit Stability of The Company ###
+            # 每股稀释后收益 季度，每股收益
+            stock_0_profit_margin_m = df_income_stock['DILUTED_EPS']
+            stock_0_profit_margin_m.name = '稀释后 每季度每股收益 元'
 
-        ### How Well The Company Financial Status is ###
-        # 流动资产
-        stock_0_CurrentAssets_m = df_balance_sheet['TOTAL_CURRENT_ASSETS']/100000000
-        stock_0_CurrentAssets_m.name = '流动资产 亿元'
-        # 流动负债
-        stock_0_CurrentLiabilities_m = df_balance_sheet['TOTAL_CURRENT_LIAB']/100000000
-        stock_0_CurrentLiabilities_m.name = '流动负债 亿元'
-        # 流动资产与流动负债之比 应>2
-        stock_0_CurrentAssets_vs_Liabilities_m = df_balance_sheet[
-            'TOTAL_CURRENT_ASSETS']/df_balance_sheet['TOTAL_CURRENT_LIAB']
-        stock_0_CurrentAssets_vs_Liabilities_m.name = '流动资产/流动负债>2'
-        # 非流动负债合计，我认为是长期负债
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m = df_balance_sheet[
-            'TOTAL_NONCURRENT_LIAB']/100000000
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m.name = '非流动负债'
-        stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m = stock_0_CurrentAssets_m - \
-            stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m  # 流动资产扣除长期负债后应大于0
-        stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m.name = '流动资产-长期负债>0'
+            ### How Well The Company Financial Status is ###
+            # 流动资产
+            stock_0_CurrentAssets_m = df_balance_sheet['TOTAL_CURRENT_ASSETS']/100000000
+            stock_0_CurrentAssets_m.name = '流动资产 亿元'
+            # 流动负债
+            stock_0_CurrentLiabilities_m = df_balance_sheet['TOTAL_CURRENT_LIAB']/100000000
+            stock_0_CurrentLiabilities_m.name = '流动负债 亿元'
+            # 流动资产与流动负债之比 应>2
+            stock_0_CurrentAssets_vs_Liabilities_m = df_balance_sheet[
+                'TOTAL_CURRENT_ASSETS']/df_balance_sheet['TOTAL_CURRENT_LIAB']
+            stock_0_CurrentAssets_vs_Liabilities_m.name = '流动资产/流动负债>2'
+            # 非流动负债合计，我认为是长期负债
+            stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m = df_balance_sheet[
+                'TOTAL_NONCURRENT_LIAB']/100000000
+            stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m.name = '非流动负债'
+            stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m = stock_0_CurrentAssets_m - \
+                stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m  # 流动资产扣除长期负债后应大于0
+            stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m.name = '流动资产-长期负债>0'
 
-        ### Stock price vs Assets ratio ###
-        # 无形资产
-        stock_0_OtherIntangibleAssets_m = df_balance_sheet['INTANGIBLE_ASSET']/100000000
-        # 总负债
-        stock_0_TotalLiabilitiesNetMinorityInterest_m = df_balance_sheet[
-            'TOTAL_LIABILITIES']/100000000
-        # 普通股数量
-        stock_0_OrdinarySharesNumber_m = df_balance_sheet['SHARE_CAPITAL']/1000000
-        stock_0_OrdinarySharesNumber_m.name = '普通股数量 百万'
-        stock_0_BookValue_m = stock_0_TotalAssets_m - stock_0_OtherIntangibleAssets_m - \
-            stock_0_TotalLiabilitiesNetMinorityInterest_m  # 总账面价值
-        stock_0_BookValue_per_Share_m = stock_0_BookValue_m * \
-            100000000/(stock_0_OrdinarySharesNumber_m*1000000)  # 每股账面价值
-        stock_0_BookValue_per_Share_m.name = '每股账面价值 元'
-        stock_price_less_than_BookValue_ratio_m = stock_0_BookValue_per_Share_m * \
-            1.5  # 按账面价值计算出来的目标股价
-        stock_price_less_than_BookValue_ratio_m.name = '每股账面价值1.5倍元'
+            ### Stock price vs Assets ratio ###
+            # 无形资产
+            stock_0_OtherIntangibleAssets_m = df_balance_sheet['INTANGIBLE_ASSET']/100000000
+            # 总负债
+            stock_0_TotalLiabilitiesNetMinorityInterest_m = df_balance_sheet[
+                'TOTAL_LIABILITIES']/100000000
+            # 普通股数量
+            stock_0_OrdinarySharesNumber_m = df_balance_sheet['SHARE_CAPITAL']/1000000
+            stock_0_OrdinarySharesNumber_m.name = '普通股数量 百万'
+            stock_0_BookValue_m = stock_0_TotalAssets_m - stock_0_OtherIntangibleAssets_m - \
+                stock_0_TotalLiabilitiesNetMinorityInterest_m  # 总账面价值
+            stock_0_BookValue_per_Share_m = stock_0_BookValue_m * \
+                100000000/(stock_0_OrdinarySharesNumber_m*1000000)  # 每股账面价值
+            stock_0_BookValue_per_Share_m.name = '每股账面价值 元'
+            stock_price_less_than_BookValue_ratio_m = stock_0_BookValue_per_Share_m * \
+                1.5  # 按账面价值计算出来的目标股价
+            stock_price_less_than_BookValue_ratio_m.name = '每股账面价值1.5倍元'
 
-        ### PE Ratio of the Company ###
-        stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
-        stock_price_less_than_PE_ratio_m = stock_PE_ratio_target * \
-            stock_0_profit_margin_m * 4  # 股份不能超过的值
-        stock_price_less_than_PE_ratio_m.name = '市盈率15对应股价 元'
+            ### PE Ratio of the Company ###
+            stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
+            stock_price_less_than_PE_ratio_m = stock_PE_ratio_target * \
+                stock_0_profit_margin_m * 4  # 股份不能超过的值
+            stock_price_less_than_PE_ratio_m.name = '市盈率15对应股价 元'
 
-        # # df_income_stock.T.to_excel('00.in.xlsx',encoding='utf-8')
-        # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
-        # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
+            # # df_income_stock.T.to_excel('00.in.xlsx',encoding='utf-8')
+            # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
+            # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
 
-        # ===============Monthly Info End=====================#
+            # ===============Monthly Info End=====================#
 
-        stock_0_TotalRevenue = pd.concat(
-            [stock_0_TotalRevenue_m, stock_0_TotalRevenue])
-        stock_0_TotalAssets = pd.concat(
-            [stock_0_TotalAssets_m, stock_0_TotalAssets])
-        stock_0_EBIT = pd.concat([stock_0_EBIT_m, stock_0_EBIT])
-        stock_0_CurrentAssets = pd.concat(
-            [stock_0_CurrentAssets_m, stock_0_CurrentAssets])
-        stock_0_CurrentLiabilities = pd.concat(
-            [stock_0_CurrentLiabilities_m, stock_0_CurrentLiabilities])
-        stock_0_CurrentAssets_vs_Liabilities = pd.concat(
-            [stock_0_CurrentAssets_vs_Liabilities_m, stock_0_CurrentAssets_vs_Liabilities])
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = pd.concat(
-            [stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest])
-        stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = pd.concat(
-            [stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities])
-        stock_0_OrdinarySharesNumber = pd.concat(
-            [stock_0_OrdinarySharesNumber_m, stock_0_OrdinarySharesNumber])
-        stock_0_profit_margin = pd.concat(
-            [stock_0_profit_margin_m, stock_0_profit_margin])
-        stock_0_BookValue_per_Share = pd.concat(
-            [stock_0_BookValue_per_Share_m, stock_0_BookValue_per_Share])
-        stock_price_less_than_BookValue_ratio = pd.concat(
-            [stock_price_less_than_BookValue_ratio_m, stock_price_less_than_BookValue_ratio])
-        stock_price_less_than_PE_ratio = pd.concat(
-            [stock_price_less_than_PE_ratio_m, stock_price_less_than_PE_ratio])
+            stock_0_TotalRevenue = pd.concat(
+                [stock_0_TotalRevenue_m, stock_0_TotalRevenue])
+            stock_0_TotalAssets = pd.concat(
+                [stock_0_TotalAssets_m, stock_0_TotalAssets])
+            stock_0_EBIT = pd.concat([stock_0_EBIT_m, stock_0_EBIT])
+            stock_0_CurrentAssets = pd.concat(
+                [stock_0_CurrentAssets_m, stock_0_CurrentAssets])
+            stock_0_CurrentLiabilities = pd.concat(
+                [stock_0_CurrentLiabilities_m, stock_0_CurrentLiabilities])
+            stock_0_CurrentAssets_vs_Liabilities = pd.concat(
+                [stock_0_CurrentAssets_vs_Liabilities_m, stock_0_CurrentAssets_vs_Liabilities])
+            stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = pd.concat(
+                [stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_m, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest])
+            stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities = pd.concat(
+                [stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_m, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities])
+            stock_0_OrdinarySharesNumber = pd.concat(
+                [stock_0_OrdinarySharesNumber_m, stock_0_OrdinarySharesNumber])
+            stock_0_profit_margin = pd.concat(
+                [stock_0_profit_margin_m, stock_0_profit_margin])
+            stock_0_BookValue_per_Share = pd.concat(
+                [stock_0_BookValue_per_Share_m, stock_0_BookValue_per_Share])
+            stock_price_less_than_BookValue_ratio = pd.concat(
+                [stock_price_less_than_BookValue_ratio_m, stock_price_less_than_BookValue_ratio])
+            stock_price_less_than_PE_ratio = pd.concat(
+                [stock_price_less_than_PE_ratio_m, stock_price_less_than_PE_ratio])
+            # to combine monthly data with yearly data, for CN stock
 
         stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
                                  stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber, stock_0_profit_margin, stock_0_profit_margin_increase, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
@@ -491,9 +490,13 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name[iii])
         else:
-            page_content += stock_0_dividends.to_frame().to_html()
+            if len(stock_0_dividends) < 8:
+                page_content += stock_0_dividends.to_frame().to_html()
+            else:
+                page_content += stock_0_dividends[-6:].to_frame().to_html()
+
         # page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
-        page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
+        # page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
         page_content += "<div><p>                                                                                                </p></div>"
         # page_content = page_content.replace('\n','')
         page_content = page_content.replace('<th></th>', '<th>item</th>')
