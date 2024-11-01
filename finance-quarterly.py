@@ -484,8 +484,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         page_content += stock_output.to_html()
         page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name[iii], last_7_days_stock_price_high_low)
-        page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
-            stock, stock_name[iii])
+        # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
+            # stock, stock_name[iii])
         if stock_0_dividends.empty:
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name[iii])
