@@ -286,7 +286,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
             if response_income.status_code == 200:
                 # Process the response data here
-                print(response_income.json())
+                # print(response_income.json())
+                pass
             else:
                 print(f"Failed to retrieve data: {response_income.status_code}")
             time.sleep(random.uniform(30, 60))
@@ -299,7 +300,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
             if response_cash_flow.status_code == 200:
                 # Process the response data here
-                print(response_cash_flow.json())
+                # print(response_cash_flow.json())
+                pass
             else:
                 print(f"Failed to retrieve data: {response_cash_flow.status_code}")
             time.sleep(random.uniform(30, 60))
@@ -312,7 +314,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
             if response_balance_sheet.status_code == 200:
                 # Process the response data here
-                print(response_balance_sheet.json())
+                # print(response_balance_sheet.json())
+                pass
             else:
                 print(
                     f"Failed to retrieve data: {response_balance_sheet.status_code}")
