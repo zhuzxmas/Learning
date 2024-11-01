@@ -12,7 +12,6 @@ import datetime
 import json
 import funcLG
 from pandas import DataFrame as df
-import urllib.parse
 
 # https://data.eastmoney.com/other/index/hs300.html 沪深300成分股清单
 stock_code = [600885, 688981, 688599, 688561, 688396, 688363, 688303, 688271, 688256, 688223, 688187, 688126, 688111, 688065, 688041, 688036, 688012, 688008, 605499, 605117, 603993, 603986, 603899, 603833, 603806, 603799, 603659, 603501, 603486, 603392, 603369, 603290, 603288, 603260, 603259, 603195, 603019, 601998, 601995, 601989, 601988, 601985, 601939, 601919, 601916, 601901, 601899, 601898, 601888, 601881, 601878, 601877, 601872, 601868, 601865, 601857, 601838, 601818, 601816, 601808, 601800, 601799, 601788, 601766, 601728, 601699, 601698, 601689, 601688, 601669, 601668, 601658, 601633, 601628, 601618, 601615, 601607, 601601, 601600, 601398, 601390, 601377, 601360, 601336, 601328, 601319, 601318, 601288, 601238, 601236, 601229, 601225, 601211, 601186, 601169, 601166, 601155, 601138, 601117, 601111, 601100, 601088, 601066, 601059, 601021, 601012, 601009, 601006, 600999, 600989, 600958, 600941, 600938, 600926, 600919, 600918, 600905, 600900, 600893, 600887, 600886, 600875, 600845, 600837, 600809, 600803, 600795, 600760, 600754, 600745, 600741, 600732, 600690, 600674, 600660, 600606, 600600,
@@ -49,69 +48,43 @@ stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高
 day_one = datetime.date.today()
 
 
-#### update OneNote page Title ###
-# endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/1-5550639376b04dafbe186ccd402d4983!19-642556db-9640-4ed4-9c07-5995cf8a4824/content'
-# http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-#               'Content-Type': 'application/json'}
-#
-# below is to change the title of this page
-# page_title_value = [{
-#   'target':'title',
-#   'action':'replace',
-#   'content':'Python Test for OneNote API'
-# }]
-#
-# body_data_append = [
-#    {
-#        "target": "body",
-#        "action": "append",
-#        "content": "<div><p>This is the new text to append.</p></div>"
-#    }
-# ]
-#
-# data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4))
-# try:
-#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4))
-# except:
-#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(page_title_value,indent=4),proxies=proxies)
-
 
 # This is temparory blocked, it can be used, as long as to update the finance_section_id
-#### Create a OneNote Page ###
-# endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
-# http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
-#               'Content-Type': 'application/xhtml+xml'}
-# page_title = 'Stock info {}-quarterly'.format(day_one.strftime('%Y-%m-%d'))
-# create_page_initial = """
-# <!DOCTYPE html>
-# <html>
-# <head>
-# <title>{}</title>
-# <meta name="created" content="{}" />
-# </head>
-# <body>
-# <!-- No content in the body -->
-# </body>
-# </html>
-# """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
-# try:
-#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
-# except:
-#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
-#
-#
-##### Append OneNote page content ###
-# onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
-# endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
-# http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-#               'Content-Type': 'application/json'}
-#
+### Create a OneNote Page ###
+endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
+http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+              'Content-Type': 'application/xhtml+xml'}
+page_title = 'Stock info {}-quarterly'.format(day_one.strftime('%Y-%m-%d'))
+create_page_initial = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>{}</title>
+<meta name="created" content="{}" />
+</head>
+<body>
+<!-- No content in the body -->
+</body>
+</html>
+""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+try:
+   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
+except:
+   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+
+
+#### Append OneNote page content ###
+onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+              'Content-Type': 'application/json'}
+
 # below is to change the title of this page
-# page_title_value = [{
-# 'target':'title',
-# 'action':'replace',
-# 'content':'Python Test for OneNote API'
-# }]
+page_title_value = [{
+'target':'title',
+'action':'replace',
+'content':'Python Test for OneNote API'
+}]
 
 
 for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询
