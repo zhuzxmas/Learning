@@ -36,6 +36,7 @@ jobs:
         client_id : ${{secrets.CLIENT_ID}}
         client_secret : ${{secrets.CLIENT_SECRET}}
         site_id : ${{secrets.SITE_ID}}
+        tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.SCOPE_LIST}}
         wx_APPID : ${{secrets.WX_APPID}}
         wx_SECRET : ${{secrets.WX_SECRET}}
