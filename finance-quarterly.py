@@ -449,8 +449,13 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         for i in range(0, len(duration)):
             time_list.append(duration[i].split('-')[0])
         for i in range(0, len(time_list)):
-            stock_price = stock_target.history(start=str(int(
-                time_list[i])+1) + '-03-15', end=str(int(time_list[i])+2) + '-03-14', proxy=proxy_add)
+            if time_list[i] != day_one.year:
+                stock_price = stock_target.history(start=str(int(
+                    time_list[i])+1) + '-03-15', end=str(int(time_list[i])+2) + '-03-14', proxy=proxy_add)
+            else:
+                stock_price = stock_target.history(start=str(int(
+                    time_list[i])) + '-03-15', end=str(int(time_list[i])+1) + '-03-14', proxy=proxy_add)
+
             if stock_price.empty:
                 stock_price_high_low = 'None'
                 stock_price_temp.append(stock_price_high_low)
