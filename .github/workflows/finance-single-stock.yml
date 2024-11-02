@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: finance action
+name: finance-single-stock action
 
 on:
   # schedule:
@@ -11,6 +11,8 @@ on:
   #pull_request:
   #  branches: [ "main" ]
   workflow_dispatch:
+  repository_dispatch:
+    types: [finance-single-stock-event]
 
 permissions:
   contents: read
@@ -34,7 +36,10 @@ jobs:
     - name: run main file
       env:
         client_id : ${{secrets.CLIENT_ID}}
-        scope_list : ${{secrets.CLIENT_ID}}
+        client_secret : ${{secrets.CLIENT_SECRET}}
+        site_id : ${{secrets.SITE_ID}}
+        tenant_id : ${{secrets.TENANT_ID}}
+        scope_list : ${{secrets.SCOPE_LIST}}
         wx_APPID : ${{secrets.WX_APPID}}
         wx_SECRET : ${{secrets.WX_SECRET}}
         template_id : ${{secrets.TEMPLATE_ID}}
@@ -42,4 +47,4 @@ jobs:
         proxy_add : ${{secrets.PROXY_ADD}}
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
-      run: python -u finance.py
+      run: python -u 01.finance-single-quarterly.py
