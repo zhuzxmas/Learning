@@ -568,6 +568,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 }
             ]
 
+            ### MS token expiration time info, refer to below link ###
+            # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
             token_time_check = datetime.datetime.now()
             time_difference = token_time_check - token_start_time
             time_difference_s = time_difference.total_seconds()
