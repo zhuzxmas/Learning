@@ -33,11 +33,6 @@ if os.path.exists('./config.cfg'):
 else:
     proxy_add = None
 
-login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
-result = login_return['result']
-proxies = login_return['proxies']
-finance_section_id = login_return['finance_section_id']
-
 # config.read(['config1.cfg'])
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
@@ -46,6 +41,12 @@ stock_Top_list = []
 stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
 
 day_one = datetime.date.today()
+
+login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+result = login_return['result']
+proxies = login_return['proxies']
+finance_section_id = login_return['finance_section_id']
+token_start_time = datetime.datetime.now()
 
 # the endpoint shall not use /me, shall be updated here.
 endpoint = 'https://graph.microsoft.com/v1.0/users/'
@@ -136,6 +137,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     if 'EBIT' in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet.index and 'TotalRevenue' in stock_target_income.index and 'TotalAssets' in stock_target_balance_sheet.index and 'CurrentLiabilities' in stock_target_balance_sheet.index and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'DilutedEPS' in stock_target_income.index and 'OtherIntangibleAssets' in stock_target_balance_sheet.index and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'OrdinarySharesNumber' in stock_target_balance_sheet.index:
         print('--------Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------------\n'.format(stock))
+        print('Data obtained from Yahoo Finance for {}: ----------\n'.format(stock))
 
         ### How Big The Company Is ###
         # 销售额
@@ -566,6 +568,17 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 }
             ]
 
+            token_time_check = datetime.datetime.now()
+            time_difference = token_time_check - token_start_time
+            time_difference_s = time_difference.total_seconds()
+            print('Token has been used for {} mins.\n'.format(str(int(time_difference_s/60)+1)))
+
+            if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
+                login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+                result = login_return['result']
+                http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                              'Content-Type': 'application/json'}
+                token_start_time = token_time_check
             try:
                 data = requests.patch(
                     endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
