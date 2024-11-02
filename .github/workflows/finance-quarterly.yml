@@ -11,6 +11,8 @@ on:
   #pull_request:
   #  branches: [ "main" ]
   workflow_dispatch:
+  repository_dispatch:
+    types: [finance-batch-stock-event]
 
 permissions:
   contents: read
