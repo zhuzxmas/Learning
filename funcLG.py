@@ -130,7 +130,7 @@ def func_login_secret():
         print(result.get("error_description"))
         print(result.get("correlation_id"))  # You may need this when reporting a bug
 
-    return {'result':result, 'proxies':proxies, 'site_id':site_id}
+    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site_id':site_id}
 
 # 获取access_token
 def get_access_token():

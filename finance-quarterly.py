@@ -33,7 +33,7 @@ if os.path.exists('./config.cfg'):
 else:
     proxy_add = None
 
-login_return = funcLG.func_login()  # to login into MS365 and get the return value
+login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
 result = login_return['result']
 proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
@@ -47,11 +47,26 @@ stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高
 
 day_one = datetime.date.today()
 
+# the endpoint shall not use /me, shall be updated here.
+endpoint = 'https://graph.microsoft.com/v1.0/users/'
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'}
 
+try:
+    data = requests.get(endpoint, headers=http_headers,
+                        stream=False).json()
+except:
+    data = requests.get(endpoint, headers=http_headers,
+                        stream=False, proxies=proxies).json()
+for i in range(0, len(data['value'])):
+    if data['value'][i]['givenName'] == 'Nathan':
+        user_id = data['value'][i]['id']
 
 # This is temparory blocked, it can be used, as long as to update the finance_section_id
 ### Create a OneNote Page ###
-endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
+# endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
+endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
 http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
               'Content-Type': 'application/xhtml+xml'}
 page_title = 'Stock info {}-quarterly'.format(day_one.strftime('%Y-%m-%d'))
@@ -74,8 +89,10 @@ except:
 
 
 #### Append OneNote page content ###
+#### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
 onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
-endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
+# endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
+endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
               'Content-Type': 'application/json'}
 
@@ -108,7 +125,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             stock = prefix + str(stock_code[iii]) + '.sz'  # SZ stock
             stock_cn = prefix + str(stock_code[iii]) + '.SZ'  # SZ stock
 
-    stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
     ### 以下是对一只股票进行查询 ###
     stock_target = yf.Ticker(stock)
     stock_target_sales = stock_target.get_cashflow(
@@ -151,16 +167,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 (stock_0_profit_margin.values[ix] - stock_0_profit_margin.values[ix+1])/stock_0_profit_margin.values[ix+1], 2)
             stock_0_profit_margin_increase.append(margin_increase)
         stock_0_profit_margin_increase.append(1)  # 最后一年作为基数1
-        if any(map(lambda x: x < 0, stock_0_profit_margin)):  # 查看利润是否有负数
-            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            if any(map(lambda x: x < 0, stock_0_profit_margin_increase)):  # 查看利润同比去年是否有负增长
-                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
-                stock_Top_temp.append('false')
-            else:
-                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
-                stock_Top_temp.append('true')
+        stock_0_profit_margin_increase_list = stock_0_profit_margin_increase
+
         stock_0_profit_margin_increase = pd.DataFrame(
             stock_0_profit_margin_increase).set_index(stock_0_profit_margin.index)
         stock_0_profit_margin_increase = stock_0_profit_margin_increase.T.set_index([
@@ -186,12 +194,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         stock_0_CurrentAssets_vs_Liabilities.index = stock_0_CurrentAssets_vs_Liabilities.index.strftime(
             '%Y-%m-%d')
 
-        if any(map(lambda x: x < 1.5, stock_0_CurrentAssets_vs_Liabilities)):  # 查看流动资产/流动负债是否 <1.5
-            CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
-            stock_Top_temp.append('true')
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc[
             'TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000  # 非流动负债合计，我认为是长期负债
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
@@ -204,16 +206,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         ### Dividend Records of The Company ###
         stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
-        if len(stock_0_dividends) == 0:
-            dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
-            stock_Top_temp.append('false')
-        elif len(stock_0_dividends) < 7:
-            dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
-            stock_Top_temp.append('true')
-        stock_Top_list.append(stock_Top_temp)  # 记录公司表现，利润，流动负债率，分红
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
@@ -439,6 +431,39 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 # to combine monthly data with yearly data, for CN stock
             except:
                 print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
+
+
+        stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
+
+        if any(map(lambda x: x < 0, stock_0_profit_margin)):  # 查看利润是否有负数
+            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
+            stock_Top_temp.append('false')
+        else:
+            if any(map(lambda x: x < 0, stock_0_profit_margin_increase_list)):  # 查看利润同比去年是否有负增长
+                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
+                stock_Top_temp.append('false')
+            else:
+                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
+                stock_Top_temp.append('true')
+
+        if any(map(lambda x: x < 1.5, stock_0_CurrentAssets_vs_Liabilities)):  # 查看流动资产/流动负债是否 <1.5
+            CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
+            stock_Top_temp.append('false')
+        else:
+            CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
+            stock_Top_temp.append('true')
+
+        if len(stock_0_dividends) == 0:
+            dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
+            stock_Top_temp.append('false')
+        elif len(stock_0_dividends) < 7:
+            dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
+            stock_Top_temp.append('false')
+        else:
+            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
+            stock_Top_temp.append('true')
+        stock_Top_list.append(stock_Top_temp)  # 记录公司表现，利润，流动负债率，分红
+
 
         stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
                                  stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber, stock_0_profit_margin, stock_0_profit_margin_increase, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
