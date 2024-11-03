@@ -15,6 +15,8 @@ from pandas import DataFrame as df
 
 # https://data.eastmoney.com/other/index/hs300.html 沪深300成分股清单
 
+start_time_check = datetime.datetime.now()
+
 config = configparser.ConfigParser()
 # to check if local file config.cfg is available, for local running application
 if os.path.exists('./config.cfg'):
@@ -643,6 +645,11 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
         if data.status_code == 204:
             print('Data added to OneNote Successfully!\n')
 
+        end_time_check = datetime.datetime.now()
+        time_difference = end_time_check - start_time_check
+        time_difference_s = time_difference.total_seconds()
+        print('{} mins has been used.\n'.format(str(int(time_difference_s/60)+1)))
+
     else:
         print('Something is missing for {} ---{}: {} \n'.format(0,
               stock, stock_name))
@@ -650,28 +657,28 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
 
     time.sleep(random.uniform(7, 13))
 
-stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
-    by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
-print(tabulate(stock_Top_list, headers='keys', tablefmt='simple',))
-page_content = stock_Top_list.to_html()
-# page_content = page_content.replace('\n','')
-page_content = page_content.replace('<th></th>', '<th>item</th>')
+# stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
+#     by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
+# print(tabulate(stock_Top_list, headers='keys', tablefmt='simple',))
+# page_content = stock_Top_list.to_html()
+# # page_content = page_content.replace('\n','')
+# page_content = page_content.replace('<th></th>', '<th>item</th>')
 
 
-#### Append OneNote page content ###
-body_data_append = [
-    {
-        "target": "body",
-        "action": "append",
-        "content": page_content
-    }
-]
+# #### Append OneNote page content ###
+# body_data_append = [
+#     {
+#         "target": "body",
+#         "action": "append",
+#         "content": page_content
+#     }
+# ]
 
-try:
-    data = requests.patch(endpoint, headers=http_headers,
-                          data=json.dumps(body_data_append, indent=4))
-except:
-    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
-        body_data_append, indent=4), proxies=proxies)
+# try:
+#     data = requests.patch(endpoint, headers=http_headers,
+#                           data=json.dumps(body_data_append, indent=4))
+# except:
+#     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
+#         body_data_append, indent=4), proxies=proxies)
 
 print('Task Completed. \n')
