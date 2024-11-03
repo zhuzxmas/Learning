@@ -414,7 +414,7 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
                 df_balance_sheet = df_balance_sheet.set_index(
                     'REPORT_DATE_NAME')
 
-                stock_name = df_income_stock['SECURITY_NAME_ABBR'][0]
+                stock_name = df_income_stock['SECURITY_NAME_ABBR'].iloc[0]
 
                 quarter_mapping_income = {
                     '一季度': '-03-31',
