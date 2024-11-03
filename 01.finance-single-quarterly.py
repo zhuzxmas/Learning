@@ -643,26 +643,6 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
         if data.status_code == 204:
             print('Data added to OneNote Successfully!\n')
 
-            # to reply to MS Teams channel message, so you'll be informed.
-            reply_message = {
-                "body": {
-                    "contentType": "html",
-                    "content": "<p >Successfully post this info back to MS Teams, check the link: <a href={}>OneNote Page</a></p>\n".format(onenote_page_url)
-                }
-            }
-            reply_message = json.dumps(reply_message, indent=4)
-
-            endpoint = "https://graph.microsoft.com/v1.0/teams/{}/channels/{}/messages/{}/replies".format(
-                teamId, channelId, replyToMessageId)
-            try:
-                data = requests.post(
-                    endpoint, headers=http_headers, stream=False, data=reply_message)
-            except:
-                data = requests.post(
-                    endpoint, headers=http_headers, stream=False, proxies=proxies, data=reply_message)
-            if data.status_code == 202:
-                print('<p >Successfully post this info back to MS Teams, check the link: <a href={}>OneNote Page</a></p>\n'.format(onenote_page_url))
-
     else:
         print('Something is missing for {} ---{}: {} \n'.format(0,
               stock, stock_name))
@@ -693,3 +673,5 @@ try:
 except:
     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
         body_data_append, indent=4), proxies=proxies)
+
+print('Task Completed. \n')
