@@ -326,7 +326,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     pass
                 else:
                     print(f"Failed to retrieve data: {response_income.status_code}")
-                time.sleep(random.uniform(20, 30))
+                time.sleep(random.uniform(12, 20))
 
                 try:
                     response_cash_flow = requests.get(
@@ -478,123 +478,123 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
             # ===== End To Get This Year Monthly Info from EastMoney End ====#
 
-            stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
-                                     stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber, stock_0_profit_margin, stock_0_profit_margin_increase, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
-            stock_output = stock_output.T.astype('float64').round(2)
+        stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
+                                 stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber, stock_0_profit_margin, stock_0_profit_margin_increase, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
+        stock_output = stock_output.T.astype('float64').round(2)
 
-            ### To get the stock price for each year ###
-            duration = stock_output.columns
-            stock_price_temp = []
+        ### To get the stock price for each year ###
+        duration = stock_output.columns
+        stock_price_temp = []
 
-            time_list = []
-            for i in range(0, len(duration)):
-                time_list.append(duration[i].split('-')[0])
-            for i in range(0, len(time_list)):
-                if int(time_list[i]) != day_one.year:
-                    stock_price = stock_target.history(start=str(int(
-                        time_list[i])+1) + '-03-15', end=str(int(time_list[i])+2) + '-03-14', proxy=proxy_add)
-                else:
-                    stock_price = stock_target.history(start=str(int(
-                        time_list[i])) + '-03-15', end=str(int(time_list[i])+1) + '-03-14', proxy=proxy_add)
-
-                if stock_price.empty:
-                    stock_price_high_low = 'None'
-                    stock_price_temp.append(stock_price_high_low)
-                else:
-                    stock_price_high_low = '{:.2f}'.format(
-                        stock_price['High'].min()) + '-' + '{:.2f}'.format(stock_price['High'].max())
-                    # stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
-                    stock_price_temp.append(stock_price_high_low)
-            stock_price_output = pd.DataFrame([stock_price_temp])
-            stock_price_output.columns = duration
-
-            stock_price_output = stock_price_output.rename(index={0: '后一年股价范围'})
-            stock_output = pd.concat([stock_output, stock_price_output], axis=0)
-
-            last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
-            last_7_days_start = (datetime.datetime.now() -
-                                 datetime.timedelta(days=7)).strftime('%Y-%m-%d')
-            last_7_days_stock_price = stock_target.history(
-                start=last_7_days_start, end=last_7_days_end, proxy=proxy_add)
-            if last_7_days_stock_price.empty:
-                last_7_days_stock_price_high_low = 'None'
+        time_list = []
+        for i in range(0, len(duration)):
+            time_list.append(duration[i].split('-')[0])
+        for i in range(0, len(time_list)):
+            if int(time_list[i]) != day_one.year:
+                stock_price = stock_target.history(start=str(int(
+                    time_list[i])+1) + '-03-15', end=str(int(time_list[i])+2) + '-03-14', proxy=proxy_add)
             else:
-                last_7_days_stock_price_high_low = '{:.2f}'.format(last_7_days_stock_price['High'].min(
-                )) + '-' + '{:.2f}'.format(last_7_days_stock_price['High'].max())
-                # last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
+                stock_price = stock_target.history(start=str(int(
+                    time_list[i])) + '-03-15', end=str(int(time_list[i])+1) + '-03-14', proxy=proxy_add)
 
-            page_content = "<div><p>{}--{}-{}, {}</p></div>".format(
-                iii, stock, stock_name[iii], profit_margin_performance)
-            page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
-                iii, stock, stock_name[iii], CurrentAssets_vs_Liabilities_performance)
-            page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
-                iii, stock, stock_name[iii], dividends_perofrmance)
-            # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name[iii],)
-            page_content += stock_output.to_html()
-            page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(
-                stock, stock_name[iii], last_7_days_stock_price_high_low)
-            # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
-                # stock, stock_name[iii])
-            if stock_0_dividends.empty:
-                page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
-                    stock, stock_name[iii])
+            if stock_price.empty:
+                stock_price_high_low = 'None'
+                stock_price_temp.append(stock_price_high_low)
             else:
-                if len(stock_0_dividends) < 8:
-                    page_content += stock_0_dividends.to_frame().to_html()
-                else:
-                    page_content += stock_0_dividends[-6:].to_frame().to_html()
+                stock_price_high_low = '{:.2f}'.format(
+                    stock_price['High'].min()) + '-' + '{:.2f}'.format(stock_price['High'].max())
+                # stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
+                stock_price_temp.append(stock_price_high_low)
+        stock_price_output = pd.DataFrame([stock_price_temp])
+        stock_price_output.columns = duration
 
-            # page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
-            # page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
-            page_content += "<div><p>                                                                                                </p></div>"
-            # page_content = page_content.replace('\n','')
-            page_content = page_content.replace('<th></th>', '<th>item</th>')
+        stock_price_output = stock_price_output.rename(index={0: '后一年股价范围'})
+        stock_output = pd.concat([stock_output, stock_price_output], axis=0)
 
-            # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
-            print('{}--{}-{}'.format(iii, stock,
-                  stock_name[iii]), profit_margin_performance, '\n')
-            print('{}--{}-{}'.format(iii, stock,
-                  stock_name[iii]), CurrentAssets_vs_Liabilities_performance, '\n')
-            print('{}--{}-{}'.format(iii, stock,
-                  stock_name[iii]), dividends_perofrmance, '\n')
-            print('This is the output for No. #{} ---{}: {} \n'.format(iii,
-                  stock, stock_name[iii]))
-            print(tabulate(stock_output, headers='keys', tablefmt='simple'))
-            print('This is the last 7 days stock price for {} {}: {} \n'.format(
-                stock, stock_name[iii], last_7_days_stock_price_high_low))
-            # print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
-            print(stock_0_dividends)
-            print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
-            print('                                                                                                \n')
+        last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
+        last_7_days_start = (datetime.datetime.now() -
+                             datetime.timedelta(days=7)).strftime('%Y-%m-%d')
+        last_7_days_stock_price = stock_target.history(
+            start=last_7_days_start, end=last_7_days_end, proxy=proxy_add)
+        if last_7_days_stock_price.empty:
+            last_7_days_stock_price_high_low = 'None'
+        else:
+            last_7_days_stock_price_high_low = '{:.2f}'.format(last_7_days_stock_price['High'].min(
+            )) + '-' + '{:.2f}'.format(last_7_days_stock_price['High'].max())
+            # last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
 
-            #### Append OneNote page content ###
-            body_data_append = [
-                {
-                    "target": "body",
-                    "action": "append",
-                    "content": page_content
-                }
-            ]
+        page_content = "<div><p>{}--{}-{}, {}</p></div>".format(
+            iii, stock, stock_name[iii], profit_margin_performance)
+        page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
+            iii, stock, stock_name[iii], CurrentAssets_vs_Liabilities_performance)
+        page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
+            iii, stock, stock_name[iii], dividends_perofrmance)
+        # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name[iii],)
+        page_content += stock_output.to_html()
+        page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(
+            stock, stock_name[iii], last_7_days_stock_price_high_low)
+        # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
+            # stock, stock_name[iii])
+        if stock_0_dividends.empty:
+            page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
+                stock, stock_name[iii])
+        else:
+            if len(stock_0_dividends) < 8:
+                page_content += stock_0_dividends.to_frame().to_html()
+            else:
+                page_content += stock_0_dividends[-6:].to_frame().to_html()
 
-            ### MS token expiration time info, refer to below link ###
-            # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
-            token_time_check = datetime.datetime.now()
-            time_difference = token_time_check - token_start_time
-            time_difference_s = time_difference.total_seconds()
-            print('Token has been used for {} mins.\n'.format(str(int(time_difference_s/60)+1)))
+        # page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name[iii],dividends_perofrmance)
+        # page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
+        page_content += "<div><p>                                                                                                </p></div>"
+        # page_content = page_content.replace('\n','')
+        page_content = page_content.replace('<th></th>', '<th>item</th>')
 
-            if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
-                login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
-                result = login_return['result']
-                http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-                              'Content-Type': 'application/json'}
-                token_start_time = token_time_check
-            try:
-                data = requests.patch(
-                    endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
-            except:
-                data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
-                    body_data_append, indent=4), proxies=proxies)
+        # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
+        print('{}--{}-{}'.format(iii, stock,
+              stock_name[iii]), profit_margin_performance, '\n')
+        print('{}--{}-{}'.format(iii, stock,
+              stock_name[iii]), CurrentAssets_vs_Liabilities_performance, '\n')
+        print('{}--{}-{}'.format(iii, stock,
+              stock_name[iii]), dividends_perofrmance, '\n')
+        print('This is the output for No. #{} ---{}: {} \n'.format(iii,
+              stock, stock_name[iii]))
+        print(tabulate(stock_output, headers='keys', tablefmt='simple'))
+        print('This is the last 7 days stock price for {} {}: {} \n'.format(
+            stock, stock_name[iii], last_7_days_stock_price_high_low))
+        # print('This is the dividend for {}: {} \n'.format(stock, stock_name[iii]))
+        print(stock_0_dividends)
+        print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
+        print('                                                                                                \n')
+
+        #### Append OneNote page content ###
+        body_data_append = [
+            {
+                "target": "body",
+                "action": "append",
+                "content": page_content
+            }
+        ]
+
+        ### MS token expiration time info, refer to below link ###
+        # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
+        token_time_check = datetime.datetime.now()
+        time_difference = token_time_check - token_start_time
+        time_difference_s = time_difference.total_seconds()
+        print('Token has been used for {} mins.\n'.format(str(int(time_difference_s/60)+1)))
+
+        if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
+            login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+            result = login_return['result']
+            http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                          'Content-Type': 'application/json'}
+            token_start_time = token_time_check
+        try:
+            data = requests.patch(
+                endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
+        except:
+            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
+                body_data_append, indent=4), proxies=proxies)
 
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii,
