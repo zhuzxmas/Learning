@@ -67,48 +67,48 @@ for i in range(0, len(data['value'])):
     if data['value'][i]['givenName'] == 'Nathan':
         user_id = data['value'][i]['id']
 
-# This is temparory blocked, it can be used, as long as to update the finance_section_id
-### Create a OneNote Page ###
-# endpoint_create_page = 'https://graph.microsoft.com/v1.0/me/onenote/sections/{}/pages'.format(finance_section_id)
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
-http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
-              'Content-Type': 'application/xhtml+xml'}
-page_title = 'Stock info {}-quarterly'.format(day_one.strftime('%Y-%m-%d'))
-create_page_initial = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>{}</title>
-<meta name="created" content="{}" />
-</head>
-<body>
-<!-- No content in the body -->
-</body>
-</html>
-""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
-try:
-   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
-except:
-   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
-
-
-#### Append OneNote page content ###
-#### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
-onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
-# endpoint = 'https://graph.microsoft.com/v1.0/me/onenote/pages/{}/content'.format(onenote_page_id)
-endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
-http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-              'Content-Type': 'application/json'}
-
-# below is to change the title of this page
-page_title_value = [{
-'target':'title',
-'action':'replace',
-'content':'Python Test for OneNote API'
-}]
-
 
 for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询
+    if iii % 60 ==0: # to split the output with 60 stock as the most info in one OneNote page. 一页最多放60只股票信息
+        ### Create a OneNote Page ###
+        http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+                      'Content-Type': 'application/xhtml+xml'}
+        page_title = 'Stock info for {} part {}'.format(day_one.strftime('%Y-%m-%d'), str(iii))
+        create_page_initial = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <title>{}</title>
+        <meta name="created" content="{}" />
+        </head>
+        <body>
+        <!-- No content in the body -->
+        </body>
+        </html>
+        """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+        try:
+           data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
+        except:
+           data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+        onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+
+
+        #### Append OneNote page content ###
+        #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
+        endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
+        http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                      'Content-Type': 'application/json'}
+
+        # # below is to change the title of this page
+        # page_title_value = [{
+        # 'target':'title',
+        # 'action':'replace',
+        # 'content':'Python Test for OneNote API'
+        # }]
+    else:
+        continue
+
     # for iii in range(5,7):
     stock_Top_temp = []
     if stock_code[iii] == 'F':
@@ -595,7 +595,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         except:
             data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
                 body_data_append, indent=4), proxies=proxies)
-
     else:
         print('Something is missing for {} ---{}: {} \n'.format(iii,
               stock, stock_name[iii]))
@@ -610,6 +609,42 @@ page_content = stock_Top_list.to_html()
 # page_content = page_content.replace('\n','')
 page_content = page_content.replace('<th></th>', '<th>item</th>')
 
+
+### Create a OneNote Page for the summary ###
+http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+              'Content-Type': 'application/xhtml+xml'}
+page_title = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
+create_page_initial = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>{}</title>
+<meta name="created" content="{}" />
+</head>
+<body>
+<!-- No content in the body -->
+</body>
+</html>
+""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+try:
+   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
+except:
+   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+
+
+#### Append OneNote page content ###
+#### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
+endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
+http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+              'Content-Type': 'application/json'}
+
+# # below is to change the title of this page
+# page_title_value = [{
+# 'target':'title',
+# 'action':'replace',
+# 'content':'Python Test for OneNote API'
+# }]
 
 #### Append OneNote page content ###
 body_data_append = [
