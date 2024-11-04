@@ -373,7 +373,7 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
                     url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
             if response_income.status_code == 200:
                 # Process the response data here
-                print('Got the response from East Money for {} Income.\n'.format(stock_cn))
+                print('Got the response from Eas Mon for {} Income.\n'.format(stock_cn))
                 pass
             else:
                 print(
@@ -388,7 +388,7 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
                     url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
             if response_cash_flow.status_code == 200:
                 # Process the response data here
-                print('Got the response from East Money for {} Cash Flow.\n'.format(stock_cn))
+                print('Got the response from Eas Mon for {} Cash Flow.\n'.format(stock_cn))
                 pass
             else:
                 print(
@@ -403,7 +403,7 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
                     url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
             if response_balance_sheet.status_code == 200:
                 # Process the response data here
-                print('Got the response from East Money for {} Balance Sheet.\n'.format(stock_cn))
+                print('Got the response from Eas Mon for {} Balance Sheet.\n'.format(stock_cn))
                 pass
             else:
                 print(
