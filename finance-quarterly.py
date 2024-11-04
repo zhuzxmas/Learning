@@ -326,7 +326,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     pass
                 else:
                     print(f"Failed to retrieve data: {response_income.status_code}")
-                time.sleep(random.uniform(10, 14))
+                time.sleep(random.uniform(11, 15))
 
                 try:
                     response_cash_flow = requests.get(
@@ -340,7 +340,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     pass
                 else:
                     print(f"Failed to retrieve data: {response_cash_flow.status_code}")
-                time.sleep(random.uniform(10, 14))
+                time.sleep(random.uniform(11, 15))
 
                 try:
                     response_balance_sheet = requests.get(
@@ -355,7 +355,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 else:
                     print(
                         f"Failed to retrieve data: {response_balance_sheet.status_code}")
-                time.sleep(random.uniform(10, 14))
+                time.sleep(random.uniform(11, 15))
 
                 try:
                     df_income_stock = df(response_income.json()['result']['data'])
