@@ -17,6 +17,10 @@ from pandas import DataFrame as df
 
 start_time_check = datetime.datetime.now()
 
+def generate_random_string(length):
+    # Generate a random string of the specified length
+    return ''.join([str(random.randint(0, 9)) for _ in range(length)])
+
 config = configparser.ConfigParser()
 # to check if local file config.cfg is available, for local running application
 if os.path.exists('./config.cfg'):
@@ -347,16 +351,19 @@ if stock_code:  # 在所有的沪深300成分股里面进行查询
             'Sec-Fetch-Site': 'same-site',
         }
 
+        string_v1 = generate_random_string(17)
+        string_v2 = generate_random_string(17)
+        string_v3 = generate_random_string(18)
         # for CN stock: to be updated later
         if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):
-            url_eastmoney_income = 'https://datacenter.eastmoney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v=06630889710346992'.format(
-                p_income, p_income, stock_cn, day_one.year, day_one.year, day_one.year)
+            url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                'ace', 'tmo', p_income, p_income, stock_cn, day_one.year, day_one.year, day_one.year, string_v1)
 
-            url_eastmoney_cash_flow = 'https://datacenter.eastmoney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v=07479680066598243'.format(
-                p_cash_flow, p_cash_flow, stock_cn, day_one.year, day_one.year, day_one.year)
+            url_eastmoney_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                'ace', 'tmo', p_cash_flow, p_cash_flow, stock_cn, day_one.year, day_one.year, day_one.year, string_v2)
 
-            url_eastmoney_balance_sheet = 'https://datacenter.eastmoney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v=035376456081999563'.format(
-                p_balance_sheet, p_balance_sheet, stock_cn, day_one.year, day_one.year, day_one.year)
+            url_eastmoney_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                'ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, day_one.year, day_one.year, day_one.year, string_v3)
 
             try:
                 response_income = requests.get(
