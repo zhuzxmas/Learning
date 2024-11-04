@@ -106,8 +106,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         # 'action':'replace',
         # 'content':'Python Test for OneNote API'
         # }]
-    else:
-        continue
 
     # for iii in range(5,7):
     stock_Top_temp = []
@@ -630,6 +628,8 @@ try:
    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
 except:
    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+if data.status_code == 200:
+    print('Created OneNote page successfully! \n')
 onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
 
 
@@ -661,3 +661,8 @@ try:
 except:
     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
         body_data_append, indent=4), proxies=proxies)
+print('Status Code for append Summary Table: {}\n'.format(data.status_code))
+if data.status_code == 200:
+    print('Info Added to OneNote page successfully! \n')
+
+print('Task Completed! \n')
