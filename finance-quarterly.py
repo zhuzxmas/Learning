@@ -139,7 +139,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         freq='yearly', proxy=proxy_add)
 
     if 'EBIT' in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet.index and 'TotalRevenue' in stock_target_income.index and 'TotalAssets' in stock_target_balance_sheet.index and 'CurrentLiabilities' in stock_target_balance_sheet.index and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'DilutedEPS' in stock_target_income.index and 'OtherIntangibleAssets' in stock_target_balance_sheet.index and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'OrdinarySharesNumber' in stock_target_balance_sheet.index:
-        print('--------Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------------\n'.format(stock))
+        print('-----Stock No.{}---Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------\n'.format(iii, stock))
         print('Data obtained from Yahoo Finance for {}: ----------\n'.format(stock))
 
         ### How Big The Company Is ###
