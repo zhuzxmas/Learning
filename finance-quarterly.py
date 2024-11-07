@@ -629,7 +629,7 @@ except:
    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
 if data.status_code == 201:
     print('Created OneNote page successfully! \n')
-onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+onenote_page_id = data.json()['id']  # this is the id for OneNote page created above..
 
 
 #### Append OneNote page content ###
