@@ -57,49 +57,52 @@ if output != []: # if there is  learning records, continue below codes.
 
     for i in range(0, len(output)):
         output_temp = []
-        learning_person = output[i]['createdBy']['user']['displayName'] # user name
-        learning_start_time = datetime.datetime.strptime(output[i]['clockInEvent']['dateTime'][:-1].split('.')[0],time_format) # start time
-        learning_start_time = learning_start_time + datetime.timedelta(hours=8) # convert to China Local Time
-        learning_end_time = datetime.datetime.strptime(output[i]['clockOutEvent']['dateTime'][:-1].split('.')[0],time_format) # end time
-        learning_end_time = learning_end_time + datetime.timedelta(hours=8) # convert to China Local Time
-        break_event = output[i]['breaks']
-        if break_event == []:
-            learning_duration = round((learning_end_time - learning_start_time).seconds/60/60,2) # hours
-        else:
-            break_time = 0
-            for ii in range(0,len(break_event)):
-                break_time = break_time + round((datetime.datetime.strptime(break_event[ii]['end']['dateTime'][:-1].split('.')[0],time_format) - datetime.datetime.strptime(break_event[ii]['start']['dateTime'][:-1].split('.')[0],time_format)).seconds,0) # seconds
-            learning_duration = round((learning_end_time - learning_start_time).seconds,0) # seconds
-            learning_duration = round((learning_duration - break_time)/60/60,2) #hours
-        if output[i]['notes'] == None:
-            learning_notes = ''
-        else:
-            learning_notes = output[i]['notes']['content']
-
-        # to Create a new Lists Item for Learning_records list:
-        endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/{}/items".format(site_id,list_id)
-        http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'}
-        new_item_data = {
-          "fields": {
-            "Title": learning_person,
-            "field_1": learning_start_time.strftime("%Y-%m-%d %H:%M:%S"), # Start Time
-            "field_2": learning_end_time.strftime("%Y-%m-%d %H:%M:%S"), # End Time
-            "field_3": learning_duration, # Duration
-            "field_4": learning_notes, # Notes
-          }
-        }
-        new_item_data = json.dumps(new_item_data,indent=4)
-
         try:
-            data = requests.post(endpoint, headers=http_headers, stream=False, data=new_item_data)
+            learning_person = output[i]['createdBy']['user']['displayName'] # user name
+            learning_start_time = datetime.datetime.strptime(output[i]['clockInEvent']['dateTime'][:-1].split('.')[0],time_format) # start time
+            learning_start_time = learning_start_time + datetime.timedelta(hours=8) # convert to China Local Time
+            learning_end_time = datetime.datetime.strptime(output[i]['clockOutEvent']['dateTime'][:-1].split('.')[0],time_format) # end time
+            learning_end_time = learning_end_time + datetime.timedelta(hours=8) # convert to China Local Time
+            break_event = output[i]['breaks']
+            if break_event == []:
+                learning_duration = round((learning_end_time - learning_start_time).seconds/60/60,2) # hours
+            else:
+                break_time = 0
+                for ii in range(0,len(break_event)):
+                    break_time = break_time + round((datetime.datetime.strptime(break_event[ii]['end']['dateTime'][:-1].split('.')[0],time_format) - datetime.datetime.strptime(break_event[ii]['start']['dateTime'][:-1].split('.')[0],time_format)).seconds,0) # seconds
+                learning_duration = round((learning_end_time - learning_start_time).seconds,0) # seconds
+                learning_duration = round((learning_duration - break_time)/60/60,2) #hours
+            if output[i]['notes'] == None:
+                learning_notes = ''
+            else:
+                learning_notes = output[i]['notes']['content']
+
+            # to Create a new Lists Item for Learning_records list:
+            endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/{}/items".format(site_id,list_id)
+            http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'}
+            new_item_data = {
+              "fields": {
+                "Title": learning_person,
+                "field_1": learning_start_time.strftime("%Y-%m-%d %H:%M:%S"), # Start Time
+                "field_2": learning_end_time.strftime("%Y-%m-%d %H:%M:%S"), # End Time
+                "field_3": learning_duration, # Duration
+                "field_4": learning_notes, # Notes
+              }
+            }
+            new_item_data = json.dumps(new_item_data,indent=4)
+
+            try:
+                data = requests.post(endpoint, headers=http_headers, stream=False, data=new_item_data)
+            except:
+                data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data=new_item_data)
+            if data.status_code == 201:
+                print('Successfully Created a new list item for Learning_records: \n')
+            else:
+                print('Failed, with http code: ' + data.status_code + '.\n')
         except:
-            data = requests.post(endpoint, headers=http_headers, stream=False, proxies=proxies, data=new_item_data)
-        if data.status_code == 201:
-            print('Successfully Created a new list item for Learning_records: \n')
-        else:
-            print('Failed, with http code: ' + data.status_code + '.\n')
+            print('This Shift is not ended......')
 else:
     print('No records found in the MS Teams Shift for the last 7 days. \n')
 
