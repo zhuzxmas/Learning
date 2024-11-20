@@ -82,7 +82,7 @@ def main():
             'toRecipients': [
                 {
                     'emailAddress': {
-                        'address': x_id
+                        'address': x_id + '.c' + 'om'
                     }
                 }
             ]
@@ -95,10 +95,14 @@ def main():
         user_id)
     try:
         data = requests.post(endpoint, headers=http_headers,
-                             stream=False, data=email_message).json()
+                             stream=False, data=email_message)
     except:
         data = requests.post(endpoint, headers=http_headers,
-                            stream=False, proxies=proxies, data=email_message).json()
+                            stream=False, proxies=proxies, data=email_message)
+    if (data.status_code == 202):
+        print('Done! The status code is: {}\n'.format(data.status_code))
+    else:
+        print('Failed! The status code is: {}\n'.format(data.status_code))
 
 
 main()
