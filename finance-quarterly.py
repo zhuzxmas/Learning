@@ -25,7 +25,7 @@ def generate_random_string(length):
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
 config = configparser.ConfigParser()
-# to check if local file config.cfg is available, for local running application
+# to check if local file config.cfg is available, for local running application.
 if os.path.exists('./config.cfg'):
     config.read(['config.cfg'])
     proxy_settings = config['proxy_add']
