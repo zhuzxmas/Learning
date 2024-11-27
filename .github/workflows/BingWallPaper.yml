@@ -47,4 +47,5 @@ jobs:
         proxy_add : ${{secrets.PROXY_ADD}}
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
+        key_deeplx : ${{secrets.KEY_DEEPLX}}
       run: python -u 03.OneDrive-BingPic.py
