@@ -2,7 +2,7 @@ import json, requests, configparser, os
 from msal import PublicClientApplication, ConfidentialClientApplication
 
 config = configparser.ConfigParser()
-if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application
+if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local application
     config.read(['config.cfg'])
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
