@@ -666,6 +666,9 @@ except:
     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
         body_data_append, indent=4), proxies=proxies)
 print('Status Code for append Summary Table: {}\n'.format(data.status_code))
+print(data.text)
+print('--------------------')
+print(data)
 if data.status_code == 204:
     print('Info Added to OneNote page successfully! \n')
 
