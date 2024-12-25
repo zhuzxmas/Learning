@@ -38,7 +38,7 @@ def get_img_url(raw_img_url="http://cn.bing.com/HPImageArchive.aspx?format=js&id
     img_url = 'https://cn.bing.com' + rtext['images'][0]['url']
     notifymsg = rtext['images'][0]['copyright']
     print('img_url:', img_url)
-    # get the image name,  including suffix
+    # get the image name,  including suffix.
     pic_name = os.path.basename(img_url)
     return [img_url, pic_name]
 
