@@ -517,6 +517,55 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         ### above is the output for stock: [stock_output] ###
         ### it is without price range for each year ###
 
+        #TODO: to save the output to Excel file in OneDrive for each stock.
+        # ######### Excel Operation History (Not used anymore) ##########
+        #     onedrive_url = 'https://graph.microsoft.com/v1.0/'
+        #     body_create_seesion = {'persistChanges': 'true'}
+        #     body_create_seesion = json.dumps(body_create_seesion, indent=4)
+
+        #     ### create a seesion id ###
+        #     try:
+        #         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
+        #     except:
+        #         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion, proxies=proxies)
+        #     print('Create session:: status code is: ',onedrive_create_session.status_code)
+        #     session_id = json.loads(onedrive_create_session.text)['id']
+
+        #     ### Below are OneDrive Operations ###
+        #     # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
+        #     http_headers['Workbook-Session-Id'] = session_id
+        #     try:
+        #         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
+        #     except:
+        #         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
+        #     if (onedrive_response.status_code == 201):
+        #         print('item added to Onedrive for Business Learning_records.xlsx')
+        #         # data = {
+        #         #     "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
+        #         # }
+        #     else:
+        #         print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
+        #         # data = {
+        #         #     "code": {"value": "Failed, Check Github"},
+        #         # }
+        #     # openid = login_return['openid']
+        #     # template_id = login_return['template_id']
+        #     # funcLG.send_template_message(openid, template_id, data)    # 推送消息
+
+        #     ### close session ###
+        #     try:
+        #         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
+        #     except:
+        #         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers, proxies=proxies)
+        #     if onedrive_close_session.status_code == 204:
+        #         print("Close session successfully!")
+        #     else:
+        #         print('Close session failed, status code is: ',onedrive_close_session.status_code)
+
+        #         # onedrive_response = json.loads(onedrive_response.text)
+        #         # items = onedrive_response['value']
+        #         # for entries in range(len(items)):
+        #         #     print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
 
 
         ### To get the stock price for each year ###
@@ -668,38 +717,5 @@ except:
 if data.status_code == 201:
     print('Created OneNote page successfully! \n')
 
-##### below is not used because it has been included above during page creation ###
-##### Append OneNote page content ###
-##### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
-#endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
-#http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-#              'Content-Type': 'application/json'}
-#
-## # below is to change the title of this page
-## page_title_value = [{
-## 'target':'title',
-## 'action':'replace',
-## 'content':'Python Test for OneNote API'
-## }]
-#
-##### Append OneNote page content ###
-#body_data_append = [
-#    {
-#        "target": "body",
-#        "action": "append",
-#        "content": page_content
-#    }
-#]
-#
-#try:
-#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
-#except:
-#    data = requests.patch(endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4), proxies=proxies)
-#print('Status Code for append Summary Table: {}\n'.format(data.status_code))
-#print(data.text)
-#print('--------------------')
-#print(data)
-#if data.status_code == 204:
-#    print('Info Added to OneNote page successfully! \n')
 
 print('Task Completed! \n')
