@@ -70,6 +70,8 @@ for i in range(0, len(data['value'])):
     if data['value'][i]['givenName'] == 'Nathan':
         user_id = data['value'][i]['id']
 
+# to create a new page in OneNote to store the stock info...
+# here, only define the endpoint, detailed info is listed down below after the data processing...
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
 
 for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询
