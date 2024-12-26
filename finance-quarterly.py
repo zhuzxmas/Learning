@@ -217,12 +217,14 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         stock_0_CurrentLiabilities.index = stock_0_CurrentLiabilities.index.strftime(
             '%Y-%m-%d')
 
+        # 流动资产/流动负债
         stock_0_CurrentAssets_vs_Liabilities = stock_target_balance_sheet.loc[
             'CurrentAssets']/stock_target_balance_sheet.loc['CurrentLiabilities']  # 流动资产与流动负债之比 应>2
         stock_0_CurrentAssets_vs_Liabilities.name = '流动资产/流动负债>2'
         stock_0_CurrentAssets_vs_Liabilities.index = stock_0_CurrentAssets_vs_Liabilities.index.strftime(
             '%Y-%m-%d')
 
+        # 非流动负债, 长期负债
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest = stock_target_balance_sheet.loc[
             'TotalNonCurrentLiabilitiesNetMinorityInterest']/100000000  # 非流动负债合计，我认为是长期负债
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest.name = '非流动负债'
@@ -301,6 +303,9 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             stock_Top_temp.append('true')
         stock_Top_list.append(stock_Top_temp)  # 记录公司表现，利润，流动负债率，分红
 
+        ### if the stock is not good, then skip the following steps, and continue to next stock ###
+        ### if the stock is good, then continue to get the monthly info from EastMoney ###
+
         if (profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and CurrentAssets_vs_Liabilities_performance == 'xxxxxxxxx 流动负债过高 xxxxxxxxx' and dividends_perofrmance == 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'):
             time.sleep(random.uniform(7, 13))
             continue
@@ -327,7 +332,9 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             string_v2 = generate_random_string(17)
             string_v3 = generate_random_string(18)
 
-            if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  # for CN stock: to be updated later
+            ### if it is CN stock, then get the info from EastMoney ###
+
+            if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  
                 url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
                     'ace', 'tmo', p_income, p_income, stock_cn, day_one.year, day_one.year, day_one.year, string_v1)
 
@@ -502,9 +509,15 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
             # ===== End To Get This Year Monthly Info from EastMoney End ====#
 
+        ### to consolidate the output for each stock ###
         stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
                                  stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities, stock_0_OrdinarySharesNumber, stock_0_profit_margin, stock_0_profit_margin_increase, stock_0_BookValue_per_Share, stock_price_less_than_BookValue_ratio, stock_price_less_than_PE_ratio], axis=1)
         stock_output = stock_output.T.astype('float64').round(2)
+
+        ### above is the output for stock: [stock_output] ###
+        ### it is without price range for each year ###
+
+
 
         ### To get the stock price for each year ###
         duration = stock_output.columns
@@ -534,6 +547,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         stock_price_output = stock_price_output.rename(index={0: '后一年股价范围'})
         stock_output = pd.concat([stock_output, stock_price_output], axis=0)
+
 
         last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
         last_7_days_start = (datetime.datetime.now() -
