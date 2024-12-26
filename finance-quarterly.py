@@ -75,7 +75,11 @@ for i in range(0, len(data['value'])):
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
 
 for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询
-    if iii % 60 ==0: # to split the output with 60 stock as the most info in one OneNote page. 一页最多放60只股票信息
+
+    # to split the output with 60 stock as the most info in one OneNote page. 
+    # ------------一页最多放60只股票信息--------
+    if iii % 60 ==0: 
+
         ### Create a OneNote Page ###
         http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
                       'Content-Type': 'application/xhtml+xml'}
@@ -114,6 +118,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     ### MS token expiration time info, refer to below link ###
     # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
+
     token_time_check = datetime.datetime.now()
     time_difference = token_time_check - token_start_time
     time_difference_s = time_difference.total_seconds()
@@ -125,6 +130,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                       'Content-Type': 'application/json'}
         token_start_time = token_time_check
+
+    ### Below is to define the stock code and stock name.
 
     # for iii in range(5,7):
     stock_Top_temp = []
