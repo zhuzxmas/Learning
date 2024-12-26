@@ -53,7 +53,8 @@ proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
 token_start_time = datetime.datetime.now()
 
-# the endpoint shall not use /me, shall be updated here.
+# the endpoint shall not use /me, use [users] instead...
+# to get the user_id first...
 endpoint = 'https://graph.microsoft.com/v1.0/users/'
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
