@@ -446,6 +446,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
 
     ### to get the yearly report from the East Money ################################
+    print('------- To Get the [- yearly -] report from the East Money ------------\n')
     url_yearly = Year_report_url()
     yearly_report_raw = report_from_East_Money(url_yearly)
 
@@ -454,12 +455,14 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     stock_output_yearly = yearly_report_raw[1]
     
     ### to get the Seasonly report from the East Money ################################
+    print('------- To Get the  [Seasonly] report from the East Money ------------')
     url_seasonly = Seasonly_report_url(report_notification_date_yearly)
     Seasonly_report_raw = report_from_East_Money(url_seasonly)
     report_notification_date_Seasonly = Seasonly_report_raw[0]
     stock_output_Seasonly = Seasonly_report_raw[1]
 
     ### to get the stock price range from yahoo finance #############################
+    print('------- To get the stock price range from Yahoo Finance ------------\n')
     stock_price_yearly = get_stock_price_range(report_notification_date_yearly, stock_output_yearly)
     stock_price_Seasonly = get_stock_price_range(report_notification_date_Seasonly, stock_output_Seasonly)
 
@@ -469,6 +472,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
 
     ### to get the latest 7 days stock price #########################################
+    print('get latest 7 days stock price from Yahoo Finance------------\n')
     last_7_days_stock_price_high_low = get_latest_7_days_stock_price()
 
     ### Dividend Records of The Company ###
