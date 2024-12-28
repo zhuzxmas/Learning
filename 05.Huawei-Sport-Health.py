@@ -3,7 +3,7 @@ import datetime
 from pandas import DataFrame
 
 try:
-    with open('HUAWEI_HEALTH_20240916201455\Motion path detail data & description\motion path detail data.json', 'r', encoding='utf-8') as file:
+    with open(r'HUAWEI_HEALTH_20240916201455\Motion path detail data & description\motion path detail data.json', 'r', encoding='utf-8') as file:
         data = json.load(file)
         print('Motion path detail data.json has been loaded successfully!\n')
 except FileNotFoundError:
