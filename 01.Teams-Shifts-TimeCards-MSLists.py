@@ -107,6 +107,23 @@ else:
     print('No records found in the MS Teams Shift for the last 7 days. \n')
 
 # ######### Excel Operation History (Not used anymore) ##########
+# ### to create a new excel file ###
+##    url = 'https://graph.microsoft.com/v1.0/me/drive/root/children'
+##    headers = {
+##        'Authorization': f'Bearer {ACCESS_TOKEN}',
+##        'Content-Type': 'application/json'
+##    }
+##    body = json.dumps({
+##        "name": file_name,
+##        "file": {},
+##        "@microsoft.graph.conflictBehavior": "rename",
+##    })
+##
+##    response = requests.post(url, headers=headers, data=body)
+##    response.raise_for_status()
+##    return response.json()
+
+
 #     onedrive_url = 'https://graph.microsoft.com/v1.0/'
 #     body_create_seesion = {'persistChanges': 'true'}
 #     body_create_seesion = json.dumps(body_create_seesion, indent=4)
@@ -121,6 +138,10 @@ else:
 
 #     ### Below are OneDrive Operations ###
 #     # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
+
+      ### to list the heaers ###
+      # /me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/headerRowRange?$select=text
+
 #     http_headers['Workbook-Session-Id'] = session_id
 #     try:
 #         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
