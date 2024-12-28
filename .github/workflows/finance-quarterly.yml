@@ -48,4 +48,4 @@ jobs:
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
         key_deeplx : ${{secrets.KEY_DEEPLX}}
-      run: python -u finance-quarterly.py
+      run: python -u 01.finance-batch-quarterly.py
