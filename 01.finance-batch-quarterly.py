@@ -194,6 +194,11 @@ def report_from_East_Money(url):
         df_report_notification_date_y = df_income_stock['NOTICE_DATE']
         df_report_notification_date_y.name = '年报公布时间'
 
+        notification_date_list = []
+        for i in range(len(df_report_notification_date_y)):
+            temp_date = df_report_notification_date_y[i][:10]
+            notification_date_list.append(temp_date)
+
         ### How Big The Company Is ###
         # 销售额
         stock_0_TotalRevenue_y = df_income_stock['TOTAL_OPERATE_INCOME']/100000000
@@ -278,25 +283,26 @@ def report_from_East_Money(url):
 
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
+ 
+        notice_date_df = pd.DataFrame(notification_date_list,index=stock_output_y.columns,columns=['Notice Date']).T
+        stock_output_y = pd.concat([notice_date_df,stock_output_y],axis=0)
+
 
         # # df_income_stock.T.to_excel('00.in.xlsx',encoding='utf-8')
         # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
         # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
     except:
         print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
-    return [df_report_notification_date_y, stock_output_y]
+    return stock_output_y
 
 
 
 ################# to get the stock price for each year #####################################
-def get_stock_price_range(df_report_notification_date, stock_output):
+def get_stock_price_range(stock_output):
     print('Please Note: the stock price for the latest period is just to as of now...\n')
-    df_report_notification_date = list(df_report_notification_date)
+    time_list = list(stock_output.loc['Notice Date'])
 
     # to turn the report notification date into 2024-09-30 format ###
-    time_list = []
-    for i in range(0, len(df_report_notification_date)):
-        time_list.append(df_report_notification_date[i].split(' ')[0])
 
     stock_price_temp = []
     stock_target = yf.Ticker(stock)
@@ -540,8 +546,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         url_yearly = Year_report_url()
         yearly_report_raw = report_from_East_Money(url_yearly)
 
-        report_notification_date_yearly = yearly_report_raw[0]
-        stock_output_yearly = yearly_report_raw[1]
+        stock_output_yearly = yearly_report_raw
 
         # call save data function
         save_data_to_OneDrivei_newFile(stock_output_yearly)
@@ -571,8 +576,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             url_yearly = Year_report_url()
             yearly_report_raw = report_from_East_Money(url_yearly)
 
-            report_notification_date_yearly = yearly_report_raw[0]
-            stock_output_yearly = yearly_report_raw[1]
+            stock_output_yearly = yearly_report_raw
             temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD)
             temp_output = temp_output.set_index(stock_output_yearly.index)
             stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
@@ -585,6 +589,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     
     ### to get the Seasonly report from the East Money ################################
     print('------- To Get the  [Seasonly] report from the East Money ------------')
+    report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
     url_seasonly = Seasonly_report_url(report_notification_date_yearly)
     Seasonly_report_raw = report_from_East_Money(url_seasonly)
     report_notification_date_Seasonly = Seasonly_report_raw[0]
