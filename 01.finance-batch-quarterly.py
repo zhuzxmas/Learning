@@ -12,6 +12,7 @@ import datetime
 import json
 import funcLG
 from pandas import DataFrame as df
+import pickle
 
 
 ### Define the stock list you want ###
@@ -57,6 +58,7 @@ p_cash_flow = 'CASHFLOW'
 p_balance_sheet = 'BALANCE'
 p_income = 'INCOMEQC'
 
+## This is the header for East Money ##
 headers_eastmoney = {
     'Host': 'datacenter.eastmoney.com',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
@@ -338,6 +340,49 @@ def get_latest_7_days_stock_price():
         # last_7_days_stock_price_high_low = str(int(last_7_days_stock_price['High'].min())) + '-' + str(int(last_7_days_stock_price['High'].max()))
     return last_7_days_stock_price_high_low
 
+
+
+### Define a create new data file to OneDrive Function ##############
+def save_data_to_OneDrivei_newFile(stock_data):
+    stock_data.to_pickle('{}.pkl'.format(stock))
+
+    # 打开一个二进制文件进行读取
+    with open('{}.pkl'.format(stock), 'rb') as filedata:
+        ### create a file file for this data:
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}.pkl:/content'.format(user_id,parent_id,stock)
+        http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
+                        'Accept': 'application/json',
+                        'Content-Type': 'text/plain'}
+        try:
+            data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
+        except:
+            data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
+    
+        if data_create_file.status_code == 201:
+            print('Data file uploaded to OneDrive Successfully!-------- \n')
+    os.remove('{}.pkl'.format(stock))
+
+
+### Define a update existing file to OneDrive Function ##############
+def update_data_in_OneDrivei(stock_data):
+    stock_data.to_pickle('{}.pkl'.format(stock))
+
+    # 打开一个二进制文件进行读取
+    with open('{}.pkl'.format(stock), 'rb') as filedata:
+        ### create a file file for this data:
+        endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
+        http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
+                        'Accept': 'application/json',
+                        'Content-Type': 'text/plain'}
+        try:
+            data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata, stream=False)
+        except:
+            data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
+    
+        if data_update_file.status_code == 201:
+            print('Data file updated to OneDrive Successfully!-------- \n')
+    os.remove('{}.pkl'.format(stock))
+
 # config.read(['config1.cfg'])
 # stock_settings = config['stock_name']
 # stock = stock_settings['stock_name']
@@ -455,12 +500,81 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     ### to get the yearly report from the East Money ################################
     print('------- To Get the [- yearly -] report from the East Money ------------\n')
-    url_yearly = Year_report_url()
-    yearly_report_raw = report_from_East_Money(url_yearly)
+    
+    ### check OneDrive stored date ###
+    ### GET /users/{user-id}/drive/root:/{item-path}
+    ### if file not exist, create a new one ###
+    ###     call get report from East Money, and save it.
+    ###     PUT /users/{user-id}/drive/items/{parent-id}:/{filename}:/content
+    ### if file exist, compare the latest report date and today-1.
+    ###     get file content: GET /users/{userId}/drive/items/{item-id}/content
+    ###     if same, then just read it.
+    ###     if not same, then call get report from East Money, and combine it with exist date, and save it.
+    ###     PUT /users/{user-id}/drive/items/{item-id}/content
 
-    # get the yearly report date from above output ################################
-    report_notification_date_yearly = yearly_report_raw[0]
-    stock_output_yearly = yearly_report_raw[1]
+    endpoint_parent = 'https://graph.microsoft.com/v1.0/users/{}/drive/root:/Files/Spending and Income/StockInvest/Saved_files_python/'.format(user_id)
+    endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+    http_headers = {'Authorization': 'Bearer ' + result['access_token'],
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'}
+
+    ### to get the parent id info from OD ###
+    try:
+        data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False)
+    except:
+        data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False, proxies=proxies)
+    parent_id = data_get_parent.json()['id']
+
+    ### to check  if data exists: ####
+    try:
+        data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False)
+    except:
+        data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False, proxies=proxies)
+
+    if data_get_data.status_code == 404: # no data, so we need to save it in future.
+        ### get the yearly report date ################################
+        url_yearly = Year_report_url()
+        yearly_report_raw = report_from_East_Money(url_yearly)
+
+        report_notification_date_yearly = yearly_report_raw[0]
+        stock_output_yearly = yearly_report_raw[1]
+
+        # call save data function
+        save_data_to_OneDrivei_newFile(stock_output_yearly)
+
+    elif data_get_data.status_code == 200: # data saved before, check it.
+        data_file_id = data_get_data.json()['id']
+        endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
+
+        try:
+            data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False)
+        except:
+            data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
+        yearly_report_from_OD = pickle.loads(data_get_data_content.content)
+        latest_report_year = int(yearly_report_from_OD.columns[0][:4])
+
+        ### check if data is updated...
+        today_year = day_one.year
+
+        if today_year == latest_report_year + 1:
+            # no need to call function to download data from East Money.
+            stock_output_yearly = yearly_report_from_OD
+        else:
+            ### get the yearly report date ################################
+            url_yearly = Year_report_url()
+            yearly_report_raw = report_from_East_Money(url_yearly)
+
+            report_notification_date_yearly = yearly_report_raw[0]
+            stock_output_yearly = yearly_report_raw[1]
+            temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD)
+            temp_output = temp_output.set_index(stock_output_yearly.index)
+            stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+            
+            ### to update the data in OneDrive as well....
+            update_data_in_OneDrivei(stock_output_yearly)
+    else:
+        pass
+
     
     ### to get the Seasonly report from the East Money ################################
     print('------- To Get the  [Seasonly] report from the East Money ------------')
