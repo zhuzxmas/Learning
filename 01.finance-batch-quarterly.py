@@ -424,6 +424,10 @@ try:
     data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False)
 except:
     data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False, proxies=proxies)
+if data_get_parent.status_code == 200:
+    print('Successfully get the parent id info from OneDrive.\n')
+else:
+    print('Failed to get the parent id: Status code is: {}'.format(data_get_parent.status_code))
 parent_id = data_get_parent.json()['id']
 
 
