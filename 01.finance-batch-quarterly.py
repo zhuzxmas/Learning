@@ -209,12 +209,12 @@ def report_from_East_Money(url):
 
 
         ### Profit Margin of The Company ###
-        if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，无法计算
+        if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，此时无法计算
             stock_0_profit_margin_increase_y = []
             for ix in range(0, len(stock_0_profit_margin_y)-1):
                 stock_0_profit_margin_increase_y.append(None)
             stock_0_profit_margin_increase_y.append(None)  # 最后一年
-        else: #
+        else: # 没有空值，那么就可以正常进行计算操作
             stock_0_profit_margin_increase_y = []
             for ix in range(0, len(stock_0_profit_margin_y)-1):
                 margin_increase = round(
@@ -227,8 +227,7 @@ def report_from_East_Money(url):
 
         stock_0_profit_margin_increase_y = pd.DataFrame(
             stock_0_profit_margin_increase_y).set_index(stock_0_profit_margin_y.index)
-        stock_0_profit_margin_increase_y = stock_0_profit_margin_increase_y.T.set_index([
-                                                                                    ['每股利润增长率 x 100%']])
+        stock_0_profit_margin_increase_y = stock_0_profit_margin_increase_y.T.set_index([['每股利润增长率 x 100%']])
         stock_0_profit_margin_increase_y = stock_0_profit_margin_increase_y.T
 
 
