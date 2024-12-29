@@ -410,6 +410,17 @@ for i in range(0, len(data['value'])):
     if data['value'][i]['givenName'] == 'Nathan':
         user_id = data['value'][i]['id']
 
+time.sleep(3)
+
+### to get the parent id info from OD ###
+endpoint_parent = 'https://graph.microsoft.com/v1.0/users/{}/drive/root:/Files/Spending and Income/StockInvest/Saved_files_python/'.format(user_id)
+try:
+    data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False)
+except:
+    data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False, proxies=proxies)
+parent_id = data_get_parent.json()['id']
+
+
 # to create a new page in OneNote to store the stock info...
 # here, only define the endpoint, detailed info is listed down below after the data processing...
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
@@ -467,8 +478,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
         login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
         result = login_return['result']
-        http_headers = {'Authorization': 'Bearer ' + result['access_token'],
-                      'Content-Type': 'application/json'}
+        http_headers = {'Authorization': 'Bearer ' + result['access_token'],'Content-Type': 'application/json'}
         token_start_time = token_time_check
 
     ### Below is to define the stock code and stock name.
@@ -512,18 +522,12 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     ###     if not same, then call get report from East Money, and combine it with exist date, and save it.
     ###     PUT /users/{user-id}/drive/items/{item-id}/content
 
-    endpoint_parent = 'https://graph.microsoft.com/v1.0/users/{}/drive/root:/Files/Spending and Income/StockInvest/Saved_files_python/'.format(user_id)
+
     endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
     http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'}
 
-    ### to get the parent id info from OD ###
-    try:
-        data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False)
-    except:
-        data_get_parent = requests.get(endpoint_parent, headers=http_headers, stream=False, proxies=proxies)
-    parent_id = data_get_parent.json()['id']
 
     ### to check  if data exists: ####
     try:
@@ -531,7 +535,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     except:
         data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False, proxies=proxies)
 
-    if data_get_data.status_code == 404: # no data, so we need to save it in future.
+    if data_get_data.status_code == 404: # no data, so we need to save it this time...
         ### get the yearly report date ################################
         url_yearly = Year_report_url()
         yearly_report_raw = report_from_East_Money(url_yearly)
@@ -550,6 +554,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False)
         except:
             data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
+        
         yearly_report_from_OD = pickle.loads(data_get_data_content.content)
         latest_report_year = int(yearly_report_from_OD.columns[0][:4])
 
@@ -712,60 +717,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
                 body_data_append, indent=4), proxies=proxies)
 
-
-
-
-
-
-        #TODO: to save the output to Excel file in OneDrive for each stock.
-        # ######### Excel Operation History (Not used anymore) ##########
-        #     onedrive_url = 'https://graph.microsoft.com/v1.0/'
-        #     body_create_seesion = {'persistChanges': 'true'}
-        #     body_create_seesion = json.dumps(body_create_seesion, indent=4)
-
-        #     ### create a seesion id ###
-        #     try:
-        #         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion)
-        #     except:
-        #         onedrive_create_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/createSession', headers = http_headers, data = body_create_seesion, proxies=proxies)
-        #     print('Create session:: status code is: ',onedrive_create_session.status_code)
-        #     session_id = json.loads(onedrive_create_session.text)['id']
-
-        #     ### Below are OneDrive Operations ###
-        #     # onedrive_response = requests.get(onedrive_url + 'me/drive/root/children', headers = http_headers)
-        #     http_headers['Workbook-Session-Id'] = session_id
-        #     try:
-        #         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record)
-        #     except:
-        #         onedrive_response = requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/tables/Table1/rows/add', headers = http_headers, data = learning_record, proxies=proxies)
-        #     if (onedrive_response.status_code == 201):
-        #         print('item added to Onedrive for Business Learning_records.xlsx')
-        #         # data = {
-        #         #     "code": {"value": "Run Succeed! Check Onedrive for Buiness Learning_record.xlsx"},
-        #         # }
-        #     else:
-        #         print('Failed to add item to Onedrive for Business Learning_records.xlsx!')
-        #         # data = {
-        #         #     "code": {"value": "Failed, Check Github"},
-        #         # }
-        #     # openid = login_return['openid']
-        #     # template_id = login_return['template_id']
-        #     # funcLG.send_template_message(openid, template_id, data)    # 推送消息
-
-        #     ### close session ###
-        #     try:
-        #         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers)
-        #     except:
-        #         onedrive_close_session =  requests.post(onedrive_url + 'me/drive/items/01L7SVHITF3Z5SOUHNWNAJVRY7EBZG2EXY/workbook/closeSession', headers = http_headers, proxies=proxies)
-        #     if onedrive_close_session.status_code == 204:
-        #         print("Close session successfully!")
-        #     else:
-        #         print('Close session failed, status code is: ',onedrive_close_session.status_code)
-
-        #         # onedrive_response = json.loads(onedrive_response.text)
-        #         # items = onedrive_response['value']
-        #         # for entries in range(len(items)):
-        #         #     print(items[entries]['name'], '| item-id >', items[entries]['id']) # to show the files ID, which could be used in the onedrive API call
 
 
 stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
