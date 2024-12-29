@@ -207,13 +207,22 @@ def report_from_East_Money(url):
         stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
         stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
 
+
         ### Profit Margin of The Company ###
-        stock_0_profit_margin_increase_y = []
-        for ix in range(0, len(stock_0_profit_margin_y)-1):
-            margin_increase = round(
-                (stock_0_profit_margin_y.values[ix] - stock_0_profit_margin_y.values[ix+1])/stock_0_profit_margin_y.values[ix+1], 2)
-            stock_0_profit_margin_increase_y.append(margin_increase)
-        stock_0_profit_margin_increase_y.append(1)  # 最后一年作为基数1
+        if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，无法计算
+            stock_0_profit_margin_increase_y = []
+            for ix in range(0, len(stock_0_profit_margin_y)-1):
+                stock_0_profit_margin_increase_y.append(None)
+            stock_0_profit_margin_increase_y.append(None)  # 最后一年
+        else: #
+            stock_0_profit_margin_increase_y = []
+            for ix in range(0, len(stock_0_profit_margin_y)-1):
+                margin_increase = round(
+                    (stock_0_profit_margin_y.values[ix] - stock_0_profit_margin_y.values[ix+1])/stock_0_profit_margin_y.values[ix+1], 2)
+                stock_0_profit_margin_increase_y.append(margin_increase)
+
+            stock_0_profit_margin_increase_y.append(1)  # 最后一年作为基数1
+        
         stock_0_profit_margin_increase_list_y = stock_0_profit_margin_increase_y
 
         stock_0_profit_margin_increase_y = pd.DataFrame(
