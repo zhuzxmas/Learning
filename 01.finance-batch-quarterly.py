@@ -612,8 +612,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
 
     ### to get the latest 7 days stock price #########################################
-    print('get latest 7 days stock price from Yahoo Finance------------\n')
     last_7_days_stock_price_high_low = get_latest_7_days_stock_price()
+    print('---Got latest 7 days stock price from Yahoo Finance---------\n')
 
     ### Dividend Records of The Company ###
     stock_target = yf.Ticker(stock)
