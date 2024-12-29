@@ -563,8 +563,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         if today_year == latest_report_year + 1:
             # no need to call function to download data from East Money.
+            print('~~~ The data stored in OneDrive is updated, Good !!! \n ~~~')
             stock_output_yearly = yearly_report_from_OD
         else:
+            print(' :::: It's time to update the data now ...   ::::\n')
             ### get the yearly report date ################################
             url_yearly = Year_report_url()
             yearly_report_raw = report_from_East_Money(url_yearly)
