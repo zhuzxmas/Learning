@@ -1,5 +1,5 @@
 requests
-pandas
+pandas==2.0.3
 msal
 yfinance
 tabulate
