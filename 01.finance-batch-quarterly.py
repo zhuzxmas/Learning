@@ -778,32 +778,39 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
             ### check if data is updated...
             today_year = day_one.year
+            today_month = day_one.month
 
             if today_year == latest_report_year + 1:
                 # no need to call function to download data from East Money.
+                # since the latest report is saved in the file already.
                 print('~~~ The data stored in OneDrive is updated, Good !!! \n')
                 stock_output_yearly = yearly_report_from_OD
             else:
-                print(':::: It\'s time to update the data now ...   ::::\n')
-                ### get the yearly report date ################################
-                url_yearly = Year_report_url()
-                yearly_report_raw = report_from_East_Money(url_yearly)
+                if today_month == (1 or 2 or 3):
+                # no need to call function to download data, since the financial report has not been published yet.
+                    pass
+                else:
+                # since financial report is published around end of March, so we need to check and download.
+                    print(':::: It\'s time to update the data now ...   ::::\n')
+                    ### get the yearly report date ################################
+                    url_yearly = Year_report_url()
+                    yearly_report_raw = report_from_East_Money(url_yearly)
 
-                stock_output_yearly = yearly_report_raw
+                    stock_output_yearly = yearly_report_raw
 
-                ### to update data, keep the info from East Mondy, and remove the outdated info from OD
-                temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                temp_output.drop(columns=cols_to_drop, inplace=True)
+                    ### to update data, keep the info from East Mondy, and remove the outdated info from OD
+                    temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                    cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                    temp_output.drop(columns=cols_to_drop, inplace=True)
 
-                temp_output = temp_output.set_index(stock_output_yearly.index)
-                stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+                    temp_output = temp_output.set_index(stock_output_yearly.index)
+                    stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
 
-                ### here is some explaination for DataFame:
-                ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
+                    ### here is some explaination for DataFame:
+                    ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
 
-                ### to update the data in OneDrive as well....
-                update_data_in_OneDrive(stock_output_yearly)
+                    ### to update the data in OneDrive as well....
+                    update_data_in_OneDrive(stock_output_yearly)
     else:
         pass
 
