@@ -810,6 +810,8 @@ if stock_code:
             else:
                 if today_month == (1 or 2 or 3):
                 # no need to call function to download data, since the financial report has not been published yet.
+                    stock_output_yearly = yearly_report_from_OD
+                    print('----No need to call function to download data-----\n')
                     pass
                 else:
                 # since financial report is published around end of March, so we need to check and download.
