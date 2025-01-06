@@ -733,6 +733,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False, proxies=proxies)
 
     if data_get_data.status_code == 404: # no data, so we need to save it this time...
+        print('---------No data saved before, it\'s time to save it...---------\n')
         if stock == 'F':
             stock_output_combined = get_stock_info_for_F()
             save_data_to_OneDrive_newFile(stock_output_combined)
@@ -749,6 +750,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             save_data_to_OneDrive_newFile(stock_output_yearly)
 
     elif data_get_data.status_code == 200: # data saved before, check it.
+        print('-----Data existed in OneDrive, let\'s check if it is updated...-----\n')
         data_file_id = data_get_data.json()['id']
         endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
 
@@ -788,6 +790,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             else:
                 if today_month == (1 or 2 or 3):
                 # no need to call function to download data, since the financial report has not been published yet.
+                    stock_output_yearly = yearly_report_from_OD
+                    print('----No need to call function to download data-----\n')
                     pass
                 else:
                 # since financial report is published around end of March, so we need to check and download.
