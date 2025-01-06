@@ -513,35 +513,35 @@ def get_stock_info_for_F():
         stock_price_less_than_BookValue_ratio = stock_0_BookValue_per_Share*1.5  # 按账面价值计算出来的目标股价
         stock_price_less_than_BookValue_ratio.name = '每股账面价值1.5倍元'
 
-        stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
+        #stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name[iii]))
 
-        if any(map(lambda x: x < 0, stock_0_profit_margin)):  # 查看利润是否有负数
-            profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            if any(map(lambda x: x < 0, stock_0_profit_margin_increase_list)):  # 查看利润同比去年是否有负增长
-                profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
-                stock_Top_temp.append('false')
-            else:
-                profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
-                stock_Top_temp.append('true')
+        #if any(map(lambda x: x < 0, stock_0_profit_margin)):  # 查看利润是否有负数
+        #    profit_margin_performance = 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx'
+        #    stock_Top_temp.append('false')
+        #else:
+        #    if any(map(lambda x: x < 0, stock_0_profit_margin_increase_list)):  # 查看利润同比去年是否有负增长
+        #        profit_margin_performance = 'xxxxxxxxx  利润 下降  xxxxxxxxx'
+        #        stock_Top_temp.append('false')
+        #    else:
+        #        profit_margin_performance = '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√'
+        #        stock_Top_temp.append('true')
 
-        if any(map(lambda x: x < 1.5, stock_0_CurrentAssets_vs_Liabilities)):  # 查看流动资产/流动负债是否 <1.5
-            CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
-            stock_Top_temp.append('true')
+        #if any(map(lambda x: x < 1.5, stock_0_CurrentAssets_vs_Liabilities)):  # 查看流动资产/流动负债是否 <1.5
+        #    CurrentAssets_vs_Liabilities_performance = 'xxxxxxxxx 流动负债过高 xxxxxxxxx'
+        #    stock_Top_temp.append('false')
+        #else:
+        #    CurrentAssets_vs_Liabilities_performance = '√√√√√√√√√√  流动负债 不高 √√√√√√√√√√'
+        #    stock_Top_temp.append('true')
 
-        if len(stock_0_dividends) == 0:
-            dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
-            stock_Top_temp.append('false')
-        elif len(stock_0_dividends) < 7:
-            dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
-            stock_Top_temp.append('false')
-        else:
-            dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
-            stock_Top_temp.append('true')
+        #if len(stock_0_dividends) == 0:
+        #    dividends_perofrmance = 'xxxxxxxxx  公司 无 分红记录  xxxxxxxxx'
+        #    stock_Top_temp.append('false')
+        #elif len(stock_0_dividends) < 7:
+        #    dividends_perofrmance = 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'
+        #    stock_Top_temp.append('false')
+        #else:
+        #    dividends_perofrmance = '√√√√√√√√√√  公司分红 很多次  √√√√√√√√√√ '
+        #    stock_Top_temp.append('true')
 
     ### to consolidate the output for each stock ###
     stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
