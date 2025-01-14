@@ -23,8 +23,10 @@ jobs:
     - name: checkout repo content
       uses: actions/checkout@v2
 
-    - name: setup python
+    - name: setup python 3.10
       uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'  # You can specify any available Python version here
       
     - name: Install dependencies
       run: |
