@@ -626,7 +626,7 @@ parent_id = data_get_parent.json()['id']
 # here, only define the endpoint, detailed info is listed down below after the data processing...
 endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
 
-for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询
+for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进行查询..
 
     ### MS token expiration time info, refer to below link ###
     # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
