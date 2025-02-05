@@ -225,6 +225,7 @@ def report_from_East_Money(url):
             '二季度': '-06-30',
             '三季度': '-09-30',
             '四季度': '-12-31',
+            '年报': '-12-31',
         }
         new_index_income = df_income_stock.index.to_series().replace(quarter_mapping_income, regex=True)
         df_income_stock = df_income_stock.set_index(pd.Index(new_index_income, name='REPORT_DATE_NAME'))
