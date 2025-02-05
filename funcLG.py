@@ -10,6 +10,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
 
     client_id = azure_settings['client_id']
     site_id = azure_settings['site_id']
+    site_id_for_sp = azure_settings['site_id_for_sp']
     client_secret = azure_settings['client_secret']
     tenant_id = azure_settings['tenant_id']
     finance_section_id = azure_settings['finance_section_id']
@@ -27,6 +28,7 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
 else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
     site_id = os.environ['site_id']
+    site_id_for_sp = os.environ['site_id_for_sp']
     client_secret = os.environ['client_secret']
     tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
@@ -136,7 +138,7 @@ def func_login_secret():
         print(result.get("error_description"))
         print(result.get("correlation_id"))  # You may need this when reporting a bug
 
-    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site_id':site_id}
+    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site_id':site_id, 'site_id_for_sp':site_id_for_sp}
 
 # 获取access_token
 def get_access_token():
