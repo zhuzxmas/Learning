@@ -329,8 +329,12 @@ def report_from_East_Money(url):
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
-        stock_price_less_than_PE_ratio_y = stock_PE_ratio_target * \
-            stock_0_profit_margin_y * 4  # 股份不能超过的值
+        if 'INCOMEQC' in url_eastmoney_income: # meaning it is Seasonly data:
+            stock_price_less_than_PE_ratio_y = stock_PE_ratio_target * \
+                stock_0_profit_margin_y * 4  # 股份不能超过的值
+        else: # Meaning it is yealy data, no need to x4
+            stock_price_less_than_PE_ratio_y = stock_PE_ratio_target * \
+                stock_0_profit_margin_y  # 股份不能超过的值
         stock_price_less_than_PE_ratio_y.name = '市盈率15对应股价 元'
 
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
@@ -824,7 +828,9 @@ if stock_code:
                     print(':::: It\'s time to update the data now ...   ::::\n')
                     ### get the yearly report date ################################
                     url_yearly = Year_report_url()
-                    yearly_report_raw = report_from_East_Money(url_yearly)[0]
+                    yearly_report_raw_out = report_from_East_Money(url_yearly)
+                    yearly_report_raw = yearly_report_raw_out[0]
+                    stock_name = yearly_report_raw_out[1]
 
                     stock_output_yearly = yearly_report_raw
 
@@ -854,7 +860,9 @@ if stock_code:
         report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
         url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-        Seasonly_report_raw = report_from_East_Money(url_seasonly)[0]
+        Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
+        Seasonly_report_raw = Seasonly_report_raw_out[0]
+        stock_name = Seasonly_report_raw_out[1]
 
         report_notification_date_Seasonly = Seasonly_report_raw.loc['Notice Date']
         stock_output_Seasonly = Seasonly_report_raw
