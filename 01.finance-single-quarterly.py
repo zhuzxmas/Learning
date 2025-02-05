@@ -216,6 +216,8 @@ def report_from_East_Money(url):
         df_cash_flow = df(response_cash_flow.json()['result']['data'])
         df_balance_sheet = df(response_balance_sheet.json()['result']['data'])
 
+        stock_name_from_year_income = df_income_stock['SECURITY_NAME_ABBR'][0]
+
         df_income_stock = df_income_stock.set_index('REPORT_DATE_NAME')
         df_cash_flow = df_cash_flow.set_index('REPORT_DATE_NAME')
         df_balance_sheet = df_balance_sheet.set_index('REPORT_DATE_NAME')
@@ -343,7 +345,7 @@ def report_from_East_Money(url):
         # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
     except:
         print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
-    return stock_output_y
+    return [stock_output_y, stock_name_from_year_income]
 
 
 
@@ -765,7 +767,8 @@ if stock_code:
         else: # for other stocks from SH/SZ:
             ### get the yearly report date ################################
             url_yearly = Year_report_url()
-            yearly_report_raw = report_from_East_Money(url_yearly)
+            yearly_report_raw = report_from_East_Money(url_yearly)[0]
+            stock_name = report_from_East_Money(url_yearly)[1]
 
             stock_output_yearly = yearly_report_raw
 
@@ -820,7 +823,7 @@ if stock_code:
                     print(':::: It\'s time to update the data now ...   ::::\n')
                     ### get the yearly report date ################################
                     url_yearly = Year_report_url()
-                    yearly_report_raw = report_from_East_Money(url_yearly)
+                    yearly_report_raw = report_from_East_Money(url_yearly)[0]
 
                     stock_output_yearly = yearly_report_raw
 
@@ -850,7 +853,7 @@ if stock_code:
         report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
         url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-        Seasonly_report_raw = report_from_East_Money(url_seasonly)
+        Seasonly_report_raw = report_from_East_Money(url_seasonly)[0]
 
         report_notification_date_Seasonly = Seasonly_report_raw.loc['Notice Date']
         stock_output_Seasonly = Seasonly_report_raw
