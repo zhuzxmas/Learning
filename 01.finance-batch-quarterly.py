@@ -593,7 +593,9 @@ except:
                         stream=False, proxies=proxies)
 if data_list.status_code == 200:
     for item in data_list.json()['value']:
-        stock_code.append(item['fields']['Title'])
+        stock_code.append(item['fields']['Title'].replace(' ', ''))
+
+print(stock_code)
 
 # the endpoint shall not use /me, use [users] instead...
 # to get the user_id first...
