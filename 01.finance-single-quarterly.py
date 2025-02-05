@@ -767,8 +767,9 @@ if stock_code:
         else: # for other stocks from SH/SZ:
             ### get the yearly report date ################################
             url_yearly = Year_report_url()
-            yearly_report_raw = report_from_East_Money(url_yearly)[0]
-            stock_name = report_from_East_Money(url_yearly)[1]
+            yearly_report_raw_out = report_from_East_Money(url_yearly)
+            yearly_report_raw = yearly_report_raw_out[0] # for dataframe info
+            stock_name = yearly_report_raw_out[1] # for stock name
 
             stock_output_yearly = yearly_report_raw
 
