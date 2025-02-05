@@ -39,6 +39,7 @@ jobs:
       env:
         client_id : ${{secrets.CLIENT_ID}}
         site_id : ${{secrets.SITE_ID}}
+        site_id_for_sp : ${{secrets.SITE_ID_FOR_SP}}
         client_secret : ${{secrets.CLIENT_SECRET}}
         tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.CLIENT_ID}}
