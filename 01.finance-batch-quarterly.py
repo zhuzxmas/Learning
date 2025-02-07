@@ -759,7 +759,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             save_data_to_OneDrive_newFile(stock_output_yearly)
 
     elif data_get_data.status_code == 200: # data saved before, check it.
-        print('-----Data existed in OneDrive, let\'s check if it is updated...-----\n')
+        print('-----Data existed in OneDrive, let\'s check if it is updated base on saved data latest report year...-----\n')
         data_file_id = data_get_data.json()['id']
         endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
 
