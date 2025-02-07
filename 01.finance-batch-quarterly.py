@@ -336,11 +336,11 @@ def get_stock_price_range(stock_output):
     return stock_price_output
 
 
-### to get the latest 7 days stock price #################################
+### to get the latest 7days(10actually) stock price #################################
 def get_latest_7_days_stock_price():
     last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
     last_7_days_start = (datetime.datetime.now() -
-                         datetime.timedelta(days=7)).strftime('%Y-%m-%d')
+                         datetime.timedelta(days=10)).strftime('%Y-%m-%d')
 
     stock_target = yf.Ticker(stock)
 
@@ -931,7 +931,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             iii, stock, stock_name, dividends_perofrmance)
         # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name,)
         page_content += stock_output_combined.to_html()
-        page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(
+        page_content += "<div><p>This is the last 10 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name, last_7_days_stock_price_high_low)
         # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
             # stock, stock_name)
@@ -960,7 +960,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         print('This is the output for No. #{} ---{}: {} \n'.format(iii,
               stock, stock_name))
         print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
-        print('This is the last 7 days stock price for {} {}: {} \n'.format(
+        print('This is the last 10 days stock price for {} {}: {} \n'.format(
             stock, stock_name, last_7_days_stock_price_high_low))
         # print('This is the dividend for {}: {} \n'.format(stock, stock_name))
         print(stock_0_dividends)
