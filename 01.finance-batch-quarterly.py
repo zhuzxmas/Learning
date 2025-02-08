@@ -944,11 +944,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         else:
             pass
 
-        try:
-            del stock_output_Seasonly
-            del stock_output_yearly
-        except:
-            pass
 
     
     ### to get the Seasonly report from the East Money ################################
