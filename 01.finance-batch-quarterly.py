@@ -921,7 +921,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
                         url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-                        Seasonly_report_raw_out = report_from_East_Money(url_yearly)
+                        Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
                         Seasonly_report_raw = Seasonly_report_raw_out[0]
                         stock_name = Seasonly_report_raw_out[1]
 
