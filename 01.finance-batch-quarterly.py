@@ -570,12 +570,8 @@ def get_stock_info_for_F():
     for i in range(0, len(duration)):
         time_list.append(duration[i].split('-')[0])
     for i in range(0, len(time_list)):
-        if int(time_list[i]) != day_one.year:
-            stock_price = stock_target.history(start=str(int(
-                time_list[i])+1) + '-03-15', end=str(int(time_list[i])+2) + '-03-14', proxy=proxy_add)
-        else:
-            stock_price = stock_target.history(start=str(int(
-                time_list[i])) + '-03-15', end=str(int(time_list[i])+1) + '-03-14', proxy=proxy_add)
+        stock_price = stock_target.history(start=str(int(
+            time_list[i])+1) + '-02-02', end=str(int(time_list[i])+2) + '-02-01', proxy=proxy_add)
 
         if stock_price.empty:
             stock_price_high_low = 'None'
@@ -585,6 +581,7 @@ def get_stock_info_for_F():
                 stock_price['High'].min()) + '-' + '{:.2f}'.format(stock_price['High'].max())
             # stock_price_high_low = str(int(stock_price['High'].min())) + '-' + str(int(stock_price['High'].max()))
             stock_price_temp.append(stock_price_high_low)
+        print('{} - {} - stock price range is: {}\n'.format(str(int(time_list[i])+1) + '-02-02',str(int(time_list[i])+2) + '-02-01',stock_price_high_low))
     stock_price_output = pd.DataFrame([stock_price_temp])
     stock_price_output.columns = duration
     stock_price_output = stock_price_output.rename(index={0: '后一年股价范围'})
