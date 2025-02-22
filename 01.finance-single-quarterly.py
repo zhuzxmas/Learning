@@ -355,7 +355,6 @@ def report_from_East_Money(url):
 
 ################# to get the stock price for each year #####################################
 def get_stock_price_range(stock_output):
-    print('Please Note: the stock price for the latest period is just to as of now...\n')
     time_list = list(stock_output.loc['Notice Date'])
 
     # to turn the report notification date into 2024-09-30 format ###
@@ -857,26 +856,30 @@ if stock_code:
     else:
         ### this date is not saved everytime to OneDrive, as it's not necessary to do so.
         print('------- To Get the  [Seasonly] report from the East Money ------------')
-        report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+        try:
+            report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
-        url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-        Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
-        Seasonly_report_raw = Seasonly_report_raw_out[0]
-        stock_name = Seasonly_report_raw_out[1]
+            url_seasonly = Seasonly_report_url(report_notification_date_yearly)
+            Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
+            Seasonly_report_raw = Seasonly_report_raw_out[0]
+            stock_name = Seasonly_report_raw_out[1]
 
-        report_notification_date_Seasonly = Seasonly_report_raw.loc['Notice Date']
-        stock_output_Seasonly = Seasonly_report_raw
+            report_notification_date_Seasonly = Seasonly_report_raw.loc['Notice Date']
+            stock_output_Seasonly = Seasonly_report_raw
 
-        ### to get the stock price range from yahoo finance #############################
-        print('------- To get the stock price range from Yahoo Finance ------------\n')
-        stock_price_yearly = get_stock_price_range(stock_output_yearly)
-        stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
+            ### to get the stock price range from yahoo finance #############################
+            print('------- To get the stock price range from Yahoo Finance ------------\n')
+            print('Please Note: the stock price for the latest period is just to as of now...\n')
+            stock_price_yearly = get_stock_price_range(stock_output_yearly)
+            stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
 
-        ### to combine the stock price with the stock output #############################
-        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
-        stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
+            ### to combine the stock price with the stock output #############################
+            stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+            stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
-        stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+            stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+        except:
+            print('No seasonly report available as of now...\n')
 
 
 
