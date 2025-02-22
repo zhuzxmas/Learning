@@ -303,7 +303,6 @@ def report_from_East_Money(url):
 
 ################# to get the stock price for each year #####################################
 def get_stock_price_range(stock_output):
-    print('Please Note: the stock price for the latest period is just to as of now...\n')
     time_list = list(stock_output.loc['Notice Date'])
 
     # to turn the report notification date into 2024-09-30 format ###
@@ -968,6 +967,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         ### to get the stock price range from yahoo finance #############################
         print('------- To get the stock price range from Yahoo Finance ------------\n')
+        print('Please Note: the stock price for the latest period is just to as of now...\n')
         stock_price_yearly = get_stock_price_range(stock_output_yearly)
         stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
 
