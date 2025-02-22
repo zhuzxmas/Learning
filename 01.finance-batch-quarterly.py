@@ -808,17 +808,20 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                 else:
                     ### get the monthly report date ################################
-                    report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+                    try: # if yearly report just released, no seasonly report...
+                        report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
-                    url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-                    Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
-                    Seasonly_report_raw = Seasonly_report_raw_out[0] # for dataframe info
-                    stock_name = Seasonly_report_raw_out[1] # for stock name
+                        url_seasonly = Seasonly_report_url(report_notification_date_yearly)
+                        Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
+                        Seasonly_report_raw = Seasonly_report_raw_out[0] # for dataframe info
+                        stock_name = Seasonly_report_raw_out[1] # for stock name
 
-                    stock_output_Seasonly = Seasonly_report_raw
+                        stock_output_Seasonly = Seasonly_report_raw
 
-                    # call save data function
-                    save_monthly_data_to_OneDrive_newFile(stock_output_Seasonly)
+                        # call save data function
+                        save_monthly_data_to_OneDrive_newFile(stock_output_Seasonly)
+                    except:
+                        print('No seasonly report available as of now...\n')
 
 
 
@@ -915,28 +918,31 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     else:
                         print(':::: It\'s time to update the Seasonly data now ...   ::::\n')
                         ### get the yearly report date ################################
-                        report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+                        try:
+                            report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
-                        url_seasonly = Seasonly_report_url(report_notification_date_yearly)
-                        Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
-                        Seasonly_report_raw = Seasonly_report_raw_out[0]
-                        stock_name = Seasonly_report_raw_out[1]
+                            url_seasonly = Seasonly_report_url(report_notification_date_yearly)
+                            Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
+                            Seasonly_report_raw = Seasonly_report_raw_out[0]
+                            stock_name = Seasonly_report_raw_out[1]
 
-                        stock_output_Seasonly = Seasonly_report_raw
+                            stock_output_Seasonly = Seasonly_report_raw
 
-                        ### to update data, keep the info from East Mondy, and remove the outdated info from OD
-                        temp_output = pd.merge(stock_output_Seasonly, Seasonly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                        cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                        temp_output.drop(columns=cols_to_drop, inplace=True)
+                            ### to update data, keep the info from East Mondy, and remove the outdated info from OD
+                            temp_output = pd.merge(stock_output_Seasonly, Seasonly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                            temp_output.drop(columns=cols_to_drop, inplace=True)
 
-                        temp_output = temp_output.set_index(stock_output_Seasonly.index)
-                        stock_output_Seasonly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+                            temp_output = temp_output.set_index(stock_output_Seasonly.index)
+                            stock_output_Seasonly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
 
-                        ### here is some explaination for DataFame:
-                        ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
+                            ### here is some explaination for DataFame:
+                            ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
 
-                        ### to update the data in OneDrive as well....
-                        update_monthly_data_in_OneDrive(stock_output_Seasonly)
+                            ### to update the data in OneDrive as well....
+                            update_monthly_data_in_OneDrive(stock_output_Seasonly)
+                        except:
+                            print('No seasonly report available as of now...\n')
                     pass
         else:
             pass
