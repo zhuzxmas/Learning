@@ -908,6 +908,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                         ### to update the data in OneDrive as well....
                         update_data_in_OneDrive(stock_output_yearly)
+                        print(':::: It\'s Yearly data saved to OneDrive ...   ::::\n')
                 else:
                     if (day_one - latest_report_notice_date).days < 40:
                         # no need to call function to download data from East Money.
