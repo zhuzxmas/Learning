@@ -672,37 +672,45 @@ else:
 parent_id = data_get_parent.json()['id']
 
 
-# to create a new page in OneNote to store the stock info...
-# here, only define the endpoint, detailed info is listed down below after the data processing...
-endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
+# ################ MS Graph API with APP-Only Token Not Working Any More #################
+# #Mar 31, 2025 - Retirement of App-only Authentication for OneNote Microsoft Graph APIs
+# #Microsoft is deprecating app-only authentication for Microsoft Graph OneNote APIs. Starting March 31, 2025, requests using application permissions (app-only tokens) will fail with 401 unauthorized errors.
+# #Solution: Transition to delegated authentication tokens to prevent access issues.
+# #Ref: https://admin.microsoft.com/Adminportal/Home#/MessageCenter/:/messages/MC1011142
+# 
+# # to create a new page in OneNote to store the stock info...
+# # here, only define the endpoint, detailed info is listed down below after the data processing...
+# endpoint_create_page = 'https://graph.microsoft.com/v1.0/users/{}/onenote/sections/{}/pages'.format(user_id,finance_section_id)
 
 if stock_code:  
 
-    http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
-                  'Content-Type': 'application/xhtml+xml'}
-    page_title = 'Stock info for {}'.format(day_one.strftime('%Y-%m-%d'))
-    create_page_initial = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <title>{}</title>
-    <meta name="created" content="{}" />
-    </head>
-    <body>
-    <!-- No content in the body -->
-    </body>
-    </html>
-    """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
-    try:
-       data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
-    except:
-       data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
-    onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+    # http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+    #               'Content-Type': 'application/xhtml+xml'}
+    # page_title = 'Stock info for {}'.format(day_one.strftime('%Y-%m-%d'))
+    # create_page_initial = """
+    # <!DOCTYPE html>
+    # <html>
+    # <head>
+    # <title>{}</title>
+    # <meta name="created" content="{}" />
+    # </head>
+    # <body>
+    # <!-- No content in the body -->
+    # </body>
+    # </html>
+    # """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+    # try:
+    #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
+    #    print('data.status is: {}\n'.format(data.status_code))
+    # except:
+    #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
+    #    print('data.status is: {}\n'.format(data.status_code))
+    # onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
 
 
-    #### Append OneNote page content ###
-    #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
-    endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
+    # #### Append OneNote page content ###
+    # #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
+    # endpoint = 'https://graph.microsoft.com/v1.0/users/{}/onenote/pages/{}/content'.format(user_id,onenote_page_id)
 
 
     ### Below is to define the stock code and stock name.
@@ -987,21 +995,21 @@ if stock_code:
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
 
-        #### Append OneNote page content ###
-        body_data_append = [
-            {
-                "target": "body",
-                "action": "append",
-                "content": page_content
-            }
-        ]
+        # #### Append OneNote page content ###
+        # body_data_append = [
+        #     {
+        #         "target": "body",
+        #         "action": "append",
+        #         "content": page_content
+        #     }
+        # ]
 
-        try:
-            data = requests.patch(
-                endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
-        except:
-            data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
-                body_data_append, indent=4), proxies=proxies)
+        # try:
+        #     data = requests.patch(
+        #         endpoint, headers=http_headers, data=json.dumps(body_data_append, indent=4))
+        # except:
+        #     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
+        #         body_data_append, indent=4), proxies=proxies)
 
 
 
@@ -1013,38 +1021,38 @@ page_content = stock_Top_list.to_html()
 page_content = page_content.replace('<th></th>', '<th>item</th>')
 
 
-login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
-result = login_return['result']
+# login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+# result = login_return['result']
 
-### Create a OneNote Page for the summary ###
-http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
-              'Content-Type': 'application/xhtml+xml'}
-page_title = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
+# ### Create a OneNote Page for the summary ###
+# http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+#               'Content-Type': 'application/xhtml+xml'}
+# page_title = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
 
-create_0 = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>{}</title>
-<meta name="created" content="{}" />
-</head>
-""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+# create_0 = """
+# <!DOCTYPE html>
+# <html>
+# <head>
+# <title>{}</title>
+# <meta name="created" content="{}" />
+# </head>
+# """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
 
-create_1 = """
-<body>
-{}
-</body>
-</html>
-""".format(page_content)
+# create_1 = """
+# <body>
+# {}
+# </body>
+# </html>
+# """.format(page_content)
 
-create_page_initial = create_0 + create_1
+# create_page_initial = create_0 + create_1
 
-try:
-   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
-except:
-   data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'),proxies=proxies)
-if data.status_code == 201:
-    print('Created OneNote page successfully! \n')
+# try:
+#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
+# except:
+#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'),proxies=proxies)
+# if data.status_code == 201:
+#     print('Created OneNote page successfully! \n')
 
 
 print('Task Completed! \n')
