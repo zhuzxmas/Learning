@@ -864,9 +864,14 @@ if stock_code:
     else:
         ### this date is not saved everytime to OneDrive, as it's not necessary to do so.
         print('------- To Get the  [Seasonly] report from the East Money ------------')
-        try:
-            report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+        report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+        ### to get the Yearly stock price range from yahoo finance #############################
+        print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
+        print('Please Note: the stock price for the latest period is just to as of now...\n')
+        stock_price_yearly = get_stock_price_range(stock_output_yearly)
+        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
+        try:
             url_seasonly = Seasonly_report_url(report_notification_date_yearly)
             Seasonly_report_raw_out = report_from_East_Money(url_seasonly)
             Seasonly_report_raw = Seasonly_report_raw_out[0]
@@ -875,18 +880,17 @@ if stock_code:
             report_notification_date_Seasonly = Seasonly_report_raw.loc['Notice Date']
             stock_output_Seasonly = Seasonly_report_raw
 
-            ### to get the stock price range from yahoo finance #############################
-            print('------- To get the stock price range from Yahoo Finance ------------\n')
+            ### to get the Seasonly stock price range from yahoo finance #############################
+            print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
             print('Please Note: the stock price for the latest period is just to as of now...\n')
-            stock_price_yearly = get_stock_price_range(stock_output_yearly)
             stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
 
             ### to combine the stock price with the stock output #############################
-            stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
             stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
             stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
         except:
+            stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
             print('No seasonly report available as of now...\n')
 
 
