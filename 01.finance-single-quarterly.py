@@ -387,7 +387,7 @@ def get_stock_price_range(stock_output):
 def get_latest_7_days_stock_price():
     last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
     last_7_days_start = (datetime.datetime.now() -
-                         datetime.timedelta(days=7)).strftime('%Y-%m-%d')
+                         datetime.timedelta(days=10)).strftime('%Y-%m-%d')
 
     stock_target = yf.Ticker(stock)
 
@@ -867,7 +867,6 @@ if stock_code:
         report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
         ### to get the Yearly stock price range from yahoo finance #############################
         print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
-        print('Please Note: the stock price for the latest period is just to as of now...\n')
         stock_price_yearly = get_stock_price_range(stock_output_yearly)
         stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
