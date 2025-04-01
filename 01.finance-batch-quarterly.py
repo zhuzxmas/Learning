@@ -972,18 +972,22 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         # stock_output_Seasonly = Seasonly_report_raw
 
         ### to get the stock price range from yahoo finance #############################
+        print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
+        print('Please Note: the stock price for the latest period is just to as of now...\n')
+        stock_price_yearly = get_stock_price_range(stock_output_yearly)
+        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+
         try:
             print('------- To get the stock price range from Yahoo Finance ------------\n')
             print('Please Note: the stock price for the latest period is just to as of now...\n')
-            stock_price_yearly = get_stock_price_range(stock_output_yearly)
             stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
 
             ### to combine the stock price with the stock output #############################
-            stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
             stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
             stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
         except:
+            stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
             print('No seasonly report available as of now...\n')
 
 
