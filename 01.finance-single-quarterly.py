@@ -958,7 +958,11 @@ if stock_code:
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
             stock, stock, stock_name, dividends_perofrmance)
         # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(stock, stock, stock_name,)
-        page_content += stock_output_combined.to_html()
+        try:
+            page_content += stock_output_combined.to_html()
+        except NameError:
+            # Handle the case where stock_output_combined is not defined
+            pass
         page_content += "<div><p>This is the last 7 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name, last_7_days_stock_price_high_low)
         # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
@@ -987,7 +991,10 @@ if stock_code:
               stock_name), dividends_perofrmance, '\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(stock,
               stock, stock_name))
-        print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
+        try:
+            print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
+        except:
+            pass
         print('This is the last 7 days stock price for {} {}: {} \n'.format(
             stock, stock_name, last_7_days_stock_price_high_low))
         # print('This is the dividend for {}: {} \n'.format(stock, stock_name))

@@ -972,16 +972,19 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         # stock_output_Seasonly = Seasonly_report_raw
 
         ### to get the stock price range from yahoo finance #############################
-        print('------- To get the stock price range from Yahoo Finance ------------\n')
-        print('Please Note: the stock price for the latest period is just to as of now...\n')
-        stock_price_yearly = get_stock_price_range(stock_output_yearly)
-        stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
+        try:
+            print('------- To get the stock price range from Yahoo Finance ------------\n')
+            print('Please Note: the stock price for the latest period is just to as of now...\n')
+            stock_price_yearly = get_stock_price_range(stock_output_yearly)
+            stock_price_Seasonly = get_stock_price_range(stock_output_Seasonly)
 
-        ### to combine the stock price with the stock output #############################
-        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
-        stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
+            ### to combine the stock price with the stock output #############################
+            stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+            stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
-        stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+            stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+        except:
+            print('No seasonly report available as of now...\n')
 
 
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name))
@@ -1054,7 +1057,11 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
             iii, stock, stock_name, dividends_perofrmance)
         # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name,)
-        page_content += stock_output_combined.to_html()
+        try:
+            page_content += stock_output_combined.to_html()
+        except NameError:
+            # Handle the case where stock_output_combined is not defined
+            pass
         page_content += "<div><p>This is the last 10 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name, last_7_days_stock_price_high_low)
         # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
@@ -1083,7 +1090,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
               stock_name), dividends_perofrmance, '\n')
         print('This is the output for No. #{} ---{}: {} \n'.format(iii,
               stock, stock_name))
-        print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
+        try:
+            print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
+        except:
+            pass
         print('This is the last 10 days stock price for {} {}: {} \n'.format(
             stock, stock_name, last_7_days_stock_price_high_low))
         # print('This is the dividend for {}: {} \n'.format(stock, stock_name))
