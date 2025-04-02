@@ -636,7 +636,6 @@ def get_stock_info_for_F():
 
 
 
-################### TODO ########################
 ######## Below is the Main Function #################################
 
 
@@ -686,19 +685,19 @@ if stock_code:
 
     # http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
     #               'Content-Type': 'application/xhtml+xml'}
-    # page_title = 'Stock info for {}'.format(day_one.strftime('%Y-%m-%d'))
-    # create_page_initial = """
-    # <!DOCTYPE html>
-    # <html>
-    # <head>
-    # <title>{}</title>
-    # <meta name="created" content="{}" />
-    # </head>
-    # <body>
-    # <!-- No content in the body -->
-    # </body>
-    # </html>
-    # """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+    page_title = 'Stock info for {}'.format(day_one.strftime('%Y-%m-%d'))
+    create_page_initial = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>{}</title>
+    <meta name="created" content="{}" />
+    </head>
+    <body>
+    <!-- No content in the body -->
+    </body>
+    </html>
+    """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
     # try:
     #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
     #    print('data.status is: {}\n'.format(data.status_code))
@@ -706,6 +705,10 @@ if stock_code:
     #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
     #    print('data.status is: {}\n'.format(data.status_code))
     # onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
+
+    with open(f'{page_title}.html', "w", encoding='utf-8') as file:
+        file.write(create_page_initial)
+    print(f"File saved successfully to: {page_title}.html\n")
 
 
     # #### Append OneNote page content ###
@@ -1005,14 +1008,14 @@ if stock_code:
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
 
-        # #### Append OneNote page content ###
-        # body_data_append = [
-        #     {
-        #         "target": "body",
-        #         "action": "append",
-        #         "content": page_content
-        #     }
-        # ]
+        #### Append page content to OneNote or Local File ###
+        body_data_append = [
+            {
+                "target": "body",
+                "action": "append",
+                "content": page_content
+            }
+        ]
 
         # try:
         #     data = requests.patch(
@@ -1021,6 +1024,9 @@ if stock_code:
         #     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
         #         body_data_append, indent=4), proxies=proxies)
 
+        with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
+            file.write(body_data_append)
+        print(f'Data Added to File {page_title}.html successfully! \n')
 
 
 stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
@@ -1039,23 +1045,23 @@ page_content = page_content.replace('<th></th>', '<th>item</th>')
 #               'Content-Type': 'application/xhtml+xml'}
 # page_title = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
 
-# create_0 = """
-# <!DOCTYPE html>
-# <html>
-# <head>
-# <title>{}</title>
-# <meta name="created" content="{}" />
-# </head>
-# """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+create_0 = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>{}</title>
+<meta name="created" content="{}" />
+</head>
+""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
 
-# create_1 = """
-# <body>
-# {}
-# </body>
-# </html>
-# """.format(page_content)
+create_1 = """
+<body>
+{}
+</body>
+</html>
+""".format(page_content)
 
-# create_page_initial = create_0 + create_1
+create_page_initial = create_0 + create_1
 
 # try:
 #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
@@ -1064,5 +1070,8 @@ page_content = page_content.replace('<th></th>', '<th>item</th>')
 # if data.status_code == 201:
 #     print('Created OneNote page successfully! \n')
 
+with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
+    file.write(create_page_initial)
+print(f'Summary Info Added to File {page_title}.html successfully! \n')
 
 print('Task Completed! \n')
