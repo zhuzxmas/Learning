@@ -721,9 +721,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         </head>
         <body>
         <!-- No content in the body -->
+        <div><p>{}</p></div>
         </body>
         </html>
-        """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+        """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00'),page_title).replace('\n','').strip()
     #     try:
     #        data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
     #     except:
