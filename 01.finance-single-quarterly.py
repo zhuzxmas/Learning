@@ -402,6 +402,8 @@ def get_latest_7_days_stock_price():
     return last_7_days_stock_price_high_low
 
 
+### OneDrive Graph API Doc ###
+### https://learn.microsoft.com/en-us/graph/api/driveitem-put-content?view=graph-rest-1.0
 
 ### Define a create new data file to OneDrive Function ##############
 def save_data_to_OneDrive_newFile(stock_data):
@@ -423,7 +425,6 @@ def save_data_to_OneDrive_newFile(stock_data):
             print('Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
 
-
 ### Define a update existing file to OneDrive Function ##############
 def update_data_in_OneDrive(stock_data):
     stock_data.to_pickle('{}.pkl'.format(stock))
@@ -443,6 +444,24 @@ def update_data_in_OneDrive(stock_data):
         if data_update_file.status_code == 200:
             print('Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
+
+### Define a Save New file to OneDrive Function ##############
+def Save_File_To_OneDrive(file):
+    # 打开一个二进制文件进行读取
+    with open(file, 'rb') as filedata:
+        ### create a file file for this data:
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}:/content'.format(user_id,parent_id,file)
+        http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
+                        'Accept': 'application/json',
+                        'Content-Type': 'text/plain'}
+        try:
+            data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
+        except:
+            data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
+        # print('Uploaded data update file: status code is: {}----\n'.format(data_update_file.status_code))
+        if data_save_file.status_code == 200:
+            print('Data file Saved to OneDrive Successfully!-------- \n')
+    os.remove(file)
 
 # config.read(['config1.cfg'])
 # stock_settings = config['stock_name']
@@ -1073,5 +1092,7 @@ create_page_initial = create_0 + create_1
 with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
     file.write(create_page_initial)
 print(f'Summary Info Added to File {page_title}.html successfully! \n')
+
+Save_File_To_OneDrive(f'{page_title}.html')
 
 print('Task Completed! \n')
