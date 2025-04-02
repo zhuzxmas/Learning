@@ -842,6 +842,9 @@ if stock_code:
                 # since the latest report is saved in the file already.
                 print('~~~ The data stored in OneDrive is updated, Good !!! \n')
                 stock_output_yearly = yearly_report_from_OD
+                url_yearly = Year_report_url()
+                yearly_report_raw_out = report_from_East_Money(url_yearly)
+                stock_name = yearly_report_raw_out[1]
             else:
                 if today_month == (1 or 2 or 3):
                 # no need to call function to download data, since the financial report has not been published yet.

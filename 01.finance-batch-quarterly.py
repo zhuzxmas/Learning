@@ -913,6 +913,9 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         # since the latest report is saved in the file already.
                         print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
                         stock_output_yearly = yearly_report_from_OD
+                        url_yearly = Year_report_url()
+                        yearly_report_raw_out = report_from_East_Money(url_yearly)
+                        stock_name = yearly_report_raw_out[1] # for stock name
                     else:
                         print(':::: It\'s time to update the Yearly data now ...   ::::\n')
                         ### get the yearly report date ################################
