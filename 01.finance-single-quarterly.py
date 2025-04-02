@@ -420,8 +420,8 @@ def save_data_to_OneDrive_newFile(stock_data):
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_create_file.status_code))
-        if data_create_file.status_code == 200:
+        print('Uploaded data with Created New file: status code is: {}----\n'.format(data_create_file.status_code))
+        if data_create_file.status_code == 201:
             print('Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
 
@@ -440,8 +440,8 @@ def update_data_in_OneDrive(stock_data):
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_update_file.status_code == 200:
+        print('Updated data file: status code is: {}----\n'.format(data_update_file.status_code))
+        if data_update_file.status_code == 201:
             print('Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
 
@@ -458,8 +458,8 @@ def Save_File_To_OneDrive(file):
             data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_save_file.status_code == 200:
+        print('File Saved to OneDrive: status code is: {}----\n'.format(data_save_file.status_code))
+        if data_save_file.status_code == 201:
             print('Data file Saved to OneDrive Successfully!-------- \n')
     os.remove(file)
 
