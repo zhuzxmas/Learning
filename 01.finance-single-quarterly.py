@@ -1025,7 +1025,7 @@ if stock_code:
         #         body_data_append, indent=4), proxies=proxies)
 
         with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
-            file.write(body_data_append)
+            file.write(page_content)
         print(f'Data Added to File {page_title}.html successfully! \n')
 
 
