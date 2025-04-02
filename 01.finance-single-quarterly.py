@@ -714,9 +714,10 @@ if stock_code:
     </head>
     <body>
     <!-- No content in the body -->
+    <div><p>{}</p></div>
     </body>
     </html>
-    """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+    """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00'),page_title).replace('\n','').strip()
     # try:
     #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
     #    print('data.status is: {}\n'.format(data.status_code))
