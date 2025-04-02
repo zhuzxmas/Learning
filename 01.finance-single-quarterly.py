@@ -757,11 +757,6 @@ if stock_code:
             stock_cn = prefix + str(stock_code) + '.SZ'  # SZ stock
 
 
-    print('-----Stock No.{}---Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------\n'.format(stock, stock))
-
-    stock_Top_temp.append('{}--{}-{}'.format(stock, stock, stock_name))
-
-
     ### to get the yearly report from the East Money ################################
     print('------- To Get the [- yearly -] report from DataBase ------------\n')
     
@@ -878,6 +873,10 @@ if stock_code:
                     update_data_in_OneDrive(stock_output_yearly)
     else:
         pass
+
+
+    print('-----Stock No.{}---Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------\n'.format(stock, stock))
+    stock_Top_temp.append('{}--{}-{}'.format(stock, stock, stock_name))
 
     
     ### to get the Seasonly report from the East Money ################################
@@ -1028,13 +1027,13 @@ if stock_code:
         print('                                                                                                \n')
 
         #### Append page content to OneNote or Local File ###
-        body_data_append = [
-            {
-                "target": "body",
-                "action": "append",
-                "content": page_content
-            }
-        ]
+        # body_data_append = [
+        #     {
+        #         "target": "body",
+        #         "action": "append",
+        #         "content": page_content
+        #     }
+        # ]
 
         # try:
         #     data = requests.patch(

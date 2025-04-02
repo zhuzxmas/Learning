@@ -366,9 +366,9 @@ def save_data_to_OneDrive_newFile(stock_data):
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_create_file.status_code))
-        if data_create_file.status_code == 200:
-            print('Data file uploaded to OneDrive Successfully!-------- \n')
+        print('Uploaded Yearly data  to Created New file: status code is: {}----\n'.format(data_create_file.status_code))
+        if data_create_file.status_code == 201:
+            print('Yearly Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
 
 ### below is to store monthly data to OneDrive ###
@@ -386,8 +386,8 @@ def save_monthly_data_to_OneDrive_newFile(stock_data):
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_create_file.status_code))
-        if data_create_file.status_code == 200:
+        print('Updated Monthly data file: status code is: {}----\n'.format(data_create_file.status_code))
+        if data_create_file.status_code == 201:
             print('Monthly Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}_monthly.pkl'.format(stock))
 
@@ -406,9 +406,9 @@ def update_data_in_OneDrive(stock_data):
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_update_file.status_code == 200:
-            print('Data file updated to OneDrive Successfully!-------- \n')
+        print('Updated Yearly data file: status code is: {}----\n'.format(data_update_file.status_code))
+        if data_update_file.status_code == 201:
+            print('Yearly Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}.pkl'.format(stock))
 
 ### to update existing monthly data file to OneDrive Function ###
@@ -426,10 +426,29 @@ def update_monthly_data_in_OneDrive(stock_data):
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata, stream=False)
         except:
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
-        # print('Uploaded data update file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_update_file.status_code == 200:
-            print('Data file updated to OneDrive Successfully!-------- \n')
+        print('Updated Monthly data file: status code is: {}----\n'.format(data_update_file.status_code))
+        if data_update_file.status_code == 201:
+            print('Monthly Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}_monthly.pkl'.format(stock))
+
+### Define a Save New file to OneDrive Function ##############
+def Save_File_To_OneDrive(file):
+    # 打开一个二进制文件进行读取
+    with open(file, 'rb') as filedata:
+        ### create a file file for this data:
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}:/content'.format(user_id,parent_id,file)
+        http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
+                        'Accept': 'application/json',
+                        'Content-Type': 'text/plain'}
+        try:
+            data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
+        except:
+            data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
+        print('File Saved to OneDrive: status code is: {}----\n'.format(data_save_file.status_code))
+        if data_save_file.status_code == 201:
+            print('Data file Saved to OneDrive Successfully!-------- \n')
+    os.remove(file)
+
 
 # config.read(['config1.cfg'])
 # stock_settings = config['stock_name']
@@ -686,31 +705,34 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     #     token_start_time = token_time_check
 
 
-    # # to split the output with 60 stock as the most info in one OneNote page. 
-    # # ------------ 这里我定义了 OneNote 一页最多放60只股票信息, 为了看的时候方便--------
-    # if iii % 60 ==0: ### Create a OneNote Page ###
+    # to split the output with 60 stock as the most info in one OneNote page. 
+    # ------------ 这里我定义了 OneNote 一页最多放60只股票信息, 为了看的时候方便--------
+    if iii % 60 ==0: ### Create a OneNote Page ###
 
     #     http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
     #                   'Content-Type': 'application/xhtml+xml'}
-    #     page_title = 'Stock info for {} part {}'.format(day_one.strftime('%Y-%m-%d'), str(iii))
-    #     create_page_initial = """
-    #     <!DOCTYPE html>
-    #     <html>
-    #     <head>
-    #     <title>{}</title>
-    #     <meta name="created" content="{}" />
-    #     </head>
-    #     <body>
-    #     <!-- No content in the body -->
-    #     </body>
-    #     </html>
-    #     """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+        page_title = 'Stock info for {} part {}'.format(day_one.strftime('%Y-%m-%d'), str(iii))
+        create_page_initial = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <title>{}</title>
+        <meta name="created" content="{}" />
+        </head>
+        <body>
+        <!-- No content in the body -->
+        </body>
+        </html>
+        """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
     #     try:
     #        data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial)
     #     except:
     #        data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
     #     onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
 
+    with open(f'{page_title}.html', "w", encoding='utf-8') as file:
+        file.write(create_page_initial)
+    print(f"File saved successfully to: {page_title}.html\n")
 
     #     #### Append OneNote page content ###
     #     #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
@@ -1121,6 +1143,9 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         #     data = requests.patch(endpoint, headers=http_headers, data=json.dumps(
         #         body_data_append, indent=4), proxies=proxies)
 
+        with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
+            file.write(page_content)
+        print(f'Data Added to File {page_title}.html successfully! \n')
 
 
 stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
@@ -1137,25 +1162,25 @@ page_content = page_content.replace('<th></th>', '<th>item</th>')
 # ### Create a OneNote Page for the summary ###
 # http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
 #               'Content-Type': 'application/xhtml+xml'}
-# page_title = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
+page_title_summary = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
 
-# create_0 = """
-# <!DOCTYPE html>
-# <html>
-# <head>
-# <title>{}</title>
-# <meta name="created" content="{}" />
-# </head>
-# """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+create_0 = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>{}</title>
+<meta name="created" content="{}" />
+</head>
+""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
 
-# create_1 = """
-# <body>
-# {}
-# </body>
-# </html>
-# """.format(page_content)
+create_1 = """
+<body>
+{}
+</body>
+</html>
+""".format(page_content)
 
-# create_page_initial = create_0 + create_1
+create_page_initial = create_0 + create_1
 
 # try:
 #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
@@ -1164,5 +1189,15 @@ page_content = page_content.replace('<th></th>', '<th>item</th>')
 # if data.status_code == 201:
 #     print('Created OneNote page successfully! \n')
 
+with open(f'{page_title_summary}.html', "w", encoding="utf-8") as file:  # Open in append mode
+    file.write(create_page_initial)
+print(f'Summary Info Added to File {page_title_summary}.html successfully! \n')
+
+html_files = [file for file in os.listdir('.') if file.endswith('.html')]
+print("HTML files in the current directory:")
+print(html_files)
+
+for file in html_files:
+    Save_File_To_OneDrive(file)
 
 print('Task Completed Successfully! \n')
