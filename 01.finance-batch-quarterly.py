@@ -693,16 +693,16 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     # ### MS token expiration time info, refer to below link ###
     # # https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes #
 
-    # token_time_check = datetime.datetime.now()
-    # time_difference = token_time_check - token_start_time
-    # time_difference_s = time_difference.total_seconds()
-    # print('Token has been used for {} mins.\n'.format(str(int(time_difference_s/60)+1)))
+    token_time_check = datetime.datetime.now()
+    time_difference = token_time_check - token_start_time
+    time_difference_s = time_difference.total_seconds()
+    print('Token has been used for {} mins.\n'.format(str(int(time_difference_s/60)+1)))
 
-    # if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
-    #     login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
-    #     result = login_return['result']
-    #     http_headers = {'Authorization': 'Bearer ' + result['access_token'],'Content-Type': 'application/json'}
-    #     token_start_time = token_time_check
+    if time_difference_s > 2400: # check token time, if less than 2400s, i.e. 40min, ok to use, or, get a new one.
+        login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+        result = login_return['result']
+        http_headers = {'Authorization': 'Bearer ' + result['access_token'],'Content-Type': 'application/json'}
+        token_start_time = token_time_check
 
 
     # to split the output with 60 stock as the most info in one OneNote page. 
