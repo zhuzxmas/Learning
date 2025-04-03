@@ -13,6 +13,7 @@ import json
 import funcLG
 from pandas import DataFrame as df
 import pickle
+import z_Func
 
 login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
 result = login_return['result']
@@ -79,12 +80,6 @@ stock_Top_list = []
 stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
 
 
-# To create a random string for East Money request #
-def generate_random_string(length):
-    # Generate a random string of the specified length
-    return ''.join([str(random.randint(0, 9)) for _ in range(length)])
-
-
 # to check if local file config.cfg is available, for local running application.
 config = configparser.ConfigParser()
 if os.path.exists('./config.cfg'):
@@ -125,9 +120,9 @@ headers_eastmoney = {
 
 ################# Define yearly report for each stock from East Money #################################
 def Year_report_url():
-    string_v1 = generate_random_string(17)
-    string_v2 = generate_random_string(17)
-    string_v3 = generate_random_string(18)
+    string_v1 = z_Func.generate_random_string(17)
+    string_v2 = z_Func.generate_random_string(17)
+    string_v3 = z_Func.generate_random_string(18)
 
     if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  
         url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_income_year, p_income_year, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v1)
@@ -140,9 +135,9 @@ def Year_report_url():
 
 ################# Define Seasonly report #################################################
 def Seasonly_report_url(report_date_yearly):
-    string_v1 = generate_random_string(17)
-    string_v2 = generate_random_string(17)
-    string_v3 = generate_random_string(18)
+    string_v1 = z_Func.generate_random_string(17)
+    string_v2 = z_Func.generate_random_string(17)
+    string_v3 = z_Func.generate_random_string(18)
 
     latest_report_date_Year = int(report_date_yearly.index[0][:4])
     next_year = str(latest_report_date_Year + 1)
@@ -407,10 +402,10 @@ def get_latest_7_days_stock_price():
 
 ### Define a create new data file to OneDrive Function ##############
 def save_data_to_OneDrive_newFile(stock_data):
-    stock_data.to_pickle('{}.pkl'.format(stock))
+    stock_data.to_pickle('{}-{}.pkl'.format(stock,stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-{}.pkl'.format(stock,stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}.pkl:/content'.format(user_id,parent_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -423,14 +418,14 @@ def save_data_to_OneDrive_newFile(stock_data):
         print('Uploaded data with Created New file: status code is: {}----\n'.format(data_create_file.status_code))
         if data_create_file.status_code == 201:
             print('Data file uploaded to OneDrive Successfully!-------- \n')
-    os.remove('{}.pkl'.format(stock))
+    os.remove('{}-{}.pkl'.format(stock,stock_name))
 
 ### Define a update existing file to OneDrive Function ##############
 def update_data_in_OneDrive(stock_data):
-    stock_data.to_pickle('{}.pkl'.format(stock))
+    stock_data.to_pickle('{}-{}.pkl'.format(stock, stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-{}.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -443,7 +438,7 @@ def update_data_in_OneDrive(stock_data):
         print('Updated data file: status code is: {}----\n'.format(data_update_file.status_code))
         if data_update_file.status_code == 201:
             print('Data file updated to OneDrive Successfully!-------- \n')
-    os.remove('{}.pkl'.format(stock))
+    os.remove('{}-{}.pkl'.format(stock, stock_name))
 
 ### Define a Save New file to OneDrive Function ##############
 def Save_File_To_OneDrive(file):
@@ -690,6 +685,21 @@ else:
 parent_id = data_get_parent.json()['id']
 
 
+### to get the Saved Files List info from OD ###
+endpoint_parent_items = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}/children'.format(user_id, parent_id)
+try:
+    data_get_parent_items = requests.get(endpoint_parent_items, headers=http_headers, stream=False)
+except:
+    data_get_parent_items = requests.get(endpoint_parent_items, headers=http_headers, stream=False, proxies=proxies)
+if data_get_parent_items.status_code == 200:
+    print('Successfully get the Saved Files list from OneDrive.\n')
+else:
+    print('Failed to get the Saved Files list from OneDrive: Status code is: {}'.format(data_get_parent.status_code))
+saved_files_list_from_OD = data_get_parent_items.json()['value']
+saved_files_list_lite = {}
+for i in range(len(saved_files_list_from_OD)):
+    saved_files_list_lite[saved_files_list_from_OD[i]['name']] = saved_files_list_from_OD[i]['id']
+
 # ################ MS Graph API with APP-Only Token Not Working Any More #################
 # #Mar 31, 2025 - Retirement of App-only Authentication for OneNote Microsoft Graph APIs
 # #Microsoft is deprecating app-only authentication for Microsoft Graph OneNote APIs. Starting March 31, 2025, requests using application permissions (app-only tokens) will fail with 401 unauthorized errors.
@@ -775,7 +785,7 @@ if stock_code:
     ###     PUT /users/{user-id}/drive/items/{item-id}/content
 
 
-    endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+    endpoint_data_file = endpoint_parent + '{}-{}.pkl'.format(stock, stock_name)
     http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'}
@@ -790,6 +800,7 @@ if stock_code:
     if data_get_data.status_code == 404: # no data, so we need to save it this time...
         if stock == 'F':
             stock_output_combined = get_stock_info_for_F()
+            stock_name = 'Ford'
             save_data_to_OneDrive_newFile(stock_output_combined)
             stock_output_yearly = stock_output_combined
         
