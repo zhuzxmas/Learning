@@ -305,11 +305,11 @@ def get_latest_7_days_stock_price(stock, proxy_add):
 
 
 ### Define function for saving Yearly data to OneDrive Function ####
-def save_data_to_OneDrive_newFile(stock_data, stock, user_id, parent_id, result, proxies):
-    stock_data.to_pickle('{}.pkl'.format(stock))
+def save_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id, parent_id, result, proxies):
+    stock_data.to_pickle('{}-{}.pkl'.format(stock, stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-Y-{}.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}.pkl:/content'.format(user_id,parent_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -322,14 +322,14 @@ def save_data_to_OneDrive_newFile(stock_data, stock, user_id, parent_id, result,
         print('Uploaded Yearly data  to Created New file: status code is: {}----\n'.format(data_create_file.status_code))
         if data_create_file.status_code == 201:
             print('Yearly Data file uploaded to OneDrive Successfully!-------- \n')
-    os.remove('{}.pkl'.format(stock))
+    os.remove('{}-Y-{}.pkl'.format(stock, stock_name))
 
 ### below is to store monthly data to OneDrive ###
-def save_monthly_data_to_OneDrive_newFile(stock_data, stock, user_id, parent_id, result, proxies):
-    stock_data.to_pickle('{}_monthly.pkl'.format(stock))
+def save_monthly_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id, parent_id, result, proxies):
+    stock_data.to_pickle('{}-M-{}_monthly.pkl'.format(stock, stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}_monthly.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-M-{}_monthly.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}_monthly.pkl:/content'.format(user_id,parent_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -342,14 +342,14 @@ def save_monthly_data_to_OneDrive_newFile(stock_data, stock, user_id, parent_id,
         print('Updated Monthly data file: status code is: {}----\n'.format(data_create_file.status_code))
         if data_create_file.status_code == 201:
             print('Monthly Data file uploaded to OneDrive Successfully!-------- \n')
-    os.remove('{}_monthly.pkl'.format(stock))
+    os.remove('{}-M-{}_monthly.pkl'.format(stock, stock_name))
 
 ### Define a update existing file to OneDrive Function ##############
-def update_data_in_OneDrive(stock_data, stock, user_id, data_file_id, result, proxies):
-    stock_data.to_pickle('{}.pkl'.format(stock))
+def update_data_in_OneDrive(stock_name, stock_data, stock, user_id, data_file_id, result, proxies):
+    stock_data.to_pickle('{}-Y-{}.pkl'.format(stock, stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-{}.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -362,14 +362,14 @@ def update_data_in_OneDrive(stock_data, stock, user_id, data_file_id, result, pr
         print('Updated Yearly data file: status code is: {}----\n'.format(data_update_file.status_code))
         if data_update_file.status_code == 201:
             print('Yearly Data file updated to OneDrive Successfully!-------- \n')
-    os.remove('{}.pkl'.format(stock))
+    os.remove('{}-Y-{}.pkl'.format(stock, stock_name))
 
 ### to update existing monthly data file to OneDrive Function ###
-def update_monthly_data_in_OneDrive(stock_data, stock, user_id, data_file_id, result, proxies):
-    stock_data.to_pickle('{}_monthly.pkl'.format(stock))
+def update_monthly_data_in_OneDrive(stock_name, stock_data, stock, user_id, data_file_id, result, proxies):
+    stock_data.to_pickle('{}-{}_monthly.pkl'.format(stock, stock_name))
 
     # 打开一个二进制文件进行读取
-    with open('{}_monthly.pkl'.format(stock), 'rb') as filedata:
+    with open('{}-M-{}_monthly.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
         endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
@@ -382,7 +382,7 @@ def update_monthly_data_in_OneDrive(stock_data, stock, user_id, data_file_id, re
         print('Updated Monthly data file: status code is: {}----\n'.format(data_update_file.status_code))
         if data_update_file.status_code == 201:
             print('Monthly Data file updated to OneDrive Successfully!-------- \n')
-    os.remove('{}_monthly.pkl'.format(stock))
+    os.remove('{}-M-{}_monthly.pkl'.format(stock, stock_name))
 
 ### Define a Save New file to OneDrive Function ##############
 def Save_File_To_OneDrive(file, user_id, parent_id, result, proxies):
