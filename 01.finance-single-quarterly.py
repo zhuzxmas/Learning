@@ -220,7 +220,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     with open(f'{page_title}.html', "w", encoding='utf-8') as file:
         file.write(create_page_initial)
-    print(f"File saved successfully to: {page_title}.html\n")
+    print(f"File saved successfully to: {page_title}.html for OneNote page\n")
 
     #     #### Append OneNote page content ###
     #     #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
@@ -617,52 +617,52 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
             file.write(page_content)
-        print(f'Data Added to File {page_title}.html successfully! \n')
+        print(f'Data Added to File {page_title}.html successfully for OneNote page! \n')
 
 
-stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
-    by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
-print(tabulate(stock_Top_list, headers='keys', tablefmt='simple',))
-page_content = stock_Top_list.to_html()
-page_content = page_content.replace('<th></th>', '<th>item</th>')
+# stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
+#     by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
+# print(tabulate(stock_Top_list, headers='keys', tablefmt='simple',))
+# page_content = stock_Top_list.to_html()
+# page_content = page_content.replace('<th></th>', '<th>item</th>')
 
 
-# login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
-# result = login_return['result']
+# # login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+# # result = login_return['result']
 
-# ### Create a OneNote Page for the summary ###
-# http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
-#               'Content-Type': 'application/xhtml+xml'}
-page_title_summary = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
+# # ### Create a OneNote Page for the summary ###
+# # http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
+# #               'Content-Type': 'application/xhtml+xml'}
+# page_title_summary = 'Summary for {} Stock Info'.format(day_one.strftime('%Y-%m-%d'))
 
-create_0 = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>{}</title>
-<meta name="created" content="{}" />
-</head>
-""".format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
+# create_0 = """
+# <!DOCTYPE html>
+# <html>
+# <head>
+# <title>{}</title>
+# <meta name="created" content="{}" />
+# </head>
+# """.format(page_title,(datetime.datetime.now(datetime.timezone.utc)+ datetime.timedelta(hours=8)).strftime('%Y-%m-%dT%H:%M:%S+08:00')).replace('\n','').strip()
 
-create_1 = """
-<body>
-{}
-</body>
-</html>
-""".format(page_content)
+# create_1 = """
+# <body>
+# {}
+# </body>
+# </html>
+# """.format(page_content)
 
-create_page_initial = create_0 + create_1
+# create_page_initial = create_0 + create_1
 
-# try:
-#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
-# except:
-#    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'),proxies=proxies)
-# if data.status_code == 201:
-#     print('Created OneNote page successfully! \n')
+# # try:
+# #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'))
+# # except:
+# #    data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial.encode('utf-8'),proxies=proxies)
+# # if data.status_code == 201:
+# #     print('Created OneNote page successfully! \n')
 
-with open(f'{page_title_summary}.html', "w", encoding="utf-8") as file:  # Open in append mode
-    file.write(create_page_initial)
-print(f'Summary Info Added to File {page_title_summary}.html successfully! \n')
+# with open(f'{page_title_summary}.html', "w", encoding="utf-8") as file:  # Open in append mode
+#     file.write(create_page_initial)
+# print(f'Summary Info Added to File {page_title_summary}.html successfully for OneNote page! \n')
 
 html_files = [file for file in os.listdir('.') if file.endswith('.html')]
 print("HTML files in the current directory:")
