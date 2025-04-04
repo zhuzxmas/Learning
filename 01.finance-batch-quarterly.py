@@ -119,6 +119,24 @@ else:
     print('Failed to get the parent id: Status code is: {}'.format(data_get_parent.status_code))
 parent_id = data_get_parent.json()['id']
 
+### to get the Saved Files List info from OD ###
+endpoint_parent_items = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}/children'.format(user_id, parent_id)
+try:
+    data_get_parent_items = requests.get(endpoint_parent_items, headers=http_headers, stream=False)
+except:
+    data_get_parent_items = requests.get(endpoint_parent_items, headers=http_headers, stream=False, proxies=proxies)
+if data_get_parent_items.status_code == 200:
+    print('Successfully get the Saved Files list from OneDrive.\n')
+else:
+    print('Failed to get the Saved Files list from OneDrive: Status code is: {}'.format(data_get_parent.status_code))
+saved_files_list_from_OD = data_get_parent_items.json()['value']
+saved_files_list_lite = {}
+if len(saved_files_list_from_OD) == 0:
+    print('------------No file has been saved in yet.\n')
+else:
+    for i in range(len(saved_files_list_from_OD)):
+        saved_files_list_lite[saved_files_list_from_OD[i]['name']] = saved_files_list_from_OD[i]['id']
+
 # ################ MS Graph API with APP-Only Token Not Working Any More #################
 # #Mar 31, 2025 - Retirement of App-only Authentication for OneNote Microsoft Graph APIs
 # #Microsoft is deprecating app-only authentication for Microsoft Graph OneNote APIs. Starting March 31, 2025, requests using application permissions (app-only tokens) will fail with 401 unauthorized errors.
@@ -226,13 +244,15 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     check_item = ['yearly', 'monthly']
 
     for check_item_name in check_item:
-        ### Check the Yearly Data File ###
         if check_item_name == 'yearly' and stock != 'F':
-            endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+            # endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+            stock_file_str = stock + '-Y-'
         elif check_item_name == 'monthly' and stock != 'F':
-            endpoint_data_file = endpoint_parent + '{}_monthly.pkl'.format(stock)
+            # endpoint_data_file = endpoint_parent + '{}_monthly.pkl'.format(stock)
+            stock_file_str = stock + '-M-'
         else:
-            endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+            # endpoint_data_file = endpoint_parent + '{}.pkl'.format(stock)
+            stock_file_str = stock + '-Y-'
 
         http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                         'Accept': 'application/json',
@@ -240,12 +260,144 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
 
         ### to check  if data exists: ####
-        try:
-            data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False)
-        except:
-            data_get_data = requests.get(endpoint_data_file, headers=http_headers, stream=False, proxies=proxies)
+        found = False
+        ##### data exists ####
+        for key in saved_files_list_lite.keys():
+            if stock_file_str in key:
+                found = True
+                print(f"Found '{stock_file_str}' in saved files from OneDrive: {key}\n")
+                endpoint_data_file = endpoint_parent + key
+                data_file_id = saved_files_list_lite[key]
+                if check_item_name == 'yearly':
+                    stock_name = key.split('-Y-')[1].split('.pkl')[0]
+                if check_item_name == 'monthly':
+                    stock_name = key.split('-M-')[1].split('.pkl')[0]
 
-        if data_get_data.status_code == 404: # no data, so we need to save it this time...
+                if check_item_name == 'yearly' and stock != 'F':
+                    print('-----Data existed in OneDrive, let\'s check if it is updated base on saved data latest report year...-----\n')
+                elif check_item_name == 'monthly' and stock != 'F':
+                    print('-----Data existed in OneDrive, let\'s check if it is updated base on saved data latest report Season...-----\n')
+                else:
+                    print('-----Data existed in OneDrive for Ford, let\'s check if it is updated base on saved data latest report year...-----\n')
+
+                endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
+
+                try:
+                    data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False)
+                except:
+                    data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
+
+                if check_item_name == 'yearly' and stock != 'F':
+                    yearly_report_from_OD = pickle.loads(data_get_data_content.content)
+                elif check_item_name == 'monthly' and stock != 'F':
+                    Seasonly_report_from_OD = pickle.loads(data_get_data_content.content)
+                else:
+                    yearly_report_from_OD = pickle.loads(data_get_data_content.content)
+
+
+                if stock == 'F':
+                    if check_item_name == 'yearly':
+                        stock_output_combined_out = z_Func.get_stock_info_for_F(stock=stock, proxy_add=proxy_add)
+                        stock_output_combined = stock_output_combined_out[0]
+                        stock_name = stock_output_combined_out[1]
+
+                        ### to update data, keep the info just get, and remove the outdated info from OD
+                        temp_output = pd.merge(stock_output_combined, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                        cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                        temp_output.drop(columns=cols_to_drop, inplace=True)
+
+                        temp_output = temp_output.set_index(stock_output_combined.index)
+                        stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+
+                        ### to update the data in OneDrive as well....
+                        z_Func.update_data_in_OneDrive(stock_name=stock_name, stock_data=stock_output_yearly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
+
+                else:
+                    if check_item_name == 'yearly':
+                        latest_report_year = int(yearly_report_from_OD.columns[0][:4])
+                        latest_report_notice_date = yearly_report_from_OD.loc['Notice Date'][0]
+                    else:
+                        latest_report_month = int(Seasonly_report_from_OD.columns[0][5:7])
+                        latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'][0]
+
+                    latest_report_notice_date = datetime.datetime.strptime(latest_report_notice_date, '%Y-%m-%d').date()
+
+                    ### check if data is updated...
+                    today_year = day_one.year
+                    today_month = day_one.month
+
+                    if check_item_name == 'yearly':
+                        if (day_one - latest_report_notice_date).days < 365:
+                            # no need to call function to download data from East Money.
+                            # since the latest report is saved in the file already.
+                            print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
+                            stock_output_yearly = yearly_report_from_OD
+                            url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
+                            yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                            stock_name = yearly_report_raw_out[1] # for stock name
+                        else:
+                            print(':::: It\'s time to update the Yearly data now ...   ::::\n')
+                            ### get the yearly report date ################################
+                            url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
+                            yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                            yearly_report_raw = yearly_report_raw_out[0]
+                            stock_name = yearly_report_raw_out[1]
+
+                            stock_output_yearly = yearly_report_raw
+
+                            ### to update data, keep the info from East Mondy, and remove the outdated info from OD
+                            temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                            temp_output.drop(columns=cols_to_drop, inplace=True)
+
+                            temp_output = temp_output.set_index(stock_output_yearly.index)
+                            stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+
+                            ### here is some explaination for DataFame:
+                            ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
+
+                            ### to update the data in OneDrive as well....
+                            z_Func.update_data_in_OneDrive(stock_name=stock_name, stock_data=stock_output_yearly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
+                            print(':::: It\'s Yearly data saved to OneDrive ...   ::::\n')
+                    else:
+                        if (day_one - latest_report_notice_date).days < 40:
+                            # no need to call function to download data from East Money.
+                            # since the latest report is saved in the file already.
+                            print('~~~ The Seasonly data stored in OneDrive is updated, Good !!! \n')
+                            stock_output_Seasonly = Seasonly_report_from_OD
+                        else:
+                            print(':::: It\'s time to update the Seasonly data now ...   ::::\n')
+                            ### get the yearly report date ################################
+                            try:
+                                report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
+
+                                url_seasonly = z_Func.Seasonly_report_url(report_date_yearly=report_notification_date_yearly, stock=stock, stock_cn=stock_cn, p_income=p_income, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet)
+                                Seasonly_report_raw_out = z_Func.report_from_East_Money(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
+                                Seasonly_report_raw = Seasonly_report_raw_out[0]
+                                stock_name = Seasonly_report_raw_out[1]
+
+                                stock_output_Seasonly = Seasonly_report_raw
+
+                                ### to update data, keep the info from East Mondy, and remove the outdated info from OD
+                                temp_output = pd.merge(stock_output_Seasonly, Seasonly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                                temp_output.drop(columns=cols_to_drop, inplace=True)
+
+                                temp_output = temp_output.set_index(stock_output_Seasonly.index)
+                                stock_output_Seasonly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+
+                                ### here is some explaination for DataFame:
+                                ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
+
+                                ### to update the data in OneDrive as well....
+                                z_Func.update_monthly_data_in_OneDrive(stock_name=stock_name, stock_data=stock_output_Seasonly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
+                            except:
+                                print('No seasonly report available as of now...\n')
+                        pass
+        ##### data does NOT exist ####
+        if not found:
+            print(f"'{stock_file_str}' was not found in saved files from OneDrive.\n") 
+
             if check_item_name == 'yearly':
                 print('---------No Yearly data saved before, it\'s time to save it...---------\n')
             else:
@@ -257,7 +409,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     stock_output_combined = stock_output_combined_out[0]
                     stock_name = stock_output_combined_out[1]
 
-                    z_Func.save_data_to_OneDrive_newFile(stock_data=stock_output_combined, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
+                    z_Func.save_data_to_OneDrive_newFile(stock_name=stock_name, stock_data=stock_output_combined, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
                     stock_output_yearly = stock_output_combined
 
             else: # for other stocks from SH/SZ:
@@ -271,7 +423,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     stock_output_yearly = yearly_report_raw
 
                     # call save data function
-                    z_Func.save_data_to_OneDrive_newFile(stock_data=stock_output_yearly, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
+                    z_Func.save_data_to_OneDrive_newFile(stock_name=stock_name, stock_data=stock_output_yearly, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
 
                 else:
                     ### get the monthly report date ################################
@@ -286,161 +438,30 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         stock_output_Seasonly = Seasonly_report_raw
 
                         # call save data function
-                        z_Func.save_monthly_data_to_OneDrive_newFile(stock_data=stock_output_Seasonly, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
+                        z_Func.save_monthly_data_to_OneDrive_newFile(stock_name=stock_name, stock_data=stock_output_Seasonly, stock=stock, user_id=user_id, parent_id=parent_id, result=result, proxies=proxies)
                     except:
                         print('No seasonly report available as of now...\n')
 
-
-        elif data_get_data.status_code == 200: # data saved before, check it.
-            if check_item_name == 'yearly' and stock != 'F':
-                print('-----Data existed in OneDrive, let\'s check if it is updated base on saved data latest report year...-----\n')
-            elif check_item_name == 'monthly' and stock != 'F':
-                print('-----Data existed in OneDrive, let\'s check if it is updated base on saved data latest report Season...-----\n')
-            else:
-                print('-----Data existed in OneDrive for Ford, let\'s check if it is updated base on saved data latest report year...-----\n')
-
-            data_file_id = data_get_data.json()['id']
-            endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
-
-            try:
-                data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False)
-            except:
-                data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
-
-            if check_item_name == 'yearly' and stock != 'F':
-                yearly_report_from_OD = pickle.loads(data_get_data_content.content)
-            elif check_item_name == 'monthly' and stock != 'F':
-                Seasonly_report_from_OD = pickle.loads(data_get_data_content.content)
-            else:
-                yearly_report_from_OD = pickle.loads(data_get_data_content.content)
-
-
-            if stock == 'F':
-                if check_item_name == 'yearly':
-                    stock_output_combined_out = z_Func.get_stock_info_for_F(stock=stock, proxy_add=proxy_add)
-                    stock_output_combined = stock_output_combined_out[0]
-                    stock_name = stock_output_combined_out[1]
-
-                    ### to update data, keep the info just get, and remove the outdated info from OD
-                    temp_output = pd.merge(stock_output_combined, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                    cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                    temp_output.drop(columns=cols_to_drop, inplace=True)
-
-                    temp_output = temp_output.set_index(stock_output_combined.index)
-                    stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-
-                    ### to update the data in OneDrive as well....
-                    z_Func.update_data_in_OneDrive(stock_data=stock_output_yearly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
-
-            else:
-                if check_item_name == 'yearly':
-                    latest_report_year = int(yearly_report_from_OD.columns[0][:4])
-                    latest_report_notice_date = yearly_report_from_OD.loc['Notice Date'][0]
-                else:
-                    latest_report_month = int(Seasonly_report_from_OD.columns[0][5:7])
-                    latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'][0]
-
-                latest_report_notice_date = datetime.datetime.strptime(latest_report_notice_date, '%Y-%m-%d').date()
-
-                ### check if data is updated...
-                today_year = day_one.year
-                today_month = day_one.month
-
-                if check_item_name == 'yearly':
-                    if (day_one - latest_report_notice_date).days < 365:
-                        # no need to call function to download data from East Money.
-                        # since the latest report is saved in the file already.
-                        print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
-                        stock_output_yearly = yearly_report_from_OD
-                        url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                        yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
-                        stock_name = yearly_report_raw_out[1] # for stock name
-                    else:
-                        print(':::: It\'s time to update the Yearly data now ...   ::::\n')
-                        ### get the yearly report date ################################
-                        url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                        yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
-                        yearly_report_raw = yearly_report_raw_out[0]
-                        stock_name = yearly_report_raw_out[1]
-
-                        stock_output_yearly = yearly_report_raw
-
-                        ### to update data, keep the info from East Mondy, and remove the outdated info from OD
-                        temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                        cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                        temp_output.drop(columns=cols_to_drop, inplace=True)
-
-                        temp_output = temp_output.set_index(stock_output_yearly.index)
-                        stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-
-                        ### here is some explaination for DataFame:
-                        ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
-
-                        ### to update the data in OneDrive as well....
-                        z_Func.update_data_in_OneDrive(stock_data=stock_output_yearly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
-                        print(':::: It\'s Yearly data saved to OneDrive ...   ::::\n')
-                else:
-                    if (day_one - latest_report_notice_date).days < 40:
-                        # no need to call function to download data from East Money.
-                        # since the latest report is saved in the file already.
-                        print('~~~ The Seasonly data stored in OneDrive is updated, Good !!! \n')
-                        stock_output_Seasonly = Seasonly_report_from_OD
-                    else:
-                        print(':::: It\'s time to update the Seasonly data now ...   ::::\n')
-                        ### get the yearly report date ################################
-                        try:
-                            report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
-
-                            url_seasonly = z_Func.Seasonly_report_url(report_date_yearly=report_notification_date_yearly, stock=stock, stock_cn=stock_cn, p_income=p_income, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet)
-                            Seasonly_report_raw_out = z_Func.report_from_East_Money(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
-                            Seasonly_report_raw = Seasonly_report_raw_out[0]
-                            stock_name = Seasonly_report_raw_out[1]
-
-                            stock_output_Seasonly = Seasonly_report_raw
-
-                            ### to update data, keep the info from East Mondy, and remove the outdated info from OD
-                            temp_output = pd.merge(stock_output_Seasonly, Seasonly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                            temp_output.drop(columns=cols_to_drop, inplace=True)
-
-                            temp_output = temp_output.set_index(stock_output_Seasonly.index)
-                            stock_output_Seasonly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-
-                            ### here is some explaination for DataFame:
-                            ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
-
-                            ### to update the data in OneDrive as well....
-                            z_Func.update_monthly_data_in_OneDrive(stock_data=stock_output_Seasonly, stock=stock, user_id=user_id, data_file_id=data_file_id, result=result, proxies=proxies)
-                        except:
-                            print('No seasonly report available as of now...\n')
-                    pass
-        else:
-            pass
-
     
-    ### to get the Seasonly report from the East Money ################################
-    if stock == 'F':
-        pass # no need to do so.
-    else:
-        ### this date is not saved everytime to OneDrive, as it's not necessary to do so.
-        ### to get the stock price range from yahoo finance #############################
-        print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
+    ### as stock price is changing, so it can't be saved as static info into OneDrive, update is needed everytime ###
+    ### to get the stock price range from yahoo finance #############################
+    print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
+    print('Please Note: the stock price for the latest period is just to as of now...\n')
+    stock_price_yearly = z_Func.get_stock_price_range(stock_output=stock_output_yearly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+    stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+
+    try:
+        print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
         print('Please Note: the stock price for the latest period is just to as of now...\n')
-        stock_price_yearly = z_Func.get_stock_price_range(stock_output=stock_output_yearly, stock=stock, day_one=day_one, proxy_add=proxy_add)
-        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+        stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
 
-        try:
-            print('------- To get the stock price range from Yahoo Finance ------------\n')
-            print('Please Note: the stock price for the latest period is just to as of now...\n')
-            stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+        ### to combine the stock price with the stock output #############################
+        stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
-            ### to combine the stock price with the stock output #############################
-            stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
-
-            stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
-        except:
-            stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
-            print('No seasonly report available as of now...\n')
+        stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+    except:
+        stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
+        print('No seasonly report available as of now...\n')
 
 
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name))
@@ -512,7 +533,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             iii, stock, stock_name, CurrentAssets_vs_Liabilities_performance)
         page_content += "<div><p>{}--{}-{}, {}</p></div>".format(
             iii, stock, stock_name, dividends_perofrmance)
-        # page_content += "<div><p>This is the output for No. #{} ---{}: {}</p></div>".format(iii, stock, stock_name,)
         try:
             page_content += stock_output_combined.to_html()
         except NameError:
@@ -520,8 +540,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             pass
         page_content += "<div><p>This is the last 10 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name, last_7_days_stock_price_high_low)
-        # page_content += "<div><p>This is the dividend for {}: {}</p></div>".format(
-            # stock, stock_name)
         if stock_0_dividends.empty:
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name)
@@ -531,10 +549,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             else:
                 page_content += stock_0_dividends[-13:].to_frame().to_html()
 
-        # page_content += "<div><p>{}--{}-{}, {}</p></div>".format(iii, stock, stock_name,dividends_perofrmance)
-        # page_content += "<div><p>--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------</p></div>"
         page_content += "<div><p>                                                                                                </p></div>"
-        # page_content = page_content.replace('\n','')
         page_content = page_content.replace('<th></th>', '<th>item</th>')
 
         # stock_output.to_excel('{}-Output.xlsx'.format(stock),header=1, index=1, encoding='utf_8_sig')
@@ -552,7 +567,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             pass
         print('This is the last 10 days stock price for {} {}: {} \n'.format(
             stock, stock_name, last_7_days_stock_price_high_low))
-        # print('This is the dividend for {}: {} \n'.format(stock, stock_name))
         print(stock_0_dividends)
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
@@ -582,7 +596,6 @@ stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).so
     by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
 print(tabulate(stock_Top_list, headers='keys', tablefmt='simple',))
 page_content = stock_Top_list.to_html()
-# page_content = page_content.replace('\n','')
 page_content = page_content.replace('<th></th>', '<th>item</th>')
 
 
