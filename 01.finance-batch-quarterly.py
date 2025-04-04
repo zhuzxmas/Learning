@@ -331,10 +331,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             # no need to call function to download data from East Money.
                             # since the latest report is saved in the file already.
                             print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
-                            stock_output_yearly = yearly_report_from_OD
-                            url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                            yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
-                            stock_name = yearly_report_raw_out[1] # for stock name
+                            # stock_output_yearly = yearly_report_from_OD
+                            # url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
+                            # yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                            # stock_name = yearly_report_raw_out[1] # for stock name
                         else:
                             print(':::: It\'s time to update the Yearly data now ...   ::::\n')
                             ### get the yearly report date ################################
