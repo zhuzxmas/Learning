@@ -192,7 +192,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     with open(f'{page_title}.html', "w", encoding='utf-8') as file:
         file.write(create_page_initial)
-    print(f"File saved successfully to: {page_title}.html\n")
+    print(f"File saved successfully to: {page_title}.html for OneNote page\n")
 
     #     #### Append OneNote page content ###
     #     #### Only endpoint is defined here, detailed info for Append is listed down below after the data processing ###
@@ -589,7 +589,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
         with open(f'{page_title}.html', "a", encoding="utf-8") as file:  # Open in append mode
             file.write(page_content)
-        print(f'Data Added to File {page_title}.html successfully! \n')
+        print(f'Data Added to File {page_title}.html successfully for OneNote page! \n')
 
 
 stock_Top_list = pd.DataFrame(stock_Top_list, columns=stock_Top_list_columns).sort_values(
@@ -634,7 +634,7 @@ create_page_initial = create_0 + create_1
 
 with open(f'{page_title_summary}.html', "w", encoding="utf-8") as file:  # Open in append mode
     file.write(create_page_initial)
-print(f'Summary Info Added to File {page_title_summary}.html successfully! \n')
+print(f'Summary Info Added to File {page_title_summary}.html successfully for OneNote page! \n')
 
 html_files = [file for file in os.listdir('.') if file.endswith('.html')]
 print("HTML files in the current directory:")

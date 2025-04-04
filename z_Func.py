@@ -311,7 +311,7 @@ def save_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id, parent
     # 打开一个二进制文件进行读取
     with open('{}-Y-{}.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
-        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}.pkl:/content'.format(user_id,parent_id,stock)
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}-Y-{}.pkl:/content'.format(user_id,parent_id,stock, stock_name)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
                         'Accept': 'application/json',
                         'Content-Type': 'text/plain'}
@@ -331,7 +331,7 @@ def save_monthly_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id
     # 打开一个二进制文件进行读取
     with open('{}-M-{}_monthly.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
-        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}_monthly.pkl:/content'.format(user_id,parent_id,stock)
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}:/{}-M-{}_monthly.pkl:/content'.format(user_id,parent_id,stock, stock_name)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
                         'Accept': 'application/json',
                         'Content-Type': 'text/plain'}
