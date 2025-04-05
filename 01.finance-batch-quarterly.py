@@ -270,7 +270,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 data_file_id = saved_files_list_lite[key]
                 if check_item_name == 'yearly':
                     stock_name = key.split('-Y-')[1].split('.pkl')[0]
-                if check_item_name == 'monthly':
+                if check_item_name == 'monthly' and stock != 'F':
                     stock_name = key.split('-M-')[1].split('.pkl')[0]
 
                 if check_item_name == 'yearly' and stock != 'F':
