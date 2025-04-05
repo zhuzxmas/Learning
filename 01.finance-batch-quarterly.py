@@ -450,18 +450,18 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         stock_price_yearly = z_Func.get_stock_price_range(stock_output=stock_output_yearly, stock=stock, day_one=day_one, proxy_add=proxy_add)
         stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
-    try:
-        print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
-        print('Please Note: the stock price for the latest period is just to as of now...\n')
-        stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+        try:
+            print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
+            print('Please Note: the stock price for the latest period is just to as of now...\n')
+            stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
 
-        ### to combine the stock price with the stock output #############################
-        stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
+            ### to combine the stock price with the stock output #############################
+            stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
 
-        stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
-    except:
-        stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
-        print('No seasonly report available as of now...\n')
+            stock_output_combined = pd.concat([stock_output_Seasonly_f, stock_output_yearly_f], axis=1)
+        except:
+            stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
+            print('No seasonly report available as of now...\n')
 
 
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name))
