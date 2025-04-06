@@ -218,7 +218,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     #        data = requests.post(endpoint_create_page, headers=http_headers_create_page, data=create_page_initial,proxies=proxies)
     #     onenote_page_id = data.json()['id']  # this is the id for OneNote page created above.
 
-    with open(f'{page_title}.html', "w", encoding='utf-8') as file:
+    with open(f'{page_title}.html', "a", encoding='utf-8') as file:
         file.write(create_page_initial)
     print(f"File saved successfully to: {page_title}.html for OneNote page\n")
 
@@ -343,10 +343,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 else:
                     if check_item_name == 'yearly':
                         latest_report_year = int(yearly_report_from_OD.columns[0][:4])
-                        latest_report_notice_date = yearly_report_from_OD.loc['Notice Date'][0]
+                        latest_report_notice_date = yearly_report_from_OD.loc['Notice Date'].iloc[0]
                     else:
                         latest_report_month = int(Seasonly_report_from_OD.columns[0][5:7])
-                        latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'][0]
+                        latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'].iloc[0]
 
                     latest_report_notice_date = datetime.datetime.strptime(latest_report_notice_date, '%Y-%m-%d').date()
 
