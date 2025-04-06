@@ -152,7 +152,7 @@ def report_from_East_Money(url, proxies, stock_cn):
 
         notification_date_list = []
         for i in range(len(df_report_notification_date_y)):
-            temp_date = df_report_notification_date_y[i][:10]
+            temp_date = df_report_notification_date_y.iloc[i][:10]
             notification_date_list.append(temp_date)
 
         ### How Big The Company Is ###
