@@ -71,7 +71,8 @@ def add_img_description(notifymsg, filepath):
         draw.text((x, y), char, fill=(250, 250, 250), font=font)
 
         # Move the x position for the next character
-        x += font.getsize(char)[0]   # for pillow version == 9.0.1
+        # x += font.getsize(char)[0]   # for pillow version == 9.0.1
+        x += font.getlength(char)  # For Pillow version >= 9.0.1
         # x += font.getbbox(char)[0]   # for pillow version >= 10.4.1, but further updates are needed, this sentence is not correct.
 
     imagetemp.save(filepath)
