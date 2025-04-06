@@ -28,7 +28,7 @@ jobs:
     - name: setup python 3.12.9
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'  # You can specify any available Python version here
+        python-version: '3.12.9'  # You can specify any available Python version here
       
     - name: Install dependencies
       run: |
