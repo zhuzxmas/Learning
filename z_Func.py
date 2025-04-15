@@ -167,7 +167,10 @@ def report_from_East_Money(url, proxies, stock_cn):
 
         ### Profit Stability of The Company ###
         # 每股稀释后收益 季度，每股收益
-        stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
+        if bool(df_income_stock['DILUTED_EPS'].isna().all()) == True:
+            stock_0_profit_margin_y = df_income_stock['BASIC_EPS']
+        else:
+            stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
         stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
 
 
