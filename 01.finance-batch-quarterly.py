@@ -322,7 +322,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'].iloc[0]
 
                     latest_report_notice_date = datetime.datetime.strptime(latest_report_notice_date, '%Y-%m-%d').date()
-                    latest_report_notice_date = latest_report_notice_date - datetime.timedelta(days=365)
+                    # latest_report_notice_date = latest_report_notice_date - datetime.timedelta(days=365)
 
                     ### check if data is updated...
                     today_year = day_one.year
