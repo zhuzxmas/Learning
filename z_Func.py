@@ -28,7 +28,6 @@ def generate_random_string(length):
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
 # To Get the Dividend data for each stock from East Money ##############################################
-#ToDo
 def Dividend_Data_Yearly_from_Easy_Money(stock_cn, proxies):
     print('Let\'s check if there are any dividend data for each year..... \n')
     string_v1 = generate_random_string(17)
@@ -350,7 +349,7 @@ def save_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id, parent
         except:
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
         print('Uploaded Yearly data  to Created New file: status code is: {}----\n'.format(data_create_file.status_code))
-        if data_create_file.status_code == 201:
+        if data_create_file.status_code == 200:
             print('Yearly Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}-Y-{}.pkl'.format(stock, stock_name))
 
@@ -370,7 +369,7 @@ def save_monthly_data_to_OneDrive_newFile(stock_name, stock_data, stock, user_id
         except:
             data_create_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
         print('Updated Monthly data file: status code is: {}----\n'.format(data_create_file.status_code))
-        if data_create_file.status_code == 201:
+        if data_create_file.status_code == 200:
             print('Monthly Data file uploaded to OneDrive Successfully!-------- \n')
     os.remove('{}-M-{}_monthly.pkl'.format(stock, stock_name))
 
@@ -381,7 +380,8 @@ def update_data_in_OneDrive(stock_name, stock_data, stock, user_id, data_file_id
     # 打开一个二进制文件进行读取
     with open('{}-Y-{}.pkl'.format(stock, stock_name), 'rb') as filedata:
         ### create a file file for this data:
-        endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
+        # endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id,stock)
+        endpoint_update_file = 'https://graph.microsoft.com/v1.0/users/' + '{}/drive/items/{}/content'.format(user_id,data_file_id)
         http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
                         'Accept': 'application/json',
                         'Content-Type': 'text/plain'}
@@ -390,7 +390,7 @@ def update_data_in_OneDrive(stock_name, stock_data, stock, user_id, data_file_id
         except:
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
         print('Updated Yearly data file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_update_file.status_code == 201:
+        if data_update_file.status_code == 200:
             print('Yearly Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}-Y-{}.pkl'.format(stock, stock_name))
 
@@ -410,7 +410,7 @@ def update_monthly_data_in_OneDrive(stock_name, stock_data, stock, user_id, data
         except:
             data_update_file = requests.put(endpoint_update_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
         print('Updated Monthly data file: status code is: {}----\n'.format(data_update_file.status_code))
-        if data_update_file.status_code == 201:
+        if data_update_file.status_code == 200:
             print('Monthly Data file updated to OneDrive Successfully!-------- \n')
     os.remove('{}-M-{}_monthly.pkl'.format(stock, stock_name))
 
@@ -428,7 +428,7 @@ def Save_File_To_OneDrive(file, user_id, parent_id, result, proxies):
         except:
             data_save_file = requests.put(endpoint_create_file, headers=http_headers_create_file, data=filedata,stream=False, proxies=proxies)
         print('File Saved to OneDrive: status code is: {}----\n'.format(data_save_file.status_code))
-        if data_save_file.status_code == 201:
+        if data_save_file.status_code == 200:
             print('Data file Saved to OneDrive Successfully!-------- \n')
     os.remove(file)
 
