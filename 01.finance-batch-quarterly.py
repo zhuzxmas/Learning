@@ -349,7 +349,11 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                             ### to update data, keep the info from East Mondy, and remove the outdated info from OD
                             # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
-                            temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
+                            unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
+                            if len(unique_in_report_from_OD) == 0:
+                                temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
+                            else:
+                                temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='right')
                             cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
                             temp_output.drop(columns=cols_to_drop, inplace=True)
 
