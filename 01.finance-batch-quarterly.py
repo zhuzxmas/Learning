@@ -302,7 +302,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         stock_name = stock_output_combined_out[1]
 
                         ### to update data, keep the info just get, and remove the outdated info from OD
-                        temp_output = pd.merge(stock_output_combined, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                        # temp_output = pd.merge(stock_output_combined, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                        temp_output = stock_output_combined.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
                         cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
                         temp_output.drop(columns=cols_to_drop, inplace=True)
 
@@ -321,6 +322,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         latest_report_notice_date = Seasonly_report_from_OD.loc['Notice Date'].iloc[0]
 
                     latest_report_notice_date = datetime.datetime.strptime(latest_report_notice_date, '%Y-%m-%d').date()
+                    latest_report_notice_date = latest_report_notice_date - datetime.timedelta(days=365)
 
                     ### check if data is updated...
                     today_year = day_one.year
@@ -346,7 +348,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             stock_output_yearly = yearly_report_raw
 
                             ### to update data, keep the info from East Mondy, and remove the outdated info from OD
-                            temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                            # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
+                            temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
                             cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
                             temp_output.drop(columns=cols_to_drop, inplace=True)
 

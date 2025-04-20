@@ -27,6 +27,28 @@ def generate_random_string(length):
     # Generate a random string of the specified length
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
+# To Get the Dividend data for each stock from East Money ##############################################
+#ToDo
+def Dividend_Data_Yearly_from_Easy_Money(stock_cn, proxies):
+    print('Let\'s check if there are any dividend data for each year..... \n')
+    string_v1 = generate_random_string(17)
+    url_eastmoney_dividend = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName=RPT_F10_DI{}ND_COMPRE&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=16&sortTypes=-1&sortColumns=STATISTICS_YEAR&source=HSF10&client=PC&v={}'.format('ace', 'tmo', 'VIDE', stock_cn, string_v1)
+    try:
+        response_dividend = requests.get(
+            url_eastmoney_dividend, headers=headers_eastmoney)
+    except:
+        response_dividend = requests.get(
+            url_eastmoney_dividend, headers=headers_eastmoney, proxies=proxies)
+    if response_dividend.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for {} Dividend ...\n'.format(stock_cn))
+        pass
+    else:
+        print(f"Failed to retrieve data: {response_dividend.status_code}")
+    dividend_data_raw = response_dividend.json()['result']['data']
+    time.sleep(random.uniform(15, 25))
+    return dividend_data_raw
+
 
 ################# Define yearly report for each stock from East Money #################################
 def Year_report_url(stock, stock_cn, p_income_year, p_cash_flow, p_balance_sheet, day_one):
@@ -244,7 +266,12 @@ def report_from_East_Money(url, proxies, stock_cn):
                 stock_0_profit_margin_y  # 股份不能超过的值
         stock_price_less_than_PE_ratio_y.name = '市盈率15对应股价 元'
 
-        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
+        ### UNASSIGN_RPOFIT ###
+        # 每股未分配利润，为历年累加
+        stock_0_UNASSIGN_RPOFIT_y = df_balance_sheet['UNASSIGN_RPOFIT']/df_balance_sheet['SHARE_CAPITAL']
+        stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
+
+        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
  
         notice_date_df = pd.DataFrame(notification_date_list,index=stock_output_y.columns,columns=['Notice Date']).T
