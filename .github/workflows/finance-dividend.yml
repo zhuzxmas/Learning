@@ -1,0 +1,54 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: finance-dividend action
+
+on:
+  # schedule:
+  #   - cron:  '22 8 * * 3'
+  #push:
+  #  branches: [ "main" ]
+  #pull_request:
+  #  branches: [ "main" ]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [finance-dividend-stock-event]
+
+permissions:
+  contents: read
+
+jobs:
+  run-python-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout repo content
+      uses: actions/checkout@v2
+
+    - name: setup python 3.12.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12.9'  # You can specify any available Python version here
+      
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-finance.txt ]; then pip install -r requirements-finance.txt; fi
+
+    - name: run main file
+      env:
+        client_id : ${{secrets.CLIENT_ID}}
+        client_secret : ${{secrets.CLIENT_SECRET}}
+        site_id : ${{secrets.SITE_ID}}
+        site_id_for_sp : ${{secrets.SITE_ID_FOR_SP}}
+        tenant_id : ${{secrets.TENANT_ID}}
+        scope_list : ${{secrets.SCOPE_LIST}}
+        wx_APPID : ${{secrets.WX_APPID}}
+        wx_SECRET : ${{secrets.WX_SECRET}}
+        template_id : ${{secrets.TEMPLATE_ID}}
+        openid : ${{secrets.OPENID}}
+        proxy_add : ${{secrets.PROXY_ADD}}
+        finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
+        username : ${{secrets.USERNAME}}
+        key_deeplx : ${{secrets.KEY_DEEPLX}}
+      run: python -u 01.finance-dividend-yearly.py
