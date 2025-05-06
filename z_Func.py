@@ -194,6 +194,8 @@ def report_from_East_Money(url, proxies, stock_cn):
             stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
         stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
 
+        ### 自由现金流
+        #TODO
 
         ### Profit Margin of The Company ###
         if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，此时无法计算
