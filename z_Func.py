@@ -316,7 +316,7 @@ def get_stock_price_range(stock_output, stock, day_one, proxy_add):
             stock_price = stock_target.history(end=day_one.strftime('%Y-%m-%d'), start=time_list[i], proxy=proxy_add)
         else:
             stock_price = stock_target.history(end=time_list[i-1], start=time_list[i], proxy=proxy_add)
-    time.sleep(15)
+        time.sleep(15)
 
         if stock_price.empty:
             stock_price_high_low = 'None'
