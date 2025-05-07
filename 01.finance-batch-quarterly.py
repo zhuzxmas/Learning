@@ -329,7 +329,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     today_month = day_one.month
 
                     if check_item_name == 'yearly':
-                        if (day_one - latest_report_notice_date).days < 365:
+                        if (day_one - latest_report_notice_date).days < 0:
+                        # if (day_one - latest_report_notice_date).days < 365:
                             # no need to call function to download data from East Money.
                             # since the latest report is saved in the file already.
                             print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
@@ -350,14 +351,21 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             ### to update data, keep the info from East Mondy, and remove the outdated info from OD
                             # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
                             unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
-                            if len(unique_in_report_from_OD) == 0:
+                            unique_in_report_from_z_Func = stock_output_yearly.index.difference(yearly_report_from_OD.index).tolist()
+                            if len(unique_in_report_from_OD) == 0 and len(unique_in_report_from_z_Func) == 0:
                                 temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
                                 cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
                                 temp_output.drop(columns=cols_to_drop, inplace=True)
                                 temp_output = temp_output.set_index(stock_output_yearly.index)
                                 stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-                            else:
+                            elif len(unique_in_report_from_OD) != 0 and len(unique_in_report_from_z_Func) == 0:
                                 temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='right')
+                                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                                temp_output.drop(columns=cols_to_drop, inplace=True)
+                                temp_output = temp_output.set_index(yearly_report_from_OD.index)
+                                stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+                            elif len(unique_in_report_from_OD) == 0 and len(unique_in_report_from_z_Func) != 0:
+                                temp_output = yearly_report_from_OD.join(stock_output_yearly, lsuffix='', rsuffix='_y', how='right')
                                 cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
                                 temp_output.drop(columns=cols_to_drop, inplace=True)
                                 temp_output = temp_output.set_index(yearly_report_from_OD.index)

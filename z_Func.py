@@ -194,8 +194,6 @@ def report_from_East_Money(url, proxies, stock_cn):
             stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
         stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
 
-        ### 自由现金流
-        #TODO
 
         ### Profit Margin of The Company ###
         if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，此时无法计算
@@ -239,6 +237,22 @@ def report_from_East_Money(url, proxies, stock_cn):
             stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y  # 流动资产扣除长期负债后应大于0
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y.name = '流动资产-长期负债>0'
 
+        ################## 自由现金流 ##################
+        ### 自由现金流＝ 净利润 + 折旧与摊销－资本支出－营运资本追加
+        ##### 净利润: in Cash Flow, it is "NETPROFIT   "
+        ##### 折旧与摊销: in Cash Flow, it is "FA_IR_DEPR"
+        ##### 资本支出 : 现金流量表里面 的 投资活动现金流出小计中, 购建固定资产支付的现金, in Cash Flow, it is "CONSTRUCT_LONG_ASSET"
+        ##### 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
+        ##### 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
+        #TODO
+        stock_0_NetProfit_y = df_cash_flow['NETPROFIT']
+        stock_0_FixAsset_Depr_y = df_cash_flow['FA_IR_DEPR']
+        stock_0_Cash_OutFlow_y = df_cash_flow['CONSTRUCT_LONG_ASSET']
+        stock_0_Delta_Working_Capital = (df_balance_sheet['TOTAL_CURRENT_ASSETS'] - df_balance_sheet['TOTAL_CURRENT_LIAB']).diff(-1)
+        stock_0_Free_Cash_Flow = (stock_0_NetProfit_y + stock_0_FixAsset_Depr_y - stock_0_Cash_OutFlow_y - stock_0_Delta_Working_Capital)/100000000
+        stock_0_Free_Cash_Flow.name = "自由现金流 亿元"
+
+
         ### Stock price vs Assets ratio ###
         # 无形资产
         stock_0_OtherIntangibleAssets_y = df_balance_sheet['INTANGIBLE_ASSET']/100000000
@@ -269,10 +283,12 @@ def report_from_East_Money(url, proxies, stock_cn):
 
         ### UNASSIGN_RPOFIT ###
         # 每股未分配利润，为历年累加
+        stock_0_UNASSIGN_RPOFIT_Total_y = df_balance_sheet['UNASSIGN_RPOFIT']/100000000
+        stock_0_UNASSIGN_RPOFIT_Total_y.name = '未分配利润累积 亿元'
         stock_0_UNASSIGN_RPOFIT_y = df_balance_sheet['UNASSIGN_RPOFIT']/df_balance_sheet['SHARE_CAPITAL']
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
 
-        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
+        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
  
         notice_date_df = pd.DataFrame(notification_date_list,index=stock_output_y.columns,columns=['Notice Date']).T
