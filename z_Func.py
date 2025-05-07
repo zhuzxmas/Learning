@@ -316,6 +316,7 @@ def get_stock_price_range(stock_output, stock, day_one, proxy_add):
             stock_price = stock_target.history(end=day_one.strftime('%Y-%m-%d'), start=time_list[i], proxy=proxy_add)
         else:
             stock_price = stock_target.history(end=time_list[i-1], start=time_list[i], proxy=proxy_add)
+    time.sleep(15)
 
         if stock_price.empty:
             stock_price_high_low = 'None'
@@ -342,6 +343,7 @@ def get_latest_7_days_stock_price(stock, proxy_add):
 
     last_7_days_stock_price = stock_target.history(
         start=last_7_days_start, end=last_7_days_end, proxy=proxy_add)
+    time.sleep(15)
     if last_7_days_stock_price.empty:
         last_7_days_stock_price_high_low = 'None'
     else:
@@ -457,10 +459,13 @@ def get_stock_info_for_F(stock, proxy_add):
     stock_target = yf.Ticker(stock)
     stock_target_sales = stock_target.get_cashflow(
         freq='yearly', proxy=proxy_add)
+    time.sleep(15)
     stock_target_balance_sheet = stock_target.get_balance_sheet(
         freq='yearly', proxy=proxy_add)
+    time.sleep(15)
     stock_target_income = stock_target.get_income_stmt(
         freq='yearly', proxy=proxy_add)
+    time.sleep(15)
 
     if 'EBIT' in stock_target_income.index and 'CurrentAssets' in stock_target_balance_sheet.index and 'TotalRevenue' in stock_target_income.index and 'TotalAssets' in stock_target_balance_sheet.index and 'CurrentLiabilities' in stock_target_balance_sheet.index and 'TotalNonCurrentLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'DilutedEPS' in stock_target_income.index and 'OtherIntangibleAssets' in stock_target_balance_sheet.index and 'TotalLiabilitiesNetMinorityInterest' in stock_target_balance_sheet.index and 'OrdinarySharesNumber' in stock_target_balance_sheet.index:
         print('Data obtained from Yahoo Finance for {}: ----------\n'.format(stock))
