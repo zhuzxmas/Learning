@@ -379,24 +379,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
                             unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
                             unique_in_report_from_z_Func = stock_output_yearly.index.difference(yearly_report_from_OD.index).tolist()
-                            if len(unique_in_report_from_OD) == 0 and len(unique_in_report_from_z_Func) == 0:
-                                temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='left')
-                                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                                temp_output.drop(columns=cols_to_drop, inplace=True)
-                                temp_output = temp_output.set_index(stock_output_yearly.index)
-                                stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-                            elif len(unique_in_report_from_OD) != 0 and len(unique_in_report_from_z_Func) == 0:
-                                temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='right')
-                                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                                temp_output.drop(columns=cols_to_drop, inplace=True)
-                                temp_output = temp_output.set_index(yearly_report_from_OD.index)
-                                stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
-                            elif len(unique_in_report_from_OD) == 0 and len(unique_in_report_from_z_Func) != 0:
-                                temp_output = yearly_report_from_OD.join(stock_output_yearly, lsuffix='', rsuffix='_y', how='right')
-                                cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                                temp_output.drop(columns=cols_to_drop, inplace=True)
-                                temp_output = temp_output.set_index(yearly_report_from_OD.index)
-                                stock_output_yearly= temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+                            temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='outer')
+                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
+                            temp_output.drop(columns=cols_to_drop, inplace=True)
+                            stock_output_yearly = temp_output.sort_index(axis=1, ascending=False) # to merge data together.
 
                             ### here is some explaination for DataFame:
                             ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
