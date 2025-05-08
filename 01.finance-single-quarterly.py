@@ -478,14 +478,15 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     ### to get the stock price range from yahoo finance #############################
     print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
     print('Please Note: the stock price for the latest period is just to as of now...\n')
+    stock_price_df = z_Func.get_stock_price_Raw_Data_EastMoney(stock_cn=stock_cn, proxies=proxies, limit_number='1800')
     if stock != 'F':
-        stock_price_yearly = z_Func.get_stock_price_range(stock_output=stock_output_yearly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+        stock_price_yearly = z_Func.get_stock_price_range_Based_on_EastMoney(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
         stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
         try:
             print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
             print('Please Note: the stock price for the latest period is just to as of now...\n')
-            stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+            stock_price_Seasonly = z_Func.get_stock_price_range_Based_on_EastMoney(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
 
             ### to combine the stock price with the stock output #############################
             stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
@@ -500,7 +501,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
 
     ### to get the latest 10 days stock price #########################################
-    last_7_days_stock_price_high_low = z_Func.get_latest_7_days_stock_price(stock=stock, proxy_add=proxy_add)
+    last_7_days_stock_price_high_low = z_Func.get_latest_7_days_stock_price_Based_on_EastMoney(stock_price_df=stock_price_df, proxy_add=proxy_add)
     print('---Got latest 10 days stock price from Yahoo Finance---------\n')
 
     ### Dividend Records of The Company ###
