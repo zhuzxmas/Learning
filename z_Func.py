@@ -305,7 +305,7 @@ def report_from_East_Money(url, proxies, stock_cn):
     return [stock_output_y, stock_name_from_year_income]
 
 ################# to get the stock price for each year #####################################
-def get_stock_price_range_EastMoney(stock_cn, proxies, lmt_number = '2100'):
+def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
     # Generate a random UUID (version 4)
     random_uuid = uuid.uuid4()
     # Convert to string without hyphens
@@ -340,7 +340,8 @@ def get_stock_price_range_EastMoney(stock_cn, proxies, lmt_number = '2100'):
     # Get today's date and format it as YYYYMMDD
     today_str = datetime.datetime.now().strftime("%Y%m%d")
 
-    url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=quote_jp4'.format('sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, lmt_number)
+    url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=quote_jp4'.format('sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
+
     try:
         response_price = requests.get(
             url_price_range, headers=headers_eastmoney_price_range)
@@ -366,17 +367,68 @@ def get_stock_price_range_EastMoney(stock_cn, proxies, lmt_number = '2100'):
 
         # Create the DataFrame
         price_df = pd.DataFrame(parsed_data, columns=columns)
-
+        
         # Convert numeric columns to appropriate data types
         numeric_columns = ["开盘", "收盘", "最高", "最低", "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
         price_df[numeric_columns] = price_df[numeric_columns].apply(pd.to_numeric)
-
-        #todo
+        
+        # Convert '日期' column to datetime for easier filtering
+        price_df['日期'] = pd.to_datetime(price_df['日期'])
 
     else:
         print(f"Failed to retrieve data: {response_price.status_code} for Price Range... ")
-    time.sleep(random.uniform(15, 25))
+        # to turn price range list into DataFrame
+        columns = ["日期", "开盘", "收盘", "最高", "最低", "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        parsed_data = []
+        # Create the DataFrame
+        price_df = pd.DataFrame(parsed_data, columns=columns)
 
+    time.sleep(random.uniform(15, 25))
+    return price_df
+
+
+################# to get the stock price for each year #####################################
+def get_stock_price_range_Based_on_EastMoney(stock_price_df, stock_output, day_one):
+    time_list = list(stock_output.loc['Notice Date'])
+
+    # to turn the report notification date into 2024-09-30 format ###
+    stock_price_temp = []
+   
+    for i in range(0, len(time_list)):
+        if i == 0:
+            end_date = day_one.strftime('%Y-%m-%d')
+            start_date = time_list[i]
+        else:
+            end_date = time_list[i-1]
+            start_date = time_list[i]
+
+        # Convert to datetime objects
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+        # Filter the DataFrame for the date range
+        filtered_df = stock_price_df[(stock_price_df['日期'] >= start_date) & (stock_price_df['日期'] <= end_date)]
+        stock_price_high_low = '{:.2f}'.format(filtered_df['收盘'].min()) + '-' + '{:.2f}'.format(filtered_df['收盘'].max())
+        stock_price_temp.append(stock_price_high_low)
+    stock_price_output = pd.DataFrame([stock_price_temp])
+    stock_price_output.columns = list(stock_output.columns)
+
+    stock_price_output = stock_price_output.rename(index={0: '后一年股价范围'})
+    return stock_price_output
+
+### to get the latest 7days(10actually) stock price #################################
+def get_latest_7_days_stock_price_Based_on_EastMoney(stock_price_df, proxy_add):
+    last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
+    last_7_days_start = (datetime.datetime.now() -
+                         datetime.timedelta(days=10)).strftime('%Y-%m-%d')
+
+    # Convert to datetime objects
+    start_date = pd.to_datetime(last_7_days_start)
+    end_date = pd.to_datetime(last_7_days_end)
+    # Filter the DataFrame for the date range
+    filtered_df = stock_price_df[(stock_price_df['日期'] >= start_date) & (stock_price_df['日期'] <= end_date)]
+    last_7_days_stock_price_high_low= '{:.2f}'.format(filtered_df['收盘'].min()) + '-' + '{:.2f}'.format(filtered_df['收盘'].max())
+
+    return last_7_days_stock_price_high_low
 
 
 ################# to get the stock price for each year #####################################
