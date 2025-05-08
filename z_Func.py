@@ -1,6 +1,8 @@
 import random
+import uuid
 import os
 import requests
+import json
 import time
 from pandas import DataFrame as df
 import pandas as pd
@@ -301,6 +303,81 @@ def report_from_East_Money(url, proxies, stock_cn):
     except:
         print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
     return [stock_output_y, stock_name_from_year_income]
+
+################# to get the stock price for each year #####################################
+def get_stock_price_range_EastMoney(stock_cn, proxies, lmt_number = '2100'):
+    # Generate a random UUID (version 4)
+    random_uuid = uuid.uuid4()
+    # Convert to string without hyphens
+    ut_string = str(random_uuid).replace('-', '')
+    print('ut string used is: {}\n'.format(ut_string))
+
+    if stock_cn.endswith(".SH"):
+        stock_number = stock_cn[:6]
+        stock_mkt = 1
+        stock_mkt_lower_case = 'sh'
+    elif stock_cn.endswith(".SZ"):
+        stock_number = stock_cn[:6]
+        stock_mkt = 0
+        stock_mkt_lower_case = 'sz'
+
+    headers_eastmoney_price_range = {
+        'Host': 'push2his.eastmoney.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://emweb.securities.eastmoney.com',
+        'DNT': '1',
+        'Referer': 'https://quote.eastmoney.com/concept/{}{}.html'.format(stock_mkt_lower_case,stock_number),
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+    }
+
+    klt_code = '101'
+    fqt_code = '1'
+
+    # Get today's date and format it as YYYYMMDD
+    today_str = datetime.datetime.now().strftime("%Y%m%d")
+
+    url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=quote_jp4'.format('sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, lmt_number)
+    try:
+        response_price = requests.get(
+            url_price_range, headers=headers_eastmoney_price_range)
+    except:
+        response_price = requests.get(
+            url_price_range, headers=headers_eastmoney_price_range, proxies=proxies)
+    if response_price.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_cn))
+        # Remove the JSONP wrapper
+        start_index = response_price.text.find('(') + 1
+        end_index = response_price.text.rfind(');')
+        json_data = response_price.text[start_index:end_index]
+
+        # Parse the JSON string into a Python dictionary
+        price_range_raw_data = json.loads(json_data)
+        price_range_raw_data_list = price_range_raw_data['data']['klines']
+
+        # to turn price range list into DataFrame
+        columns = ["日期", "开盘", "收盘", "最高", "最低", "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        # Split each line into components
+        parsed_data = [line.split(",") for line in price_range_raw_data_list]
+
+        # Create the DataFrame
+        price_df = pd.DataFrame(parsed_data, columns=columns)
+
+        # Convert numeric columns to appropriate data types
+        numeric_columns = ["开盘", "收盘", "最高", "最低", "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        price_df[numeric_columns] = price_df[numeric_columns].apply(pd.to_numeric)
+
+        #todo
+
+    else:
+        print(f"Failed to retrieve data: {response_price.status_code} for Price Range... ")
+    time.sleep(random.uniform(15, 25))
+
+
 
 ################# to get the stock price for each year #####################################
 def get_stock_price_range(stock_output, stock, day_one, proxy_add):
