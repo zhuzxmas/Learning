@@ -32,8 +32,10 @@ def generate_random_string(length):
 # To Get the Dividend data for each stock from East Money ##############################################
 def Dividend_Data_Yearly_from_Easy_Money(stock_cn, proxies):
     print('Let\'s check if there are any dividend data for each year..... \n')
-    string_v1 = generate_random_string(17)
-    url_eastmoney_dividend = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName=RPT_F10_DI{}ND_COMPRE&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=16&sortTypes=-1&sortColumns=STATISTICS_YEAR&source=HSF10&client=PC&v={}'.format('ace', 'tmo', 'VIDE', stock_cn, string_v1)
+    # string_v1 = generate_random_string(17)
+    # url_eastmoney_dividend = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName=RPT_F10_DI{}ND_COMPRE&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=16&sortTypes=-1&sortColumns=STATISTICS_YEAR&source=HSF10&client=PC&v={}'.format('ace', 'tmo', 'VIDE', stock_cn, string_v1)
+    string_v2 = generate_random_string(13)
+    url_eastmoney_dividend = 'https://dat{}nter-web.eas{}ney.com/api/data/v1/get?sortColumns=REPORT_DATE&sortTypes=-1&pageSize=50&pageNumber=1&reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&js=%7B%22data%22%3A(x)%2C%22pages%22%3A(tp)%7D&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{}%22)'.format('ace', 'tmo', stock_cn[:6])
     try:
         response_dividend = requests.get(
             url_eastmoney_dividend, headers=headers_eastmoney)
@@ -246,7 +248,6 @@ def report_from_East_Money(url, proxies, stock_cn):
         ##### 资本支出 : 现金流量表里面 的 投资活动现金流出小计中, 购建固定资产支付的现金, in Cash Flow, it is "CONSTRUCT_LONG_ASSET"
         ##### 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
         ##### 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
-        #TODO
         stock_0_NetProfit_y = df_cash_flow['NETPROFIT']
         stock_0_FixAsset_Depr_y = df_cash_flow['FA_IR_DEPR']
         stock_0_Cash_OutFlow_y = df_cash_flow['CONSTRUCT_LONG_ASSET']

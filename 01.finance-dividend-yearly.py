@@ -134,18 +134,26 @@ for stock_number_str in stock_code:
             dividend_for_report_year = yearly_report_from_OD.columns.to_list()
             dividend_data = z_Func.Dividend_Data_Yearly_from_Easy_Money(stock_cn,proxies)
             dividend_total_dict = {}
+            dividend_cash_dict = {}
             for dividend_Y_M_D in dividend_for_report_year:
                 for i in range(len(dividend_data)):
-                    if dividend_data[i]['STATISTICS_YEAR'] == dividend_Y_M_D.split('-')[0]:
-                        dividend_total_dict[dividend_Y_M_D] = dividend_data[i]['TOTAL_DIVIDEND']
+                    if dividend_data[i]['REPORT_DATE'].split(' ')[0] == dividend_Y_M_D:
+                        dividend_total_dict[dividend_Y_M_D] = dividend_data[i]['IMPL_PLAN_PROFILE']
+                        dividend_cash_dict[dividend_Y_M_D] = dividend_data[i]['PRETAX_BONUS_RMB']/10
             dividend_total_dict_df = pd.Series(dividend_total_dict)
-            dividend_total_dict_df = dividend_total_dict_df/yearly_report_from_OD.loc['普通股数量 百万']/1000000
+            dividend_cash_dict_df = pd.Series(dividend_cash_dict)
+            # dividend_total_dict_df = dividend_total_dict_df/yearly_report_from_OD.loc['普通股数量 百万']/1000000
             dividend_total_dict_df.name = '每股派发股息'
-            dividend_per_share_vs_profit = dividend_total_dict_df/yearly_report_from_OD.loc['稀释后 每年/季度每股收益 元']
+            dividend_cash_dict_df.name = '每股派发现金股息'
+            dividend_per_share_vs_profit = dividend_cash_dict_df/yearly_report_from_OD.loc['稀释后 每年/季度每股收益 元']
             dividend_per_share_vs_profit.name = '每股派发股息/每股收益 占比'
-            dividend_total_dict_df = pd.DataFrame(dividend_total_dict_df).T.astype('float64').round(2)
+            dividend_total_dict_df = pd.DataFrame(dividend_total_dict_df).T
+            dividend_cash_dict_df = pd.DataFrame(dividend_cash_dict_df).T.astype('float64').round(2)
             dividend_per_share_vs_profit = pd.DataFrame(dividend_per_share_vs_profit).T.astype('float64').round(2)
-            yearly_report_from_OD_new = pd.concat([yearly_report_from_OD, dividend_total_dict_df, dividend_per_share_vs_profit], axis=0, ignore_index=False).drop_duplicates()
+            yearly_report_from_OD_new = pd.concat([dividend_total_dict_df, dividend_cash_dict_df, dividend_per_share_vs_profit], axis=0, ignore_index=False).drop_duplicates()
+            yearly_report_from_OD.update(yearly_report_from_OD_new)
+            temp_out_df = pd.concat([yearly_report_from_OD,yearly_report_from_OD_new[~yearly_report_from_OD_new.index.isin(yearly_report_from_OD.index)]])
+            yearly_report_from_OD_new = temp_out_df
             print(tabulate(yearly_report_from_OD_new, headers='keys', tablefmt='simple'))
             yearly_report_from_OD_new.to_pickle('temp.pkl')
             with open('temp.pkl','rb') as filedata:
