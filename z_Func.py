@@ -311,7 +311,7 @@ def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
     random_uuid = uuid.uuid4()
     # Convert to string without hyphens
     ut_string = str(random_uuid).replace('-', '')
-    print('ut string used is: {}\n'.format(ut_string))
+    # print('ut string used is: {}\n'.format(ut_string))
 
     if stock_cn.endswith(".SH"):
         stock_number = stock_cn[:6]
