@@ -380,10 +380,20 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
                             unique_in_report_from_z_Func = stock_output_yearly.index.difference(yearly_report_from_OD.index).tolist()
                             new_columns_list = list(stock_output_yearly.index) + unique_in_report_from_OD
-                            temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='outer')
-                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                            temp_output.drop(columns=cols_to_drop, inplace=True)
-                            stock_output_yearly = temp_output.reindex(new_columns_list) # to merge data together.
+
+                            # Make a copy of df1 to avoid modifying original
+                            df_merged = yearly_report_from_OD.copy()
+
+                            # Overwrite overlapping rows and columns from df2 
+                            df_merged.update(stock_output_yearly)
+
+                            # Now concatenate to include new rows from df2 
+                            df_final = pd.concat([
+                                df_merged,
+                                stock_output_yearly.loc[stock_output_yearly.index.difference(df_merged.index)]
+                            ])
+                            df_final = df_final.reindex(new_columns_list)
+                            stock_output_yearly = df_final
 
                             ### here is some explaination for DataFame:
                             ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
