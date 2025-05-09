@@ -329,8 +329,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     today_month = day_one.month
 
                     if check_item_name == 'yearly':
-                        if (day_one - latest_report_notice_date).days < 0:
                         # if (day_one - latest_report_notice_date).days < 365:
+                        if (day_one - latest_report_notice_date).days < 0:
                             # no need to call function to download data from East Money.
                             # since the latest report is saved in the file already.
                             print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
@@ -352,10 +352,21 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
                             unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
                             unique_in_report_from_z_Func = stock_output_yearly.index.difference(yearly_report_from_OD.index).tolist()
-                            temp_output = stock_output_yearly.join(yearly_report_from_OD, lsuffix='', rsuffix='_y', how='outer')
-                            cols_to_drop = [col for col in temp_output.columns if col.endswith('_y')]
-                            temp_output.drop(columns=cols_to_drop, inplace=True)
-                            stock_output_yearly = temp_output.sort_index(axis=1, ascending=False) # to merge data together.
+                            new_columns_list = list(stock_output_yearly.index) + unique_in_report_from_OD
+
+                            # Make a copy of df1 to avoid modifying original
+                            df_merged = yearly_report_from_OD.copy()
+
+                            # Overwrite overlapping rows and columns from df2 
+                            df_merged.update(stock_output_yearly)
+
+                            # Now concatenate to include new rows from df2 
+                            df_final = pd.concat([
+                                df_merged,
+                                stock_output_yearly.loc[stock_output_yearly.index.difference(df_merged.index)]
+                            ])
+                            df_final = df_final.reindex(new_columns_list)
+                            stock_output_yearly = df_final
 
                             ### here is some explaination for DataFame:
                             ### df_new = df.rename(columns={'2022-12-31':'2024-06-30'}) # for column rename
@@ -448,17 +459,18 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         print('No seasonly report available as of now...\n')
 
     
-    ### to get the stock price range from yahoo finance #############################
+    ### to get the stock price range from #############################
     print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
     print('Please Note: the stock price for the latest period is just to as of now...\n')
+    stock_price_df = z_Func.get_stock_price_Raw_Data_EastMoney(stock_cn=stock_cn, proxies=proxies, limit_number='1800')
     if stock != 'F':
-        stock_price_yearly = z_Func.get_stock_price_range(stock_output=stock_output_yearly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+        stock_price_yearly = z_Func.get_stock_price_range_Based_on_EastMoney(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
         stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
         try:
             print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
             print('Please Note: the stock price for the latest period is just to as of now...\n')
-            stock_price_Seasonly = z_Func.get_stock_price_range(stock_output=stock_output_Seasonly, stock=stock, day_one=day_one, proxy_add=proxy_add)
+            stock_price_Seasonly = z_Func.get_stock_price_range_Based_on_EastMoney(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
 
             ### to combine the stock price with the stock output #############################
             stock_output_Seasonly_f = pd.concat([stock_output_Seasonly, stock_price_Seasonly], axis=0)
@@ -473,12 +485,11 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
 
     ### to get the latest 10 days stock price #########################################
-    last_7_days_stock_price_high_low = z_Func.get_latest_7_days_stock_price(stock=stock, proxy_add=proxy_add)
+    last_7_days_stock_price_high_low = z_Func.get_latest_7_days_stock_price_Based_on_EastMoney(stock_price_df=stock_price_df, proxy_add=proxy_add)
     print('---Got latest 10 days stock price from Yahoo Finance---------\n')
 
     ### Dividend Records of The Company ###
-    stock_target = yf.Ticker(stock)
-    stock_0_dividends = stock_target.get_dividends(proxy=proxy_add)
+    stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Easy_Money(stock_cn, proxies)
 
 
     ############## Checking Status ###################################
@@ -545,14 +556,15 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             pass
         page_content += "<div><p>This is the last 10 days stock price for {} {}: {}</p></div>".format(
             stock, stock_name, last_7_days_stock_price_high_low)
-        if stock_0_dividends.empty:
+        if len(stock_0_dividends) == 0:
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name)
         else:
+            dividends_df = pd.DataFrame(stock_0_dividends)[['REPORT_DATE','IMPL_PLAN_PROFILE']]
             if len(stock_0_dividends) < 15:
-                page_content += stock_0_dividends.to_frame().to_html()
+                page_content += dividends_df.to_html()
             else:
-                page_content += stock_0_dividends[-13:].to_frame().to_html()
+                page_content += dividends_df.head(14).to_html()
 
         page_content += "<div><p>                                                                                                </p></div>"
         page_content = page_content.replace('<th></th>', '<th>item</th>')
@@ -572,7 +584,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             pass
         print('This is the last 10 days stock price for {} {}: {} \n'.format(
             stock, stock_name, last_7_days_stock_price_high_low))
-        print(stock_0_dividends)
+        print(dividends_df)
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
 
