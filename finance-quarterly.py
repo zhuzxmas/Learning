@@ -304,25 +304,25 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         stock_Top_list.append(stock_Top_temp)  # 记录公司表现，利润，流动负债率，分红
 
         ### if the stock is not good, then skip the following steps, and continue to next stock ###
-        ### if the stock is good, then continue to get the monthly info from EastMoney ###
+        ### if the stock is good, then continue to get the monthly info from EasMon ###
 
         if (profit_margin_performance == 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx' and CurrentAssets_vs_Liabilities_performance == 'xxxxxxxxx 流动负债过高 xxxxxxxxx' and dividends_perofrmance == 'xxxxxxxxx  公司分红记录较少  xxxxxxxxx'):
             time.sleep(random.uniform(7, 13))
             continue
         else:
-            # =====To Get This Year Monthly Info from EastMoney====#
+            # =====To Get This Year Monthly Info from EasMon====#
             p_cash_flow = 'CASHFLOW'
             p_balance_sheet = 'BALANCE'
             p_income = 'INCOMEQC'
 
-            headers_eastmoney = {
-                'Host': 'datacenter.eastmoney.com',
+            headers_easmon = {
+                'Host': 'datacenter.eas{}ney.com'.format('tmo'),
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
-                'Origin': 'https://emweb.securities.eastmoney.com',
+                'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
                 'DNT': '1',
-                'Referer': 'https://emweb.securities.eastmoney.com/',
+                'Referer': 'https://emweb.securities.eas{}ney.com/'.format('tmo'),
                 'Sec-Fetch-Dest': 'empty',
                 'Sec-Fetch-Mode': 'cors',
                 'Sec-Fetch-Site': 'same-site',
@@ -332,25 +332,25 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             string_v2 = generate_random_string(17)
             string_v3 = generate_random_string(18)
 
-            ### if it is CN stock, then get the info from EastMoney ###
+            ### if it is CN stock, then get the info from EasMon ###
 
             if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  
-                url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                url_easmon_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
                     'ace', 'tmo', p_income, p_income, stock_cn, day_one.year, day_one.year, day_one.year, string_v1)
 
-                url_eastmoney_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                url_easmon_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
                     'ace', 'tmo', p_cash_flow, p_cash_flow, stock_cn, day_one.year, day_one.year, day_one.year, string_v2)
 
-                url_eastmoney_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+                url_easmon_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
                     'ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, day_one.year, day_one.year, day_one.year, string_v3)
 
 
                 try:
                     response_income = requests.get(
-                        url_eastmoney_income, headers=headers_eastmoney)
+                        url_easmon_income, headers=headers_easmon)
                 except:
                     response_income = requests.get(
-                        url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
+                        url_easmon_income, headers=headers_easmon, proxies=proxies)
                 if response_income.status_code == 200:
                     # Process the response data here
                     print('Got the response from Eas Mon for {} Income.\n'.format(stock_cn))
@@ -361,10 +361,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                 try:
                     response_cash_flow = requests.get(
-                        url_eastmoney_cash_flow, headers=headers_eastmoney)
+                        url_easmon_cash_flow, headers=headers_easmon)
                 except:
                     response_cash_flow = requests.get(
-                        url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
+                        url_easmon_cash_flow, headers=headers_easmon, proxies=proxies)
                 if response_cash_flow.status_code == 200:
                     # Process the response data here
                     print('Got the response from Eas Mon for {} Cash Flow.\n'.format(stock_cn))
@@ -375,10 +375,10 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                 try:
                     response_balance_sheet = requests.get(
-                        url_eastmoney_balance_sheet, headers=headers_eastmoney)
+                        url_easmon_balance_sheet, headers=headers_easmon)
                 except:
                     response_balance_sheet = requests.get(
-                        url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
+                        url_easmon_balance_sheet, headers=headers_easmon, proxies=proxies)
                 if response_balance_sheet.status_code == 200:
                     # Process the response data here
                     print('Got the response from Eas Mon for {} Balance Sheet.\n'.format(stock_cn))
@@ -507,7 +507,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 except:
                     print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
 
-            # ===== End To Get This Year Monthly Info from EastMoney End ====#
+            # ===== End To Get This Year Monthly Info from EasMon End ====#
 
         ### to consolidate the output for each stock ###
         stock_output = pd.concat([stock_0_TotalRevenue, stock_0_TotalAssets, stock_0_EBIT, stock_0_CurrentAssets, stock_0_CurrentLiabilities, stock_0_CurrentAssets_vs_Liabilities, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest,
