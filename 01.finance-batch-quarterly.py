@@ -560,7 +560,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name)
         else:
-            dividends_df = pd.DataFrame(stock_0_dividends)[['REPORT_DATE','PAY_CASH_DATE','IMPL_PLAN_PROFILE']]
+            dividends_df = pd.DataFrame(stock_0_dividends)[['REPORT_DATE','EQUITY_RECORD_DATE','IMPL_PLAN_PROFILE']]
             if len(stock_0_dividends) < 15:
                 page_content += dividends_df.to_html()
             else:
