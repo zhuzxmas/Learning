@@ -505,7 +505,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         [stock_price_less_than_PE_ratio_m, stock_price_less_than_PE_ratio])
                     # to combine monthly data with yearly data, for CN stock
                 except:
-                    print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
+                    print('Data is not available for {} in EasMon.\n'.format(stock_cn))
 
             # ===== End To Get This Year Monthly Info from EasMon End ====#
 

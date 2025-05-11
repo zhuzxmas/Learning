@@ -9,7 +9,7 @@ import pandas as pd
 import yfinance as yf
 import datetime
 
-## This is the header for East Money ##
+## This is the header for Eas Mon ##
 headers_easmon = {
     'Host': 'datacenter.eas{}ney.com'.format('tmo'),
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
@@ -24,12 +24,12 @@ headers_easmon = {
 }
 
 
-# To create a random string for East Money request #
+# To create a random string for Eas Mon request #
 def generate_random_string(length):
     # Generate a random string of the specified length
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
-# To Get the Dividend data for each stock from East Money ##############################################
+# To Get the Dividend data for each stock from Eas Mon ##############################################
 def Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies):
     print('Let\'s check if there are any dividend data for each year..... \n')
     # string_v1 = generate_random_string(17)
@@ -53,7 +53,7 @@ def Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies):
     return dividend_data_raw
 
 
-################# Define yearly report for each stock from East Money #################################
+################# Define yearly report for each stock from Eas Mon #################################
 def Year_report_url(stock, stock_cn, p_income_year, p_cash_flow, p_balance_sheet, day_one):
     string_v1 = generate_random_string(17)
     string_v2 = generate_random_string(17)
@@ -90,7 +90,7 @@ def Seasonly_report_url(report_date_yearly, stock, stock_cn, p_income, p_cash_fl
     return [url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet]
 
 
-def report_from_East_Money(url, proxies, stock_cn):
+def report_from_Eas_Mon(url, proxies, stock_cn):
 
     url_easmon_income = url[0]
     url_easmon_cash_flow = url[1]
@@ -241,6 +241,7 @@ def report_from_East_Money(url, proxies, stock_cn):
             stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y  # 流动资产扣除长期负债后应大于0
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y.name = '流动资产-长期负债>0'
 
+
         ################## 自由现金流 ##################
         ### 自由现金流＝ 净利润 + 折旧与摊销－资本支出－营运资本追加
         ##### 净利润: in Cash Flow, it is "NETPROFIT   "
@@ -274,6 +275,11 @@ def report_from_East_Money(url, proxies, stock_cn):
             1.5  # 按账面价值计算出来的目标股价
         stock_price_less_than_BookValue_ratio_y.name = '每股账面价值1.5倍元'
 
+        ############  清算价值  #########################
+        ######### 约等于 流动资产价值 #####################
+        stock_0_liquidation_value_per_share_y = (stock_0_CurrentAssets_y*100000000)/(stock_0_OrdinarySharesNumber_y*1000000)
+        stock_0_liquidation_value_per_share_y.name = '每股清算价值（按流动资产估算）'
+
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
         if 'INCOMEQC' in url_easmon_income: # meaning it is Seasonly data:
@@ -291,7 +297,11 @@ def report_from_East_Money(url, proxies, stock_cn):
         stock_0_UNASSIGN_RPOFIT_y = df_balance_sheet['UNASSIGN_RPOFIT']/df_balance_sheet['SHARE_CAPITAL']
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
 
-        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y], axis=1)
+        ############### 每股现金资产 #################
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = df_balance_sheet['MONETARYFUNDS']/df_balance_sheet['SHARE_CAPITAL']
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
+
+        stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y, stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
  
         notice_date_df = pd.DataFrame(notification_date_list,index=stock_output_y.columns,columns=['Notice Date']).T
@@ -302,7 +312,7 @@ def report_from_East_Money(url, proxies, stock_cn):
         # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
         # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
     except:
-        print('Data is not available for {} in EasyMoney.\n'.format(stock_cn))
+        print('Data is not available for {} in EasMon.\n'.format(stock_cn))
     return [stock_output_y, stock_name_from_year_income]
 
 ################# to get the stock price for each year #####################################
