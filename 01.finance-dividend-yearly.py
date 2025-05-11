@@ -132,7 +132,7 @@ for stock_number_str in stock_code:
                 data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
             yearly_report_from_OD = pickle.loads(data_get_data_content.content)
             dividend_for_report_year = yearly_report_from_OD.columns.to_list()
-            dividend_data = z_Func.Dividend_Data_Yearly_from_Easy_Money(stock_cn,proxies)
+            dividend_data = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn,proxies)
             dividend_total_dict = {}
             dividend_cash_dict = {}
             for dividend_Y_M_D in dividend_for_report_year:

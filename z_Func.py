@@ -10,14 +10,14 @@ import yfinance as yf
 import datetime
 
 ## This is the header for East Money ##
-headers_eastmoney = {
-    'Host': 'datacenter.eastmoney.com',
+headers_easmon = {
+    'Host': 'datacenter.eas{}ney.com'.format('tmo'),
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
-    'Origin': 'https://emweb.securities.eastmoney.com',
+    'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
     'DNT': '1',
-    'Referer': 'https://emweb.securities.eastmoney.com/',
+    'Referer': 'https://emweb.securities.eas{}ney.com/'.format('tmo'),
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-site',
@@ -30,18 +30,18 @@ def generate_random_string(length):
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
 # To Get the Dividend data for each stock from East Money ##############################################
-def Dividend_Data_Yearly_from_Easy_Money(stock_cn, proxies):
+def Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies):
     print('Let\'s check if there are any dividend data for each year..... \n')
     # string_v1 = generate_random_string(17)
-    # url_eastmoney_dividend = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName=RPT_F10_DI{}ND_COMPRE&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=16&sortTypes=-1&sortColumns=STATISTICS_YEAR&source=HSF10&client=PC&v={}'.format('ace', 'tmo', 'VIDE', stock_cn, string_v1)
+    # url_easmon_dividend = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName=RPT_F10_DI{}ND_COMPRE&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=16&sortTypes=-1&sortColumns=STATISTICS_YEAR&source=HSF10&client=PC&v={}'.format('ace', 'tmo', 'VIDE', stock_cn, string_v1)
     string_v2 = generate_random_string(13)
-    url_eastmoney_dividend = 'https://dat{}nter-web.eas{}ney.com/api/data/v1/get?sortColumns=REPORT_DATE&sortTypes=-1&pageSize=50&pageNumber=1&reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&js=%7B%22data%22%3A(x)%2C%22pages%22%3A(tp)%7D&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{}%22)'.format('ace', 'tmo', stock_cn[:6])
+    url_easmon_dividend = 'https://dat{}nter-web.eas{}ney.com/api/data/v1/get?sortColumns=REPORT_DATE&sortTypes=-1&pageSize=50&pageNumber=1&reportName=RPT_SHAREBONUS_DET&columns=ALL&quoteColumns=&js=%7B%22data%22%3A(x)%2C%22pages%22%3A(tp)%7D&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22{}%22)'.format('ace', 'tmo', stock_cn[:6])
     try:
         response_dividend = requests.get(
-            url_eastmoney_dividend, headers=headers_eastmoney)
+            url_easmon_dividend, headers=headers_easmon)
     except:
         response_dividend = requests.get(
-            url_eastmoney_dividend, headers=headers_eastmoney, proxies=proxies)
+            url_easmon_dividend, headers=headers_easmon, proxies=proxies)
     if response_dividend.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Dividend ...\n'.format(stock_cn))
@@ -60,12 +60,12 @@ def Year_report_url(stock, stock_cn, p_income_year, p_cash_flow, p_balance_sheet
     string_v3 = generate_random_string(18)
 
     if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  
-        url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_income_year, p_income_year, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v1)
+        url_easmon_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_income_year, p_income_year, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v1)
 
-        url_eastmoney_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_cash_flow, p_cash_flow, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v2)
+        url_easmon_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_cash_flow, p_cash_flow, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v2)
 
-        url_eastmoney_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v3)
-    return [url_eastmoney_income, url_eastmoney_cash_flow, url_eastmoney_balance_sheet]
+        url_easmon_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format('ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v3)
+    return [url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet]
 
 
 ################# Define Seasonly report #################################################
@@ -78,31 +78,31 @@ def Seasonly_report_url(report_date_yearly, stock, stock_cn, p_income, p_cash_fl
     next_year = str(latest_report_date_Year + 1)
 
     if (stock[7:] == 'ss' or stock[7:] == 'sz') and (len(stock) == 9):  
-        url_eastmoney_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+        url_easmon_income = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
             'ace', 'tmo', p_income, p_income, stock_cn, next_year, next_year, next_year, string_v1)
 
-        url_eastmoney_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+        url_easmon_cash_flow = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=APP_F10_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
             'ace', 'tmo', p_cash_flow, p_cash_flow, stock_cn, next_year, next_year, next_year, string_v2)
 
-        url_eastmoney_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
+        url_easmon_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-09-30%27%2C%27{}-06-30%27%2C%27{}-03-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
             'ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, next_year, next_year, next_year, string_v3)
     
-    return [url_eastmoney_income, url_eastmoney_cash_flow, url_eastmoney_balance_sheet]
+    return [url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet]
 
 
 def report_from_East_Money(url, proxies, stock_cn):
 
-    url_eastmoney_income = url[0]
-    url_eastmoney_cash_flow = url[1]
-    url_eastmoney_balance_sheet = url[2]
+    url_easmon_income = url[0]
+    url_easmon_cash_flow = url[1]
+    url_easmon_balance_sheet = url[2]
 
 
     try:
         response_income = requests.get(
-            url_eastmoney_income, headers=headers_eastmoney)
+            url_easmon_income, headers=headers_easmon)
     except:
         response_income = requests.get(
-            url_eastmoney_income, headers=headers_eastmoney, proxies=proxies)
+            url_easmon_income, headers=headers_easmon, proxies=proxies)
     if response_income.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Income.\n'.format(stock_cn))
@@ -113,10 +113,10 @@ def report_from_East_Money(url, proxies, stock_cn):
 
     try:
         response_cash_flow = requests.get(
-            url_eastmoney_cash_flow, headers=headers_eastmoney)
+            url_easmon_cash_flow, headers=headers_easmon)
     except:
         response_cash_flow = requests.get(
-            url_eastmoney_cash_flow, headers=headers_eastmoney, proxies=proxies)
+            url_easmon_cash_flow, headers=headers_easmon, proxies=proxies)
     if response_cash_flow.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Cash Flow.\n'.format(stock_cn))
@@ -127,10 +127,10 @@ def report_from_East_Money(url, proxies, stock_cn):
 
     try:
         response_balance_sheet = requests.get(
-            url_eastmoney_balance_sheet, headers=headers_eastmoney)
+            url_easmon_balance_sheet, headers=headers_easmon)
     except:
         response_balance_sheet = requests.get(
-            url_eastmoney_balance_sheet, headers=headers_eastmoney, proxies=proxies)
+            url_easmon_balance_sheet, headers=headers_easmon, proxies=proxies)
     if response_balance_sheet.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Balance Sheet.\n'.format(stock_cn))
@@ -276,7 +276,7 @@ def report_from_East_Money(url, proxies, stock_cn):
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
-        if 'INCOMEQC' in url_eastmoney_income: # meaning it is Seasonly data:
+        if 'INCOMEQC' in url_easmon_income: # meaning it is Seasonly data:
             stock_price_less_than_PE_ratio_y = stock_PE_ratio_target * \
                 stock_0_profit_margin_y * 4  # 股份不能超过的值
         else: # Meaning it is yealy data, no need to x4
@@ -306,7 +306,7 @@ def report_from_East_Money(url, proxies, stock_cn):
     return [stock_output_y, stock_name_from_year_income]
 
 ################# to get the stock price for each year #####################################
-def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
+def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     # Generate a random UUID (version 4)
     random_uuid = uuid.uuid4()
     # Convert to string without hyphens
@@ -322,14 +322,14 @@ def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
         stock_mkt = 0
         stock_mkt_lower_case = 'sz'
 
-    headers_eastmoney_price_range = {
-        'Host': 'push2his.eastmoney.com',
+    headers_easmon_price_range = {
+        'Host': 'push2his.eas{}ney.com'.format('tmo'),
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Origin': 'https://emweb.securities.eastmoney.com',
+        'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
         'DNT': '1',
-        'Referer': 'https://quote.eastmoney.com/concept/{}{}.html'.format(stock_mkt_lower_case,stock_number),
+        'Referer': 'https://quote.eas{}ney.com/concept/{}{}.html'.format('tmo', stock_mkt_lower_case,stock_number),
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
@@ -345,10 +345,10 @@ def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
 
     try:
         response_price = requests.get(
-            url_price_range, headers=headers_eastmoney_price_range)
+            url_price_range, headers=headers_easmon_price_range)
     except:
         response_price = requests.get(
-            url_price_range, headers=headers_eastmoney_price_range, proxies=proxies)
+            url_price_range, headers=headers_easmon_price_range, proxies=proxies)
     if response_price.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_cn))
@@ -389,7 +389,7 @@ def get_stock_price_Raw_Data_EastMoney(stock_cn, proxies, limit_number='210'):
 
 
 ################# to get the stock price for each year #####################################
-def get_stock_price_range_Based_on_EastMoney(stock_price_df, stock_output, day_one):
+def get_stock_price_range_Based_on_EasMon(stock_price_df, stock_output, day_one):
     time_list = list(stock_output.loc['Notice Date'])
 
     # to turn the report notification date into 2024-09-30 format ###
@@ -417,7 +417,7 @@ def get_stock_price_range_Based_on_EastMoney(stock_price_df, stock_output, day_o
     return stock_price_output
 
 ### to get the latest 7days(10actually) stock price #################################
-def get_latest_7_days_stock_price_Based_on_EastMoney(stock_price_df, proxy_add):
+def get_latest_7_days_stock_price_Based_on_EasMon(stock_price_df, proxy_add):
     last_7_days_end = datetime.datetime.now().strftime('%Y-%m-%d')
     last_7_days_start = (datetime.datetime.now() -
                          datetime.timedelta(days=10)).strftime('%Y-%m-%d')
