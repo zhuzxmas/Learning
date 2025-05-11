@@ -252,7 +252,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     print('-----Stock No.{}---Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------\n'.format(iii, stock))
 
-    ### to get the yearly report from the East Money ################################
+    ### to get the yearly report from the Eas Mon ################################
     print('------- To Get the [- yearly -] report from DataBase ------------\n')
     
 
@@ -260,12 +260,12 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
     ### check OneDrive stored date ###
     ### GET /users/{user-id}/drive/root:/{item-path}
     ### if file not exist, create a new one ###
-    ###     call get report from East Money, and save it.
+    ###     call get report from Eas Mon, and save it.
     ###     PUT /users/{user-id}/drive/items/{parent-id}:/{filename}:/content
     ### if file exist, compare the latest report date and today-1.
     ###     get file content: GET /users/{userId}/drive/items/{item-id}/content
     ###     if same, then just read it.
-    ###     if not same, then call get report from East Money, and combine it with exist date, and save it.
+    ###     if not same, then call get report from Eas Mon, and combine it with exist date, and save it.
     ###     PUT /users/{user-id}/drive/items/{item-id}/content
 
 
@@ -358,18 +358,18 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     if check_item_name == 'yearly':
                         # if (day_one - latest_report_notice_date).days < 365:
                         if (day_one - latest_report_notice_date).days < 0:
-                            # no need to call function to download data from East Money.
+                            # no need to call function to download data from Eas Mon.
                             # since the latest report is saved in the file already.
                             print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
                             stock_output_yearly = yearly_report_from_OD
                             # url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                            # yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                            # yearly_report_raw_out = z_Func.report_from_Eas_Mon(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
                             # stock_name = yearly_report_raw_out[1] # for stock name
                         else:
                             print(':::: It\'s time to update the Yearly data now ...   ::::\n')
                             ### get the yearly report date ################################
                             url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                            yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                            yearly_report_raw_out = z_Func.report_from_Eas_Mon(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
                             yearly_report_raw = yearly_report_raw_out[0]
                             stock_name = yearly_report_raw_out[1]
 
@@ -403,7 +403,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             print(':::: It\'s Yearly data saved to OneDrive ...   ::::\n')
                     else:
                         if (day_one - latest_report_notice_date).days < 40:
-                            # no need to call function to download data from East Money.
+                            # no need to call function to download data from Eas Mon.
                             # since the latest report is saved in the file already.
                             print('~~~ The Seasonly data stored in OneDrive is updated, Good !!! \n')
                             stock_output_Seasonly = Seasonly_report_from_OD
@@ -414,7 +414,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                                 report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
                                 url_seasonly = z_Func.Seasonly_report_url(report_date_yearly=report_notification_date_yearly, stock=stock, stock_cn=stock_cn, p_income=p_income, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet)
-                                Seasonly_report_raw_out = z_Func.report_from_East_Money(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
+                                Seasonly_report_raw_out = z_Func.report_from_Eas_Mon(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
                                 Seasonly_report_raw = Seasonly_report_raw_out[0]
                                 stock_name = Seasonly_report_raw_out[1]
 
@@ -459,7 +459,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                 if check_item_name == 'yearly':
                     ### get the yearly report date ################################
                     url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
-                    yearly_report_raw_out = z_Func.report_from_East_Money(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
+                    yearly_report_raw_out = z_Func.report_from_Eas_Mon(url=url_yearly, proxies=proxies, stock_cn=stock_cn)
                     yearly_report_raw = yearly_report_raw_out[0] # for dataframe info
                     stock_name = yearly_report_raw_out[1] # for stock name
 
@@ -474,7 +474,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                         report_notification_date_yearly = stock_output_yearly.loc['Notice Date']
 
                         url_seasonly = z_Func.Seasonly_report_url(report_date_yearly=report_notification_date_yearly, stock=stock, stock_cn=stock_cn, p_income=p_income, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet)
-                        Seasonly_report_raw_out = z_Func.report_from_East_Money(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
+                        Seasonly_report_raw_out = z_Func.report_from_Eas_Mon(url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
                         Seasonly_report_raw = Seasonly_report_raw_out[0] # for dataframe info
                         stock_name = Seasonly_report_raw_out[1] # for stock name
 
@@ -587,7 +587,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             page_content += "<div><p>No dividend record for {}: {}</p></div>".format(
                 stock, stock_name)
         else:
-            dividends_df = pd.DataFrame(stock_0_dividends)[['REPORT_DATE','IMPL_PLAN_PROFILE']]
+            dividends_df = pd.DataFrame(stock_0_dividends)[['REPORT_DATE','PAY_CASH_DATE','IMPL_PLAN_PROFILE']]
             if len(stock_0_dividends) < 15:
                 page_content += dividends_df.to_html()
             else:
