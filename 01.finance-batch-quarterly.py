@@ -165,8 +165,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
 
     # to split the output with 60 stock as the most info in one OneNote page. 
-    # ------------ 这里我定义了 OneNote 一页最多放60只股票信息, 为了看的时候方便--------
-    if iii % 60 ==0: ### Create a OneNote Page ###
+    # ------------ 这里我定义了 OneNote 一页最多放25只股票信息, 为了看的时候方便--------
+    if iii % 25 ==0: ### Create a OneNote Page ###
 
     #     http_headers_create_page = {'Authorization': 'Bearer ' + result['access_token'],
     #                   'Content-Type': 'application/xhtml+xml'}
