@@ -393,6 +393,14 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                                 stock_output_yearly.loc[stock_output_yearly.index.difference(df_merged.index)]
                             ])
                             df_final = df_final.reindex(new_columns_list)
+
+                            # Convert column names to datetime, sort in descending order
+                            sorted_cols = pd.to_datetime(df_final.columns).sort_values(ascending=False)
+                            # Convert back to string format (if you don't need time info)
+                            sorted_col_names = sorted_cols.strftime('%Y-%m-%d')
+                            # Reindex the DataFrame with the new column order
+                            df_final = df_final[sorted_col_names]
+
                             stock_output_yearly = df_final
 
                             ### here is some explaination for DataFame:
