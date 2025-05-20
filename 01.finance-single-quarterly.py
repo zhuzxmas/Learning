@@ -400,6 +400,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             sorted_col_names = sorted_cols.strftime('%Y-%m-%d')
                             # Reindex the DataFrame with the new column order
                             df_final = df_final[sorted_col_names]
+                            df_final.loc['每股利润增长率 x 100%'] = pd.to_numeric(df_final.loc['稀释后 每年/季度每股收益 元'], errors='coerce').pct_change(-1).round(2)
 
                             stock_output_yearly = df_final
 
