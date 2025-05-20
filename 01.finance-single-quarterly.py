@@ -504,7 +504,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
 
         try:
-            print('------- To get the Seasonly stock price range from Yahoo Finance ------------\n')
+            print('------- To get the Seasonly stock price range from Eas Mon ------------\n')
             print('Please Note: the stock price for the latest period is just to as of now...\n')
             stock_price_Seasonly = z_Func.get_stock_price_range_Based_on_EasMon(stock_price_df=stock_price_df, stock_output=stock_output_Seasonly, day_one=day_one)
 

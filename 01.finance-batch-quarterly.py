@@ -470,7 +470,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
     
     ### to get the stock price range from #############################
-    print('------- To get the Yearly stock price range from Yahoo Finance ------------\n')
+    print('------- To get the Yearly stock price range from Eas Mon ------------\n')
     print('Please Note: the stock price for the latest period is just to as of now...\n')
     stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon(stock_cn=stock_cn, proxies=proxies, limit_number='1800')
     if stock != 'F':
