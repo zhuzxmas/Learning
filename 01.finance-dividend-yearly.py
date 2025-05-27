@@ -122,7 +122,7 @@ for stock_number_str in stock_code:
                     if '-Y-' in file_name:
                         data_file_id = stock_data_list_OD[i]['id']
                         stock_data_list_OD_lite[file_name] = data_file_id
-            # print(stock_data_list_OD_lite)
+            # print(stock_data_list_OD_lite)     # print it out
 
             ### to get the file content
             endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
