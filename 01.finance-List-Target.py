@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 import time
 import datetime
 import z_Func
@@ -13,6 +14,8 @@ df_300 = z_Func.get_SH_SZ_300_list_from_eas_mon()
 df_all = z_Func.get_SH_SZ_All_list_from_eas_mon()
 
 df_300_new = df_300.join(df_all[['BASIC_EPS']], how='left')
+df_300_new['BASIC_EPS'] = pd.to_numeric(df_300_new['BASIC_EPS'], errors='coerce')
+df_300_new['f2'] = pd.to_numeric(df_300_new['f2'], errors='coerce')
 df_300_new['市盈率-基于最新年报'] = (df_300_new['f2']/df_300_new['BASIC_EPS']).round(2)
 df_300_new_sorted = df_300_new.sort_values(by='市盈率-基于最新年报', ascending=True)
 
