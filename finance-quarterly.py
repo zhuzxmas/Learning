@@ -317,7 +317,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
             headers_easmon = {
                 'Host': 'datacenter.eas{}ney.com'.format('tmo'),
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
                 'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),

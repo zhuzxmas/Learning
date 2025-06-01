@@ -12,7 +12,7 @@ import datetime
 ## This is the header for Eas Mon ##
 headers_easmon = {
     'Host': 'datacenter.eas{}ney.com'.format('tmo'),
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
     'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
@@ -23,6 +23,19 @@ headers_easmon = {
     'Sec-Fetch-Site': 'same-site',
 }
 
+## This is the header for Eas Mon ##
+headers_easmon_stock_list = {
+    'Host': 'dat{}nter-w{}.eas{}ney.com'.format('ace','eb','tmo'),
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
+    'Accept': '*/*',
+    'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
+    'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
+    'DNT': '1',
+    'Referer': 'https://emweb.securities.eas{}ney.com/'.format('tmo'),
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+}
 
 # To create a random string for Eas Mon request #
 def generate_random_string(length):
@@ -334,7 +347,7 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
 
     headers_easmon_price_range = {
         'Host': 'push2his.eas{}ney.com'.format('tmo'),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
@@ -750,3 +763,53 @@ def get_stock_info_for_F(stock, proxy_add):
     stock_name_for_F = 'Ford'
 
     return [stock_output_combined, stock_name_for_F]
+
+
+################# To Get SH-SZ 300 Stock List ################
+def get_SH_SZ_300_list_from_eas_mon():
+    url_300_stock_list = 'https://dat{}ter-web.eas{}ey.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=-1&pageSize={}&pageNumber=1&reportName={}&columns=SECUCODE%2CSECURITY_CODE%2CTYPE%2CSECURITY_NAME_ABBR%2CCLOSE_PRICE%2CINDUSTRY%2CREGION%2CWEIGHT%2CEPS%2CBPS%2CROE%2CTOTAL_SHARES%2CFREE_SHARES%2CFREE_CAP&quoteColumns=f2%2Cf3&quoteType=0&source=WEB&client=WEB&filter=(TYPE%3D%22{}%22)'.format('acen','tmon','320','RPT_INDEX_TS_COMPONENT','1')
+    try:
+        response_sh_sz_300 = requests.get(
+            url_300_stock_list, headers=headers_easmon_stock_list)
+    except:
+        response_sh_sz_300 = requests.get(
+            url_300_stock_list, headers=headers_easmon_stock_list)
+    if response_sh_sz_300.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for  SH_SZ_300_List ...\n')
+        pass
+    else:
+        print(f"Failed to retrieve data: {response_sh_sz_300.status_code}")
+    response_sh_sz_300_list = response_sh_sz_300.json()['result']['data']
+    response_sh_sz_300_df = pd.DataFrame(response_sh_sz_300_list)
+    response_sh_sz_300_df.set_index('SECURITY_CODE', inplace=True)
+    time.sleep(random.uniform(15, 25))
+    return response_sh_sz_300_df
+
+
+
+################# To Get All SH-SZ Stock List ################
+def get_SH_SZ_All_list_from_eas_mon():
+    page_number = 1
+    response_sh_sz_all_list = []
+    while page_number <= 11:
+        url_all_stock_list = 'https://dat{}ter-web.eas{}ey.com/api/data/v1/get?sortColumns=UPDATE_DATE%2CSECURITY_CODE&sortTypes=-1%2C-1&pageSize={}&pageNumber={}&reportName={}&columns=ALL&filter=(SECURITY_TYPE_CODE+in+(%22{}%22%2C%22{}%22))(TRADE_MARKET_CODE!%3D%22{}%22)(REPORTDATE%3D%27{}-12-31%27)'.format('acen','tmon','500',page_number,'RPT_LICO_FN_CPD','058001001','058001008','069001017','2024')
+        try:
+            response_sh_sz = requests.get(
+                url_all_stock_list, headers=headers_easmon_stock_list)
+        except:
+            response_sh_sz = requests.get(
+                url_all_stock_list, headers=headers_easmon_stock_list)
+        if response_sh_sz.status_code == 200:
+            # Process the response data here
+            print('page {} - Got the response from Eas Mon for  SH_SZ_All_List ...\n'.format(page_number))
+            pass
+        else:
+            print(f"page {page_number} - Failed to retrieve data: {response_sh_sz.status_code}")
+        response_sh_sz_list = response_sh_sz.json()['result']['data']
+        response_sh_sz_all_list.extend(response_sh_sz_list)
+        time.sleep(random.uniform(15, 25))
+        page_number = page_number + 1
+    response_sh_sz_all_df = pd.DataFrame(response_sh_sz_all_list)
+    response_sh_sz_all_df.set_index('SECURITY_CODE', inplace=True)
+    return response_sh_sz_all_df
