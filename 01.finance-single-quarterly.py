@@ -356,8 +356,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     today_month = day_one.month
 
                     if check_item_name == 'yearly':
-                        # if (day_one - latest_report_notice_date).days < 365:
-                        if (day_one - latest_report_notice_date).days < 0:
+                        if (day_one - latest_report_notice_date).days < 365:
+                        # if (day_one - latest_report_notice_date).days < 0:
                             # no need to call function to download data from Eas Mon.
                             # since the latest report is saved in the file already.
                             print('~~~ The Yearly data stored in OneDrive is updated, Good !!! \n')
