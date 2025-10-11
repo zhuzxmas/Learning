@@ -69,6 +69,5 @@ jobs:
               "workflow": "${{ github.workflow }}",
               "run_id": "${{ github.run_id }}",
               "repo": "${{ github.repository }}",
-              "status": "success",
-              "completed_at": "${{ toJSON(now()) }}"
+              "status": "success"
             }
