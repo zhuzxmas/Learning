@@ -5,7 +5,8 @@ import dashscope
 
 # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx"
 api_key = os.environ['ali_cloud_secret']
-image_edit_input_json = os.environ['image_edit_input_json']
+image_edit_input_url = os.environ['image_edit_input_url']
+image_edit_input_text = os.environ['image_edit_input_text']
 
 dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
 
@@ -13,8 +14,8 @@ messages = [
     {
         "role": "user",
         "content": [
-            {"image": image_edit_input_json['image_url']},
-            {"text": image_edit_input_json['text']}
+            {"image": image_edit_input_url},
+            {"text": image_edit_input_text}
         ]
     }
 ]
