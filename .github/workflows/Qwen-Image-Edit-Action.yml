@@ -55,3 +55,20 @@ jobs:
         image_edit_input_url: ${{ github.event.client_payload.image_url }}
         image_edit_input_text: ${{ github.event.client_payload.text }}
       run: python -u 06.Qwen-Image-Edit.py
+
+    # Only run this if all previous steps succeeded
+    - name: Notify Power Automate on Success
+      if: success()
+      uses: actions/http-client-action@v1
+      with:
+        url: 'https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ'
+        method: 'POST'
+        headers: '{"Content-Type":"application/json"}'
+        body: |
+            {
+              "workflow": "${{ github.workflow }}",
+              "run_id": "${{ github.run_id }}",
+              "repo": "${{ github.repository }}",
+              "status": "success",
+              "completed_at": "${{ toJSON(now()) }}"
+            }
