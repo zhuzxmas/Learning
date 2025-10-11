@@ -5,3 +5,4 @@ msal
 yfinance
 tabulate
 pillow==9.0.1
+dashscope
