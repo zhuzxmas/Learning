@@ -12,7 +12,7 @@ on:
   #  branches: [ "main" ]
   workflow_dispatch:
   repository_dispatch:
-    types: [ms-powre-automate-event]
+    types: [Qwen-Image-Edit-event]
 
 permissions:
   contents: read
