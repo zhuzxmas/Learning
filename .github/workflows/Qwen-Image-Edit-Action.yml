@@ -52,4 +52,5 @@ jobs:
         username : ${{secrets.USERNAME}}
         key_deeplx : ${{secrets.KEY_DEEPLX}}
         ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
+        image_edit_input_json: ${{ github.event.client_payload }}
       run: python -u 06.Qwen-Image-Edit.py
