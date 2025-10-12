@@ -52,3 +52,19 @@ jobs:
         username : ${{secrets.USERNAME}}
         key_deeplx : ${{secrets.KEY_DEEPLX}}
       run: python -u 03.OneDrive-BingPic.py
+      
+    - name: Notify Power Automate (Success)
+      if: success()
+      run: |
+        curl -X POST "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "event": "workflow_completed",
+            "status": "success",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "repo": "${{ github.repository }}",
+            "results": "${{ steps.tests.output.RESULT }}",
+            "actionURL": "https://github.com/${{ github.repository }}/actions/run/${{ github.run_id}}",
+            "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
+          }'
