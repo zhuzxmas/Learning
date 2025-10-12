@@ -51,7 +51,27 @@ jobs:
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
         key_deeplx : ${{secrets.KEY_DEEPLX}}
-      run: python -u 03.OneDrive-BingPic.py
+      id: run_script
+      run: |
+        # Run your Python script and capture all output (stdout + stderr)
+        OUTPUT=$(python -u 03.OneDrive-BingPic.py 2>&1)
+        
+        # Optional: Print to GitHub Actions log for debugging
+        echo "=== Full Script Output ==="
+        echo "$OUTPUT"
+        echo "=========================="
+    
+        # Keep only the last 20 lines (adjust as needed)
+        TRUNCATED=$(echo "$OUTPUT" | tail -n 20)
+    
+        # Escape the output as a valid JSON string using jq
+        # Install jq if not present (usually preinstalled on ubuntu-latest)
+        ESCAPED_LOG=$(echo "$TRUNCATED" | jq -Rs .)
+    
+        # Save to GITHUB_OUTPUT using heredoc syntax for multi-line support
+        echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$ESCAPED_LOG" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
       
     - name: Notify Power Automate (Success)
       if: success()
@@ -64,7 +84,7 @@ jobs:
             "workflow": "${{ github.workflow }}",
             "run_id": "${{ github.run_id }}",
             "repo": "${{ github.repository }}",
-            "results": "${{ steps.tests.outputs.RESULT }}",
+            "results": "Last 20 lines of output:\n'"${{ steps.run_script.outputs.LOG_OUTPUT }}"'",
             "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
             "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
           }'
