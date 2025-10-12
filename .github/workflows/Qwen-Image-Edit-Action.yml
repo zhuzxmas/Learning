@@ -67,7 +67,7 @@ jobs:
             "workflow": "${{ github.workflow }}",
             "run_id": "${{ github.run_id }}",
             "repo": "${{ github.repository }}",
-            "results": "${{ steps.tests.output.RESULT }}",
+            "results": "${{ steps.tests.outputs.RESULT }}",
             "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
             "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
           }'
