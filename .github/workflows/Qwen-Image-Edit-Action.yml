@@ -54,7 +54,24 @@ jobs:
         ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
         image_edit_input_url: ${{ github.event.client_payload.image_url }}
         image_edit_input_text: ${{ github.event.client_payload.text }}
-      run: python -u 06.Qwen-Image-Edit.py
+      id: run_script
+      run: |
+        # Create a temp file to store full output
+        LOG_FILE=$(mktemp)
+    
+        # Run script, show live output, AND save to file
+        python -u 06.Qwen-Image-Edit.py 2>&1 | tee "$LOG_FILE"
+    
+        # Capture last 3 lines from the log file
+        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+    
+        # Save to GITHUB_OUTPUT
+        echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$TRUNCATED" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+    
+        # Optional: clean up
+        rm -f "$LOG_FILE"
 
     - name: Notify Power Automate (Success)
       if: success()
