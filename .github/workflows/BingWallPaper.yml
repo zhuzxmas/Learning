@@ -53,13 +53,22 @@ jobs:
         key_deeplx : ${{secrets.KEY_DEEPLX}}
       id: run_script
       run: |
-        OUTPUT=$(python -u 03.OneDrive-BingPic.py 2>&1)
-        TRUNCATED=$(echo "$OUTPUT" | tail -n 20)
+        # Create a temp file to store full output
+        LOG_FILE=$(mktemp)
     
-        # Save raw (unquoted) but clean string
+        # Run script, show live output, AND save to file
+        python -u 03.OneDrive-BingPic.py 2>&1 | tee "$LOG_FILE"
+    
+        # Capture last 20 lines from the log file
+        TRUNCATED=$(tail -n 50 "$LOG_FILE")
+    
+        # Save to GITHUB_OUTPUT
         echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
         echo "$TRUNCATED" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
+    
+        # Optional: clean up
+        rm -f "$LOG_FILE"
       
     - name: Notify Power Automate (Success)
       if: success()
@@ -72,7 +81,7 @@ jobs:
             "workflow": "${{ github.workflow }}",
             "run_id": "${{ github.run_id }}",
             "repo": "${{ github.repository }}",
-            "results": "Last 20 lines of output:\n'"${{ steps.run_script.outputs.LOG_OUTPUT }}"'",
+            "results": "${{ steps.run_script.outputs.LOG_OUTPUT }}",
             "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
             "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
           }'
