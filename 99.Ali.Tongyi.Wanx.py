@@ -11,7 +11,7 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     qwen_key = os.environ['QWEN_KEY']
     proxy_add = os.environ['PROXY_ADD']
 
-#代理信息，如没有则可以忽略
+#代理信息，如没有, 则可以忽略
 proxies = {
   "http": proxy_add,
   "https": proxy_add
