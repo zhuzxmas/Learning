@@ -12,7 +12,7 @@ import funcLG
 
 def main():
 
-    # to login into MS365 and get the return value
+    # to login into MS365 and get the return value.
     login_return = funcLG.func_login_secret()
     result = login_return['result']
     proxies = login_return['proxies']
