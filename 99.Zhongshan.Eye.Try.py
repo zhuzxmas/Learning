@@ -1,4 +1,5 @@
 import requests, json, configparser, os
+import pprint
 import time as tm
 import urllib.parse
 from datetime import datetime, date, time
@@ -28,34 +29,87 @@ start_hour = int(input('\nPlease input 小时 hh : default = 18 \n') or '18')
 start_minute = int(input('\nPlease input 分钟 mm : default = 0 \n') or '0')
 
 # Form data as a clean Python dictionary (URL-decoded)
-# form_data_zzx = {
-#     "memberId": "094D58F7ADB511F0BA0A005056B6E016",
-#     "deptCode": "827",
-#     "deptName": "眼底病门诊(区庄)",
-#     "doctorCode": "12383",
-#     "doctorName": "糖尿病眼底病变专科(区)",
-#     "date": "2025-{}-{}".format(date_yy, date_dd),
-#     "time": "0",
-#     "timeName": "上午",
-#     "beginTime": "10:00",
-#     "endTime": "10:30",
-#     "fee": "0.00",
-#     "treatFee": "13.00",
-#     "patientId": "8238342",
-#     "patientYLZ": "",
-#     "firstPatientTypeId": "0",
-#     "firstPatientTypeName": "",
-#     "oldPatientTypeId": "1480",
-#     "oldPatientTypeName": "自费",
-#     "title": "",
-#     "registerType": "专科",
-#     "regFlag": "false",
-#     "userJKK": "L83056330",
-#     "canStudySample": "0",
-#     "regType": "1"
-# }
+form_data_zzx = {
+    "memberId": "094D58F7ADB511F0BA0A005056B6E016",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "12383",
+    "doctorName": "糖尿病眼底病变专科(区)",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "10:00",
+    "endTime": "10:30",
+    "fee": "0.00",
+    "treatFee": "13.00",
+    "patientId": "8238342",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L83056330",
+    "canStudySample": "0",
+    "regType": "1"
+}
 
-form_data_gao_am = {
+form_data_gao_am1 = {
+    "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "3632",
+    "doctorName": "杨晖",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "08:00",
+    "endTime": "08:30",
+    "fee": "0.00",
+    "treatFee": "35.00",
+    "patientId": "7658685",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L82533366",
+    "canStudySample": "1",
+    "regType": "1"
+}
+
+form_data_gao_am2 = {
+    "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "3632",
+    "doctorName": "杨晖",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "08:30",
+    "endTime": "09:00",
+    "fee": "0.00",
+    "treatFee": "35.00",
+    "patientId": "7658685",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L82533366",
+    "canStudySample": "1",
+    "regType": "1"
+}
+form_data_gao_am3 = {
     "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
     "deptCode": "827",
     "deptName": "眼底病门诊(区庄)",
@@ -81,7 +135,84 @@ form_data_gao_am = {
     "canStudySample": "1",
     "regType": "1"
 }
-
+form_data_gao_am4 = {
+    "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "3632",
+    "doctorName": "杨晖",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "09:30",
+    "endTime": "10:00",
+    "fee": "0.00",
+    "treatFee": "35.00",
+    "patientId": "7658685",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L82533366",
+    "canStudySample": "1",
+    "regType": "1"
+}
+form_data_gao_am5 = {
+    "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "3632",
+    "doctorName": "杨晖",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "10:00",
+    "endTime": "10:30",
+    "fee": "0.00",
+    "treatFee": "35.00",
+    "patientId": "7658685",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L82533366",
+    "canStudySample": "1",
+    "regType": "1"
+}
+form_data_gao_am6 = {
+    "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
+    "deptCode": "827",
+    "deptName": "眼底病门诊(区庄)",
+    "doctorCode": "3632",
+    "doctorName": "杨晖",
+    "date": "2025-{}-{}".format(date_yy, date_dd),
+    "time": "0",
+    "timeName": "上午",
+    "beginTime": "10:30",
+    "endTime": "11:00",
+    "fee": "0.00",
+    "treatFee": "35.00",
+    "patientId": "7658685",
+    "patientYLZ": "",
+    "firstPatientTypeId": "0",
+    "firstPatientTypeName": "",
+    "oldPatientTypeId": "1480",
+    "oldPatientTypeName": "自费",
+    "title": "",
+    "registerType": "专科",
+    "regFlag": "false",
+    "userJKK": "L82533366",
+    "canStudySample": "1",
+    "regType": "1"
+}
 form_data_gao_pm = {
     "memberId": "9CE65C868C5511EF8C9AFA163E2CAC6A",
     "deptCode": "827",
@@ -108,8 +239,17 @@ form_data_gao_pm = {
     "canStudySample": "1",
     "regType": "1"
 }
+
+
+
 # Encode the form data back to URL-encoded string (as required by Content-Type)
-encoded_data_am = urllib.parse.urlencode(form_data_gao_am, encoding='utf-8')
+encoded_data_am_zzx= urllib.parse.urlencode(form_data_zzx, encoding='utf-8')
+encoded_data_am1= urllib.parse.urlencode(form_data_gao_am1, encoding='utf-8')
+encoded_data_am2= urllib.parse.urlencode(form_data_gao_am2, encoding='utf-8')
+encoded_data_am3= urllib.parse.urlencode(form_data_gao_am3, encoding='utf-8')
+encoded_data_am4= urllib.parse.urlencode(form_data_gao_am4, encoding='utf-8')
+encoded_data_am5= urllib.parse.urlencode(form_data_gao_am5, encoding='utf-8')
+encoded_data_am6= urllib.parse.urlencode(form_data_gao_am6, encoding='utf-8')
 encoded_data_pm = urllib.parse.urlencode(form_data_gao_pm, encoding='utf-8')
 
 # Request headers
@@ -155,21 +295,23 @@ while now < target_time:
 # --- 3. Send the request IMMEDIATELY after reaching target time ---
 print("Sending request at:", datetime.now())
 
-response = requests.post(url, headers=headers, cookies=cookies, data=encoded_data_am, verify=False)
+response = requests.post(url, headers=headers, cookies=cookies, data=encoded_data_am1, verify=False)
+pprint.pprint(response.json())
 
 # Output result
-print("Status Code:", response.status_code)
+# print("Status Code:", response.status_code)
 if response.status_code == 200:
-    if response.json()['code'] == '1':
-        print('Response Text: {}'.format(response.json()['msg']))
-        print('Response Text Code: {}, 1 means fail...'.format(response.json()['code']))
-
+    if response.json()['code'] != '0':
         # send a new request for the afternoon:
-        response = requests.post(url, headers=headers, cookies=cookies, data=encoded_data_pm, verify=False)
+        response = requests.post(url, headers=headers, cookies=cookies, data=encoded_data_am1, verify=False)
+        pprint.pprint(response.json())
+        if response.status_code == 200:
+            if response.json()['code'] != '0':
+                # send a new request for the afternoon:
+                response = requests.post(url, headers=headers, cookies=cookies, data=encoded_data_am1, verify=False)
+                pprint.pprint(response.json())
 
 if response.json()['code'] == '0':
     print('Order Number: {}\n'.format(response.json()['order']['orderNo']))
     print('Order patientName: {}\n'.format(response.json()['order']['patientName']))
     print('Order patientId: {}\n'.format(response.json()['order']['patientId']))
-
-print("Response Body:", response.text)
