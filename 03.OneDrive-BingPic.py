@@ -50,7 +50,7 @@ def add_img_description(notifymsg, filepath):
 
     imagetemp = Image.open(filepath)
     draw = ImageDraw.Draw(imagetemp)
-    x, y = 10, 1950
+    x, y = 10, 1970
 
     # Function to determine the font based on the character
     def get_font(char):
