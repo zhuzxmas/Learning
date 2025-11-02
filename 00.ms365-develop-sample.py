@@ -1,7 +1,7 @@
 import json, requests
 from msal import PublicClientApplication, ConfidentialClientApplication
 
-client_secret = 'xxxx-xxxx-xxxx-xxxx-xxxx' # this is secret, you can not save it publicly
+client_secret = 'xxxx-xxxx-xxxx-xxxx-xxxx' # this is secret, you can not save it publicly…
 client_id = 'xxxx-xxxx-xxxx-xxxx-xxxx-xxxx' # it is also good to make this private
 tenant_id = 'xxxx-xxxx-xxxx-xxxx-xxxx' # it is also good to make this private
 scope_list = ['User.Read', 'Files.Read'] # you can add the premissions you want to add
