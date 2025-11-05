@@ -9,7 +9,7 @@ azure_settings = config['azure']
 client_id = azure_settings['client_id']
 ```
 注意：Microsoft Azure app `client_id` 是需要保密的，所以需要单独保存.
-此处，我还使用了微信公众平台测试号，可以在下面的链接处获得。
+此处，我还使用了微信公众平台测试号，可以在下面的链接处获得（已不再使用）。
 https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
 第一次登录之后，最好再重新刷新一下页面，才可以获得正确的测试号的 `appid`, `secret`, `template id`, and 你自己的微信号的 `open id`。
 以上信息都是保密的信息，所以可以通过保存到 Github Secrets里面，或者保存在本地的 config文件。
