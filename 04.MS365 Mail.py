@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sep 18, 2024  @author: Nathan. File Purpose: to use MS365 Graph API for mail service.
+Created on Sep 18, 2024  @author: Nathan. File Purpose: to use MS365 Graph API for Mail service.
 """
 import urllib.request
 import pprint
