@@ -13,7 +13,7 @@ except json.JSONDecodeError:
 except Exception as e:
     print(f"An unexpected error occurred: {e}")
 
-data_swim = [] # to get the data for Swimming
+data_swim = [] # to get the data for Swimming info
 for i in range(len(data)) :
     if data[i]['sportType'] == 102: # swimming
         data_swim.append(data[i])
