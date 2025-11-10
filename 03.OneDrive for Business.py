@@ -28,7 +28,7 @@ try:
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
-# to sort the pages by date, from latest to oldest:
+# to sort the pages by date, from latest to oldest ones:
 data = data['value']
 data = sorted(data, key=lambda x: datetime.fromisoformat(x['lastModifiedDateTime'].replace("Z", "+00:00")),reverse=True)
 last_modified_folder_id = data[0]['id']
