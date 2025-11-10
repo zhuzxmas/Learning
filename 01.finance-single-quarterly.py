@@ -55,7 +55,7 @@ p_income_year = 'INCOME'
 
 ######## Below is the Main Function #################################
 
-login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
+login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value info
 result = login_return['result']
 proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
