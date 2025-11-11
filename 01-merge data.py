@@ -15,7 +15,7 @@ from pandas import DataFrame as df
 import pickle
 import z_Func
 
-### stock_Top_list is to summarize the performance of each stock
+### stock_Top_list is to summarize the performance of each  stock
 stock_Top_list = []
 stock_Top_list_columns = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
 
