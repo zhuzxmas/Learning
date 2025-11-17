@@ -36,7 +36,7 @@ else:
 day_one = datetime.date.today()
 
 
-# =====Basic Info from EasMon====#
+# =====Basic Info from EasMon=====#
 p_cash_flow = 'CASHFLOW'
 p_balance_sheet = 'BALANCE'
 p_income = 'INCOMEQC'
