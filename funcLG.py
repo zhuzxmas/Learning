@@ -11,6 +11,13 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     client_id = azure_settings['client_id']
     site__id_personal_z = azure_settings['site__id_personal_z']
     site__id_cmmas = azure_settings['site__id_cmmas']
+    site__id_zhuzxself = azure_settings['site__id_zhuzxself']
+    list__id_secret = azure_settings['list__id_secret']
+    item_id = azure_settings['item_id']
+    team_id_zhuzxself = azure_settings['team_id_zhuzxself']
+    channel_id_Notification = azure_settings['channel_id_Notification']
+    message_id_Login_Notification = azure_settings['message_id_Login_Notification']
+
     client_secret = azure_settings['client_secret']
     tenant_id = azure_settings['tenant_id']
     finance_section_id = azure_settings['finance_section_id']
@@ -53,6 +60,57 @@ proxies = {
 def get_deeplx_key():
     return key_deeplx
 
+def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxself, list__id_secret=list__id_secret, item_id=item_id):
+    # GET /sites/{site-id}/lists/{list-id}/items
+    # Replace these with your actual IDs.
+
+    # Construct the URL
+    url = f"https://graph.microsoft.com/v1.0/sites/{site__id_personal_z}/lists/{list__id_secret}/items/{item_id}"
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    # Make the Get request
+    try:
+        response = requests.get(url, headers=headers)
+    except:
+        response = requests.get(url, headers=headers, proxies=proxies)
+
+    if response.status_code == 200:
+        print("Refresh Token Obtained successfully!")
+        Refresh_token = response.json()['fields']['Refresh_Token']
+    else:
+        Refresh_token = ''
+    return Refresh_token
+
+
+def get_access_token_with_refresh(refresh_token, client_id=client_id, tenant_id=tenant_id):
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+
+    data = {
+        "client_id": client_id,
+        "scope": "https://graph.microsoft.com/.default",
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token"
+    }
+
+    try:
+        response = requests.post(url, data=data)
+    except:
+        response = requests.post(url, data=data, proxies=proxies)
+
+    if response.status_code == 200:
+        print("Access Token Obtained successfully!")
+        Access_token = response.json()['access_token']
+    else:
+        Access_token = ''
+    return Access_token
+
+
+
 def func_login():
 
     ### to create msal connection ###
@@ -90,6 +148,12 @@ def func_login():
         data = {
             "code": {"value": flow['user_code']},
         }
+
+        message_str1 = flow['user_code']
+        send_Teams_Channel_Message(message_str1)
+        # message_str2 = flow['verification_uri']
+        # send_Teams_Channel_Message(message_str2)
+
         # 推送消息
         # result1 = send_template_message(openid, template_id, data)
         # print(result1)  # 打印推送结果
@@ -139,6 +203,97 @@ def func_login_secret():
         print(result.get("correlation_id"))  # You may need this when reporting a bug
 
     return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site__id_personal_z':site__id_personal_z, 'site__id_cmmas':site__id_cmmas}
+
+
+def send_Teams_Channel_Message(message_str, team_id=team_id_zhuzxself, channel_id=channel_id_Notification, message_id=message_id_Login_Notification):
+
+    login_return_app = func_login_secret()
+    result_app = login_return_app['result']
+    access_token_app = result_app['access_token']
+    proxies = login_return_app['proxies']
+
+    refresh_token = get_refresh_token_from_SP(access_token=access_token_app)
+    access_token = get_access_token_with_refresh(refresh_token=refresh_token)
+
+    # Construct the URL
+    # POST /teams/{team-id}/channels/{channel-id}/messages
+    url = f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{channel_id}/messages/{message_id}/replies"
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    fields_data = {
+        "body": {
+            "content": message_str
+        }
+    }
+
+    # Make the Post request
+    try:
+        response = requests.post(
+            url, headers=headers, data=json.dumps(fields_data))
+    except:
+        response = requests.post(
+            url, headers=headers, data=json.dumps(fields_data), proxies=proxies)
+
+    if response.status_code == 200:
+        print("Message sent to Teams successfully!")
+        return response.json()
+    else:
+        print(f"Error: {response.status_code}")
+        print(f"Error message: {response.text}")
+        return None
+
+
+def update_sharepoint_list_item(fields_data,access_token, site_id=site__id_zhuzxself, list_id=list__id_secret, item_id=item_id):
+    """
+    Update a SharePoint list item using Microsoft Graph API
+
+    Args:
+        site_id (str): The SharePoint site ID
+        list_id (str): The SharePoint list ID
+        item_id (str): The SharePoint list item ID
+        fields_data (dict): Dictionary containing the fields to update
+
+    Returns:
+        dict: Response from the API
+    """
+
+    # Construct the URL
+    url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/lists/{list_id}/items/{item_id}/fields"
+    # url_columns = f"https://graph.microsoft.com/v1.0/sites/{site_id}/lists/{list_id}/columns"
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    # # Please Note: for referesh token, its length is more than 255, so in Microsoft Lists, this column shall be multi-line, not single line
+    # fields_data = {
+    #         "Refresh_Token": refresh_token,
+    #         "Refresh_Token_Obtained_Date": today,
+    #         "Refresh_Token_Last_Use_Date": today
+    # }
+
+    # Make the PATCH request
+    try:
+        response = requests.patch(
+            url, headers=headers, data=json.dumps(fields_data))
+    except:
+        response = requests.patch(
+            url, headers=headers, data=json.dumps(fields_data), proxies=proxies)
+
+    if response.status_code == 200:
+        print("Item updated successfully!")
+        return response.json()
+    else:
+        print(f"Error: {response.status_code}")
+        print(f"Error message: {response.text}")
+        return None
 
 # 获取access_token
 def get_access_token():
