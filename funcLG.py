@@ -65,7 +65,7 @@ def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxsel
     # Replace these with your actual IDs.
 
     # Construct the URL
-    url = f"https://graph.microsoft.com/v1.0/sites/{site__id_personal_z}/lists/{list__id_secret}/items/{item_id}"
+    url = f"https://graph.microsoft.com/v1.0/sites/{site__id_zhuzxself}/lists/{list__id_secret}/items/{item_id}"
 
     # Prepare headers
     headers = {
@@ -239,7 +239,7 @@ def send_Teams_Channel_Message(message_str, team_id=team_id_zhuzxself, channel_i
         response = requests.post(
             url, headers=headers, data=json.dumps(fields_data), proxies=proxies)
 
-    if response.status_code == 200:
+    if response.status_code == 201:
         print("Message sent to Teams successfully!")
         return response.json()
     else:
