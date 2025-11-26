@@ -5,7 +5,7 @@ import funcLG
 login_return = funcLG.func_login_secret() # to login into MS365 and get the return value
 result = login_return['result']
 proxies = login_return['proxies']
-site_id = login_return['site_id']
+site__id_personal_z = login_return['site__id_personal_z']
 
 days_number = 7
 # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
@@ -16,12 +16,12 @@ day_seven_ago = day_one - datetime.timedelta(days=days_number)
 # to get the list id and relative info:
 # visit Microsoft Graph API Reference Document https://learn.microsoft.com/en-us/graph/api/site-get?view=graph-rest-1.0 for more information.
 # if  list_url = 'https://xxx-my.sharepoint.com/personal/xxx_yyy_onmicrosoft_com/Lists/Learning_records/AllItems.aspx'
-# then  endpoint_for_site_id = 'https://graph.microsoft.com/v1.0/sites/xxx-my.sharepoint.com:/personal/xxx_yyy_onmicrosoft_com/'
-# data = requests.get(endpoint_for_site_id, headers=http_headers, stream=False).json()
-# site_id = data['id'].split(',')[1]
+# then  endpoint_for_site__id_personal_z = 'https://graph.microsoft.com/v1.0/sites/xxx-my.sharepoint.com:/personal/xxx_yyy_onmicrosoft_com/'
+# data = requests.get(endpoint_for_site__id_personal_z, headers=http_headers, stream=False).json()
+# site__id_personal_z = data['id'].split(',')[1]
 
 # to get the list ID and username, which is needed for creating new lists item
-endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/Learning_records".format(site_id)
+endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/Learning_records".format(site__id_personal_z)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
@@ -78,7 +78,7 @@ if output != []: # if there is  learning records, continue below codes.
                 learning_notes = output[i]['notes']['content']
 
             # to Create a new Lists Item for Learning_records list:
-            endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/{}/items".format(site_id,list_id)
+            endpoint = "https://graph.microsoft.com/v1.0/sites/{}/lists/{}/items".format(site__id_personal_z,list_id)
             http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                             'Accept': 'application/json',
                             'Content-Type': 'application/json'}

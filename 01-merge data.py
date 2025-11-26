@@ -54,14 +54,14 @@ result = login_return['result']
 proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
 token_start_time = datetime.datetime.now()
-site_id = login_return['site_id']
-site_id_for_sp = login_return['site_id_for_sp']
+site__id_personal_z = login_return['site__id_personal_z']
+site__id_cmmas = login_return['site__id_cmmas']
 
 stock_code = []
 
 
 # to get the list item info, which is needed for creating new lists item
-endpoint_list = "https://graph.microsoft.com/v1.0/sites/{}/lists/Stock_Code_list/items?$expand=fields($select=Title)".format(site_id_for_sp)
+endpoint_list = "https://graph.microsoft.com/v1.0/sites/{}/lists/Stock_Code_list/items?$expand=fields($select=Title)".format(site__id_cmmas)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
