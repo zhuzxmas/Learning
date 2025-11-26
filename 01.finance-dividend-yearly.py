@@ -15,20 +15,20 @@ result = login_return['result']
 proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
 token_start_time = datetime.datetime.now()
-site_id = login_return['site_id']
-site_id_for_sp = login_return['site_id_for_sp']
+site__id_personal_z = login_return['site__id_personal_z']
+site__id_cmmas = login_return['site__id_cmmas']
 
 stock_code = []
 
 # to get the list id and relative info:
 # visit Microsoft Graph API Reference Document https://learn.microsoft.com/en-us/graph/api/site-get?view=graph-rest-1.0 for more information.
 # if  list_url = 'https://xxx-my.sharepoint.com/personal/xxx_yyy_onmicrosoft_com/Lists/Learning_records/AllItems.aspx'
-# then  endpoint_for_site_id = 'https://graph.microsoft.com/v1.0/sites/xxx-my.sharepoint.com:/personal/xxx_yyy_onmicrosoft_com/'
-# data = requests.get(endpoint_for_site_id, headers=http_headers, stream=False).json()
-# site_id = data['id'].split(',')[1]
+# then  endpoint_for_site__id_personal_z = 'https://graph.microsoft.com/v1.0/sites/xxx-my.sharepoint.com:/personal/xxx_yyy_onmicrosoft_com/'
+# data = requests.get(endpoint_for_site__id_personal_z, headers=http_headers, stream=False).json()
+# site__id_personal_z = data['id'].split(',')[1]
 
 # to get the list item info, which is needed for creating new lists item
-endpoint_list = "https://graph.microsoft.com/v1.0/sites/{}/lists/Stock_Code_list/items?$expand=fields($select=Title)".format(site_id_for_sp)
+endpoint_list = "https://graph.microsoft.com/v1.0/sites/{}/lists/Stock_Code_list/items?$expand=fields($select=Title)".format(site__id_cmmas)
 http_headers = {'Authorization': 'Bearer ' + result['access_token'],
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}

@@ -9,8 +9,8 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     proxy_settings = config['proxy_add']
 
     client_id = azure_settings['client_id']
-    site_id = azure_settings['site_id']
-    site_id_for_sp = azure_settings['site_id_for_sp']
+    site__id_personal_z = azure_settings['site__id_personal_z']
+    site__id_cmmas = azure_settings['site__id_cmmas']
     client_secret = azure_settings['client_secret']
     tenant_id = azure_settings['tenant_id']
     finance_section_id = azure_settings['finance_section_id']
@@ -27,8 +27,8 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     key_deeplx = deeplx_settings['secret_key']
 else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
-    site_id = os.environ['site_id']
-    site_id_for_sp = os.environ['site_id_for_sp']
+    site__id_personal_z = os.environ['site__id_personal_z']
+    site__id_cmmas = os.environ['site__id_cmmas']
     client_secret = os.environ['client_secret']
     tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
@@ -102,7 +102,7 @@ def func_login():
             #    https://msal-python.readthedocs.io/en/latest/#msal.PublicClientApplication.acquire_token_by_device_flow
             # or you may even turn off the blocking behavior,
             # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
-    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site_id':site_id}
+    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site__id_personal_z':site__id_personal_z}
 
 def func_login_secret():
     scopes = ['https://graph.microsoft.com/.default']
@@ -138,7 +138,7 @@ def func_login_secret():
         print(result.get("error_description"))
         print(result.get("correlation_id"))  # You may need this when reporting a bug
 
-    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site_id':site_id, 'site_id_for_sp':site_id_for_sp}
+    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site__id_personal_z':site__id_personal_z, 'site__id_cmmas':site__id_cmmas}
 
 # 获取access_token
 def get_access_token():

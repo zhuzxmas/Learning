@@ -27,8 +27,8 @@ result = login_return['result']
 proxies = login_return['proxies']
 finance_section_id = login_return['finance_section_id']
 token_start_time = datetime.datetime.now()
-site_id = login_return['site_id']
-site_id_for_sp = login_return['site_id_for_sp']
+site__id_personal_z = login_return['site__id_personal_z']
+site__id_cmmas = login_return['site__id_cmmas']
 
 ### to get the user_id first... ####
 # the endpoint shall not use /me, use [users] instead...

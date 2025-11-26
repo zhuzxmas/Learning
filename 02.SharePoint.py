@@ -25,10 +25,10 @@ endpoint = 'https://graph.microsoft.com/v1.0/users/{user-id}/onenote/notebooks/'
 # to get the site id for below SP address:
 for i in range(0,len(output)):
     if output[i]['webUrl'] == 'https://cnmas.sharepoint.com/sites/cmmas':
-        site_id = output[i]['id'].split(',')[1]
+        site__id_personal_z = output[i]['id'].split(',')[1]
 
 # to list site pages:
-endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
+endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site__id_personal_z)
 try:
     data = requests.get(endpoint, headers=http_headers, stream=False).json()
 except:
@@ -41,7 +41,7 @@ for i in range(len(data)):
     print(data[i]['title'])
 
 # to create a new page in SharePoint:
-endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site_id)
+endpoint = 'https://graph.microsoft.com/v1.0/sites/{}/pages'.format(site__id_personal_z)
 new_page_address_url = input('Please input the URL to create a new page: \n')
 new_page_title = input('Please enter the title of the new page: \n')
 page_body = {
@@ -98,9 +98,9 @@ update_payload = {
 update_payload= json.dumps(update_payload, indent=4)
 
 try:
-    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, data = update_payload).json()
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site__id_personal_z}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, data = update_payload).json()
 except:
-    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, proxies=proxies, data = update_payload).json()
+    data = requests.patch(f'https://graph.microsoft.com/v1.0/sites/{site__id_personal_z}/pages/{page_id}/microsoft.graph.sitePage', headers=http_headers, stream=False, proxies=proxies, data = update_payload).json()
 
 Category_list = {'1':'Life', '2': 'Ford'}
 print('-----------------------------------------\n')
