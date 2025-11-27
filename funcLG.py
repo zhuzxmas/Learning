@@ -37,6 +37,8 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     site__id_personal_z = os.environ['site__id_personal_z']
     site__id_cmmas = os.environ['site__id_cmmas']
     site__id_zhuzxself = os.environ['site__id_zhuzxself']
+    list__id_secret = os.environ['list__id_secret']
+    item_id = os.environ['item_id']
     client_secret = os.environ['client_secret']
     tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
