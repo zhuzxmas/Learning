@@ -42,6 +42,7 @@ jobs:
         site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
         site__id_zhuzxself : ${{secrets.SITE__ID_ZHUZXSELF}}
         list__id_secret : ${{secrets.LIST__ID_SECRET}}
+        item_id : ${{secrets.ITEM_ID}}
         client_secret : ${{secrets.CLIENT_SECRET}}
         tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.CLIENT_ID}}
