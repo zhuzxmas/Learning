@@ -8,10 +8,10 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     config.read(['config.cfg'])
 
     proxy_settings = config['proxy_add']
-    github_settings = config['GitHub']
+    github_settings = config['Git_Hub']
 
     proxy_add = proxy_settings['proxy_add']
-    GITHUB_TOKEN = github_settings['secret_key']
+    GITHUB_TOKEN = github_settings['git_hub_token']
 else: # to get this info from Github Secrets, for Github Action running application
     proxy_add = os.environ['proxy_add']
     GITHUB_TOKEN = os.environ['github_token']
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # Configuration
     OWNER = "zhuzxmas"
     REPO = "Learning"
-    SECRET_NAME = "GITHUB_TOKEN"          # Replace with your secret name
+    SECRET_NAME = "GIT_HUB_TOKEN"          # Replace with your secret name
     SECRET_VALUE =  GITHUB_TOKEN  # Replace with actual secret value
 
     update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE)

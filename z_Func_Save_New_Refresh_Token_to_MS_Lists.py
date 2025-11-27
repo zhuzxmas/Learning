@@ -21,10 +21,10 @@ proxies = login_return['proxies']
 
 # save refresh token to Github Repo
 OWNER = "zhuzxmas"
-REPO = "Learning_EN"
+REPO = "Learning"
 SECRET_NAME = "REFRESH_TOKEN"          # Replace with your secret name
-# z_Func_Update_GitHub_Repo_Secrects.update_Github_Repo_Secret(
-#     OWNER, REPO, SECRET_NAME, refresh_token)
+z_Func_Update_GitHub_Repo_Secrects.update_Github_Repo_Secret(
+    OWNER, REPO, SECRET_NAME, refresh_token)
 
 # # to login into MS365 and get the return value info.
 # login_return_secret = funcLG.func_login_secret()
