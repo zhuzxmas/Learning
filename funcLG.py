@@ -30,8 +30,9 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
     proxy_add = proxy_settings['proxy_add']
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
+    
     deeplx_settings = config['DeepLx']
-    key_deeplx = deeplx_settings['secret_key']
+    deeplx_secret_key = deeplx_settings['deeplx_secret_key']
 else: # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
     site__id_personal_z = os.environ['site__id_personal_z']
@@ -51,7 +52,7 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     template_id = os.environ['template_id']
     openid = os.environ['openid']
     proxy_add = os.environ['proxy_add']
-    key_deeplx = os.environ['key_deeplx']
+    deeplx_secret_key = os.environ['deeplx_secret_key']
 
 config.read(['config1.cfg']) # to get the scopes
 azure_settings_scope = config['azure1']
