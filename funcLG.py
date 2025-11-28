@@ -1,8 +1,12 @@
-import json, requests, configparser, os
+import json
+import requests
+import configparser
+import os
 from msal import PublicClientApplication, ConfidentialClientApplication
 
 config = configparser.ConfigParser()
-if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local application
+# to check if local file config.cfg is available, for local application
+if os.path.exists('./config.cfg'):
     config.read(['config.cfg'])
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
@@ -30,10 +34,10 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
     proxy_add = proxy_settings['proxy_add']
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
-    
+
     deeplx_settings = config['DeepLx']
     deeplx_secret_key = deeplx_settings['deeplx_secret_key']
-else: # to get this info from Github Secrets, for Github Action running application
+else:  # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
     site__id_personal_z = os.environ['site__id_personal_z']
     site__id_cmmas = os.environ['site__id_cmmas']
@@ -46,7 +50,7 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     client_secret = os.environ['client_secret']
     tenant_id = os.environ['tenant_id']
     finance_section_id = os.environ['finance_section_id']
-    username= os.environ['username']
+    username = os.environ['username']
     wx_APPID = os.environ['wx_APPID']
     wx_SECRET = os.environ['wx_SECRET']
     template_id = os.environ['template_id']
@@ -54,18 +58,20 @@ else: # to get this info from Github Secrets, for Github Action running applicat
     proxy_add = os.environ['proxy_add']
     deeplx_secret_key = os.environ['deeplx_secret_key']
 
-config.read(['config1.cfg']) # to get the scopes
+config.read(['config1.cfg'])  # to get the scopes
 azure_settings_scope = config['azure1']
-scope_list = azure_settings_scope['scope_list'].replace(' ','').split(',')
+scope_list = azure_settings_scope['scope_list'].replace(' ', '').split(',')
 # print( 'Scope List is: ', scope_list, '\n')
 
 proxies = {
-  "http": proxy_add,
-  "https": proxy_add
+    "http": proxy_add,
+    "https": proxy_add
 }
 
+
 def get_deeplx_key():
-    return key_deeplx
+    return deeplx_secret_key
+
 
 def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxself, list__id_secret=list__id_secret, item_id=item_id):
     # GET /sites/{site-id}/lists/{list-id}/items
@@ -117,20 +123,19 @@ def get_access_token_with_refresh(refresh_token, client_id=client_id, tenant_id=
     return Access_token
 
 
-
 def func_login():
 
     ### to create msal connection ###
     try:
         app = PublicClientApplication(
             client_id=client_id,
-            authority = 'https://login.microsoftonline.com/common',
+            authority='https://login.microsoftonline.com/common',
         )
     except:
         app = PublicClientApplication(
             client_id=client_id,
-            authority = 'https://login.microsoftonline.com/common',
-            proxies = proxies
+            authority='https://login.microsoftonline.com/common',
+            proxies=proxies
         )
 
     result = None
@@ -149,7 +154,8 @@ def func_login():
                 "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4))
 
         # print(flow["message"])
-        print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
+        print(
+            f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
 
         # 示例数据
         data = {
@@ -157,7 +163,23 @@ def func_login():
         }
 
         message_str1 = flow['user_code']
-        send_Teams_Channel_Message(message_str1)
+        # send_Teams_Channel_Message(message_str1)
+        teams_message_power_automate_url = "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ"
+        teams_message_power_automate_headers = {
+            "Content-Type": "application/json"
+        }
+
+        teams_message_power_automate_data = {
+            "results": message_str1
+        }
+
+        try:
+            teams_message_power_automate_response = requests.post(teams_message_power_automate_url, headers=teams_message_power_automate_headers, json=teams_message_power_automate_data)
+        except:
+            teams_message_power_automate_response = requests.post(teams_message_power_automate_url, headers=teams_message_power_automate_headers, json=teams_message_power_automate_data, proxies=proxies)
+
+        print(teams_message_power_automate_response.status_code)
+        print(teams_message_power_automate_response.text)
         # message_str2 = flow['verification_uri']
         # send_Teams_Channel_Message(message_str2)
 
@@ -168,12 +190,14 @@ def func_login():
         # Ideally you should wait here, in order to save some unnecessary polling
         # input("Press Enter after signing in from another device to proceed, CTRL+C to abort.")
 
-        result = app.acquire_token_by_device_flow(flow)  # By default it will block
-            # You can follow this instruction to shorten the block time
-            #    https://msal-python.readthedocs.io/en/latest/#msal.PublicClientApplication.acquire_token_by_device_flow
-            # or you may even turn off the blocking behavior,
-            # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
-    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site__id_personal_z':site__id_personal_z}
+        result = app.acquire_token_by_device_flow(
+            flow)  # By default it will block
+        # You can follow this instruction to shorten the block time
+        #    https://msal-python.readthedocs.io/en/latest/#msal.PublicClientApplication.acquire_token_by_device_flow
+        # or you may even turn off the blocking behavior,
+        # and then keep calling acquire_token_by_device_flow(flow) in your own customized loop
+    return {'result': result, 'proxies': proxies, 'finance_section_id': finance_section_id, 'openid': openid, 'template_id': template_id, 'site__id_personal_z': site__id_personal_z}
+
 
 def func_login_secret():
     scopes = ['https://graph.microsoft.com/.default']
@@ -207,9 +231,10 @@ def func_login_secret():
     else:
         print(result.get("error"))
         print(result.get("error_description"))
-        print(result.get("correlation_id"))  # You may need this when reporting a bug
+        # You may need this when reporting a bug
+        print(result.get("correlation_id"))
 
-    return {'result':result, 'proxies':proxies, 'finance_section_id':finance_section_id, 'openid':openid, 'template_id':template_id, 'site__id_personal_z':site__id_personal_z, 'site__id_cmmas':site__id_cmmas}
+    return {'result': result, 'proxies': proxies, 'finance_section_id': finance_section_id, 'openid': openid, 'template_id': template_id, 'site__id_personal_z': site__id_personal_z, 'site__id_cmmas': site__id_cmmas}
 
 
 def send_Teams_Channel_Message(message_str, team_id=team_id_zhuzxself, channel_id=channel_id_Notification, message_id=message_id_Login_Notification):
@@ -255,7 +280,7 @@ def send_Teams_Channel_Message(message_str, team_id=team_id_zhuzxself, channel_i
         return None
 
 
-def update_sharepoint_list_item(fields_data,access_token, site_id=site__id_zhuzxself, list_id=list__id_secret, item_id=item_id):
+def update_sharepoint_list_item(fields_data, access_token, site_id=site__id_zhuzxself, list_id=list__id_secret, item_id=item_id):
     """
     Update a SharePoint list item using Microsoft Graph API
 
@@ -303,6 +328,8 @@ def update_sharepoint_list_item(fields_data,access_token, site_id=site__id_zhuzx
         return None
 
 # 获取access_token
+
+
 def get_access_token():
     url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={wx_APPID}&secret={wx_SECRET}"
     try:
@@ -315,6 +342,8 @@ def get_access_token():
     return access_token
 
 # 推送模板消息
+
+
 def send_template_message(openid, template_id, data):
     access_token = get_access_token()
     url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={access_token}"
@@ -325,9 +354,9 @@ def send_template_message(openid, template_id, data):
         "data": data
     }
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(login_info))
+        response = requests.post(url, headers=headers,
+                                 data=json.dumps(login_info))
     except:
-        response = requests.post(url, headers=headers, data=json.dumps(login_info),proxies=proxies)
+        response = requests.post(url, headers=headers,
+                                 data=json.dumps(login_info), proxies=proxies)
     return response.json()
-
-
