@@ -38,11 +38,17 @@ jobs:
     - name: run main file
       env:
         client_id : ${{secrets.CLIENT_ID}}
-        client_secret : ${{secrets.CLIENT_SECRET}}
         site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
         site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
+        site__id_zhuzxself : ${{secrets.SITE__ID_ZHUZXSELF}}
+        list__id_secret : ${{secrets.LIST__ID_SECRET}}
+        item_id : ${{secrets.ITEM_ID}}
+        team_id_zhuzxself : ${{secrets.team_id_zhuzxself}}
+        channel_id_Notification : ${{secrets.channel_id_Notification}}
+        message_id_Login_Notification : ${{secrets.message_id_Login_Notification}}
+        client_secret : ${{secrets.CLIENT_SECRET}}
         tenant_id : ${{secrets.TENANT_ID}}
-        scope_list : ${{secrets.SCOPE_LIST}}
+        scope_list : ${{secrets.CLIENT_ID}}
         wx_APPID : ${{secrets.WX_APPID}}
         wx_SECRET : ${{secrets.WX_SECRET}}
         template_id : ${{secrets.TEMPLATE_ID}}
@@ -50,5 +56,5 @@ jobs:
         proxy_add : ${{secrets.PROXY_ADD}}
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
-        key_deeplx : ${{secrets.KEY_DEEPLX}}
+        deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
       run: python -u 01.finance-dividend-yearly.py
