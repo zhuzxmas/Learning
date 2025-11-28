@@ -40,6 +40,12 @@ jobs:
         client_id : ${{secrets.CLIENT_ID}}
         site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
         site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
+        site__id_zhuzxself : ${{secrets.SITE__ID_ZHUZXSELF}}
+        list__id_secret : ${{secrets.LIST__ID_SECRET}}
+        item_id : ${{secrets.ITEM_ID}}
+        team_id_zhuzxself : ${{secrets.team_id_zhuzxself}}
+        channel_id_Notification : ${{secrets.channel_id_Notification}}
+        message_id_Login_Notification : ${{secrets.message_id_Login_Notification}}
         client_secret : ${{secrets.CLIENT_SECRET}}
         tenant_id : ${{secrets.TENANT_ID}}
         scope_list : ${{secrets.CLIENT_ID}}
@@ -50,7 +56,7 @@ jobs:
         proxy_add : ${{secrets.PROXY_ADD}}
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
-        key_deeplx : ${{secrets.KEY_DEEPLX}}
+        deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
         ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
         image_edit_input_url: ${{ github.event.client_payload.image_url }}
         image_edit_input_text: ${{ github.event.client_payload.text }}
