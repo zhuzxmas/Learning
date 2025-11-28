@@ -1,10 +1,14 @@
 import base64
 import requests
 import nacl.public
-import json, requests, configparser, os
+import json
+import requests
+import configparser
+import os
 
 config = configparser.ConfigParser()
-if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local application
+# to check if local file config.cfg is available, for local application
+if os.path.exists('./config.cfg'):
     config.read(['config.cfg'])
 
     proxy_settings = config['proxy_add']
@@ -12,14 +16,15 @@ if os.path.exists('./config.cfg'): # to check if local file config.cfg is availa
 
     proxy_add = proxy_settings['proxy_add']
     GITHUB_TOKEN = github_settings['git_hub_token']
-else: # to get this info from Github Secrets, for Github Action running application
+else:  # to get this info from Github Secrets, for Github Action running application
     proxy_add = os.environ['proxy_add']
     GITHUB_TOKEN = os.environ['github_token']
 
 proxies = {
-  "http": proxy_add,
-  "https": proxy_add
+    "http": proxy_add,
+    "https": proxy_add
 }
+
 
 def update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE):
 
@@ -36,7 +41,8 @@ def update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE):
     try:
         response = requests.get(PUBLIC_KEY_URL, headers=headers)
     except:
-        response = requests.get(PUBLIC_KEY_URL, headers=headers, proxies=proxies)
+        response = requests.get(
+            PUBLIC_KEY_URL, headers=headers, proxies=proxies)
     response.raise_for_status()
     key_data = response.json()
     public_key = nacl.public.PublicKey(base64.b64decode(key_data["key"]))
@@ -56,7 +62,8 @@ def update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE):
     try:
         put_response = requests.put(SECRET_URL, headers=headers, json=payload)
     except:
-        put_response = requests.put(SECRET_URL, headers=headers, json=payload, proxies=proxies)
+        put_response = requests.put(
+            SECRET_URL, headers=headers, json=payload, proxies=proxies)
     put_response.raise_for_status()
 
     print(f"Secret '{SECRET_NAME}' updated successfully in {OWNER}/{REPO}")
@@ -67,7 +74,13 @@ if __name__ == "__main__":
     # Configuration
     OWNER = "zhuzxmas"
     REPO = "Learning"
-    SECRET_NAME = "GIT_HUB_TOKEN"          # Replace with your secret name
-    SECRET_VALUE =  GITHUB_TOKEN  # Replace with actual secret value
-
-    update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE)
+    config = configparser.ConfigParser()
+    # to check if local file config.cfg is available, for local application
+    if os.path.exists('./config.cfg'):
+        config.read(['config.cfg'])
+        for section in config.sections():
+            print(f"Section: {section}")
+            for key, value in config.items(section):
+                SECRET_NAME =  key         # Replace with your secret name
+                SECRET_VALUE = value     # Replace with actual secret value
+                update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE)
