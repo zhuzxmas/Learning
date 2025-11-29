@@ -60,6 +60,7 @@ jobs:
         ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
         image_edit_input_url: ${{ github.event.client_payload.image_url }}
         image_edit_input_text: ${{ github.event.client_payload.text }}
+        git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
       id: run_script
       run: |
         # Create a temp file to store full output
