@@ -11,6 +11,7 @@ if os.path.exists('./config.cfg'):
     azure_settings = config['azure']
     wx_settings = config['wx_public_service']
     proxy_settings = config['proxy_add']
+    github_settings = config['Git_Hub']
 
     client_id = azure_settings['client_id']
     site__id_personal_z = azure_settings['site__id_personal_z']
@@ -37,6 +38,10 @@ if os.path.exists('./config.cfg'):
 
     deeplx_settings = config['DeepLx']
     deeplx_secret_key = deeplx_settings['deeplx_secret_key']
+
+    git_hub_token = github_settings['git_hub_token']
+
+
 else:  # to get this info from Github Secrets, for Github Action running application
     client_id = os.environ['client_id']
     site__id_personal_z = os.environ['site__id_personal_z']
@@ -57,6 +62,7 @@ else:  # to get this info from Github Secrets, for Github Action running applica
     openid = os.environ['openid']
     proxy_add = os.environ['proxy_add']
     deeplx_secret_key = os.environ['deeplx_secret_key']
+    git_hub_token = os.environ['git_hub_token']
 
 config.read(['config1.cfg'])  # to get the scopes
 azure_settings_scope = config['azure1']
