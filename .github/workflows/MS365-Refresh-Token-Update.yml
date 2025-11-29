@@ -57,4 +57,5 @@ jobs:
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
         deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
+        git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
       run: python -u z_Func_Save_New_Refresh_Token_to_MS_Lists.py
