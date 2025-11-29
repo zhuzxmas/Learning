@@ -160,8 +160,7 @@ def func_login():
                 "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4))
 
         # print(flow["message"])
-        print(
-            f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
+        print(f"user_code is: {flow['user_code']}, login address: {flow['verification_uri']}")
 
         # 示例数据
         data = {
@@ -184,8 +183,9 @@ def func_login():
         except:
             teams_message_power_automate_response = requests.post(teams_message_power_automate_url, headers=teams_message_power_automate_headers, json=teams_message_power_automate_data, proxies=proxies)
 
-        print(teams_message_power_automate_response.status_code)
-        print(teams_message_power_automate_response.text)
+        if teams_message_power_automate_response.status_code == 202:
+            print("login code sent to Teams successfully, waiting for user to login......\n")
+        
         # message_str2 = flow['verification_uri']
         # send_Teams_Channel_Message(message_str2)
 

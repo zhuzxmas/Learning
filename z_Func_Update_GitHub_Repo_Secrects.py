@@ -66,7 +66,7 @@ def update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE):
             SECRET_URL, headers=headers, json=payload, proxies=proxies)
     put_response.raise_for_status()
 
-    print(f"Secret '{SECRET_NAME}' updated successfully in {OWNER}/{REPO}")
+    print(f"Secret '{SECRET_NAME}' updated successfully in Github {OWNER}/{REPO}")
 
 
 # Example usage:

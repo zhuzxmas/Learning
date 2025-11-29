@@ -78,7 +78,7 @@ def update_sharepoint_list_item(site_id, list_id, item_id, fields_data):
             url, headers=headers, data=json.dumps(fields_data), proxies=proxies)
 
     if response.status_code == 200:
-        print("Item updated successfully!")
+        print("Item updated successfully into SharePoint List!")
         return response.json()
     else:
         print(f"Error: {response.status_code}")
@@ -106,5 +106,5 @@ if __name__ == "__main__":
     result = update_sharepoint_list_item(
         SITE_ID, LIST_ID, ITEM_ID, fields_data)
 
-    if result:
-        print("Updated item:", result)
+    # if result:
+        # print("Updated item:", result)
