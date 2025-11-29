@@ -57,6 +57,7 @@ jobs:
         finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
         username : ${{secrets.USERNAME}}
         deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
+        git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
       id: run_script
       run: |
         # Create a temp file to store full output
