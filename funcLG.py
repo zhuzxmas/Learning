@@ -101,9 +101,11 @@ def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxsel
     if response.status_code == 200:
         print("Refresh Token Obtained successfully!")
         Refresh_token = response.json()['fields']['Refresh_Token']
+        Refresh_token_Obtained_Date = response.json()['fields']['Refresh_Token_Obtained_Date']
     else:
         Refresh_token = ''
-    return Refresh_token
+        Refresh_token_Obtained_Date = ''
+    return [Refresh_token, Refresh_token_Obtained_Date]
 
 
 def get_access_token_with_refresh(refresh_token, client_id=client_id, tenant_id=tenant_id):
