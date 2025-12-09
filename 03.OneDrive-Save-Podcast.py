@@ -26,7 +26,9 @@ def save_file(file_url):  # save downloaded file to directory: dirname
 
 
 def main():
-    file_url = input('Please input the URL ... :\n')
+    # file_url = input('Please input the URL ... :\n')
+    file_url = os.environ['file_url']
+    file_title = os.environ['file_title']
     save_file_result = save_file(file_url)  # this is image saved filepath
 
     # to login into MS365 and get the return value
