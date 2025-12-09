@@ -79,7 +79,7 @@ def get_deeplx_key():
     return deeplx_secret_key
 
 
-def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxself, list__id_secret=list__id_secret, item_id=item_id):
+def get_refresh_token_from_SP(access_token_secret, site__id_zhuzxself=site__id_zhuzxself, list__id_secret=list__id_secret, item_id=item_id):
     # GET /sites/{site-id}/lists/{list-id}/items
     # Replace these with your actual IDs.
 
@@ -88,7 +88,7 @@ def get_refresh_token_from_SP(access_token, site__id_zhuzxself=site__id_zhuzxsel
 
     # Prepare headers
     headers = {
-        'Authorization': f'Bearer {access_token}',
+        'Authorization': f'Bearer {access_token_secret}',
         'Content-Type': 'application/json'
     }
 
