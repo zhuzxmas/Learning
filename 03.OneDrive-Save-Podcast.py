@@ -17,7 +17,17 @@ def save_file(file_url):  # save downloaded file to directory: dirname
     # filepath = os.path.join(dirname, basename)  #join directory name and image name together
     filepath = basename  # join directory name and image name together
     # download image,  and save to directory: dirname
-    urllib.request.urlretrieve(file_url, filepath)
+    req = urllib.request.Request(
+        file_url,
+        headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    )
+    # Use urlopen with the request, then save manually
+    with urllib.request.urlopen(req) as response:
+        with open(filepath, 'wb') as f:
+            f.write(response.read())
+
+    # urllib.request.urlretrieve(file_url, filepath)
     print("Save", filepath, "successfully!")
     return [filepath, basename]
 
