@@ -31,7 +31,6 @@ def save_file(file_url):  # save downloaded file to directory: dirname
     print("Save", filepath, "successfully!")
     return [filepath, basename]
 
-# another wallpaper source: https://momentumdash.com/app/backgrounds.json
 # def get_file_url(raw_file_url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=1&n=1"):  # get the real img url by using the raw_file_url address
 
 
