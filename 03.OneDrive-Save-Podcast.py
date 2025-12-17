@@ -28,7 +28,7 @@ def save_file(file_url):  # save downloaded file to directory: dirname
             f.write(response.read())
 
     # urllib.request.urlretrieve(file_url, filepath)
-    print("Save file ", filepath, "successfully!")
+    print("Save file ", filepath, "Successfully!")
     return [filepath, basename]
 
 # def get_file_url(raw_file_url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=1&n=1"):  # get the real img url by using the raw_file_url address
