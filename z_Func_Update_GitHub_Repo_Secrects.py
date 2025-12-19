@@ -28,7 +28,7 @@ proxies = {
 
 def update_Github_Repo_Secret(OWNER, REPO, SECRET_NAME, SECRET_VALUE):
 
-    # GitHub API URLs
+    # GitHub API URLs:
     PUBLIC_KEY_URL = f"https://api.github.com/repos/{OWNER}/{REPO}/actions/secrets/public-key"
     SECRET_URL = f"https://api.github.com/repos/{OWNER}/{REPO}/actions/secrets/{SECRET_NAME}"
 
