@@ -16,7 +16,7 @@ if os.path.exists('./config.cfg'):
 
     proxy_add = proxy_settings['proxy_add']
     GITHUB_TOKEN = github_settings['git_hub_token']
-else:  # to get this info from Github Secrets, for Github Action running application
+else:  # to get this info from Github Secrets,, for Github Action running application
     proxy_add = os.environ['proxy_add']
     GITHUB_TOKEN = os.environ['git_hub_token']
 
