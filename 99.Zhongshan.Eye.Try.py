@@ -5,7 +5,7 @@ import urllib.parse
 from datetime import datetime, date, time
 
 config = configparser.ConfigParser()
-if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application....
+if os.path.exists('./config.cfg'): # to check if local file config.cfg is available, for local running application.....
     config.read(['config.cfg'])
     aliyun_settings = config['Aliyun']
     proxy_settings = config['proxy_add']
