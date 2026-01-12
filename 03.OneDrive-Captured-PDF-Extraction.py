@@ -29,11 +29,9 @@ for i in range(0, len(data['value'])):
 
 # https://learn.microsoft.com/en-us/graph/api/driveitem-get-content?view=graph-rest-1.0&tabs=http
 # check the link for the manual
-endpoint = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}'.format(user_id, File_ID)
-http_headers = {'Authorization': 'Bearer ' + access_token_secret,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'}
+endpoint = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}/content'.format(user_id, File_ID.split('.')[-1])
+http_headers = {'Authorization': 'Bearer ' + access_token_secret}
 try:
-    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+    data = requests.get(endpoint, headers=http_headers, stream=False)
 except:
-    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
+    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies)
