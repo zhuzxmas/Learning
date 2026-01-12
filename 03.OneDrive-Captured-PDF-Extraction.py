@@ -27,6 +27,8 @@ for i in range(0, len(data['value'])):
     if data['value'][i]['givenName'] == 'Nathan':
         user_id = data['value'][i]['id']
 
+# https://learn.microsoft.com/en-us/graph/api/driveitem-get-content?view=graph-rest-1.0&tabs=http
+# check the link for the manual
 endpoint = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}'.format(user_id, File_ID)
 http_headers = {'Authorization': 'Bearer ' + access_token_secret,
                 'Accept': 'application/json',
