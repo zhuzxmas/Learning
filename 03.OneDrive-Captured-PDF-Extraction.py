@@ -1,7 +1,28 @@
 import funcLG
 import requests
-from pdf2image import convernt_from_path
+from pdf2image import convert_from_path
 import os
+
+
+def pdf_to_images(pdf_path, output_folder="output_images", dpi=300):
+    # Create output folder
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Convert PDF pages to images
+    pages = convert_from_path(
+        pdf_path,
+        dpi=dpi,
+        fmt="png",
+        thread_count=4,
+        poppler_path=None  # Add if Poppler not in PATH (Windows)
+    )
+
+    # Save each page
+    for i, page in enumerate(pages):
+        image_path = os.path.join(output_folder, f"page_{i+1}.png")
+        page.save(image_path, "PNG")
+        print(f"Saved: {image_path}")
+
 
 login_return_secret = funcLG.func_login_secret() # to login into MS365 and get the return value info.
 result_secret = login_return_secret['result']
@@ -50,3 +71,6 @@ local_pdf_path = "downloaded_file.pdf"
 with open(local_pdf_path, "wb") as f:
     f.write(pdf_content)
 
+
+# Usage
+pdf_to_images("downloaded_file.pdf")
