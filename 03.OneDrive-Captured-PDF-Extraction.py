@@ -19,7 +19,11 @@ def pdf_to_images(pdf_path, output_folder="output_images", dpi=300):
 
     # Save each page
     for i, page in enumerate(pages):
-        image_path = os.path.join(output_folder, f"page_{i+1}.png")
+        if i < 10:
+            number = '0{}'.format(i)
+        else:
+            number = '{}'.format(i)
+        image_path = os.path.join(output_folder, "page_{}.png".format(number))
         page.save(image_path, "PNG")
         print(f"Saved: {image_path}")
 
@@ -74,3 +78,22 @@ with open(local_pdf_path, "wb") as f:
 
 # Usage
 pdf_to_images("downloaded_file.pdf")
+
+for filename in os.listdir('output_images'):
+    if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        continue
+
+    image_path = os.path.join('output_images', filename)
+    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{upload_folder}/{filename}:/content"
+
+    headers = {"Authorization": f"Bearer {access_token_secret}"}
+    
+    with open(image_path, 'rb') as f:
+        image_data = f.read()
+
+    response = requests.put(upload_url, headers=headers, data=image_data)
+
+    if response.status_code == 201:
+        print(f"✅ Uploaded: {filename}")
+    else:
+        print(f"❌ Failed to upload {filename}: {response.status_code} - {response.text}")
