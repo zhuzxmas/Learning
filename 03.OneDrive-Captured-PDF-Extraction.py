@@ -1,5 +1,7 @@
 import funcLG
 import requests
+from pdf2image import convernt_from_path
+import os
 
 login_return_secret = funcLG.func_login_secret() # to login into MS365 and get the return value info.
 result_secret = login_return_secret['result']
@@ -35,3 +37,16 @@ try:
     data = requests.get(endpoint, headers=http_headers, stream=False)
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies)
+
+# save file as downloaded_file.pdf
+if data.status_code == 200:
+    pdf_content = data.content
+    print("PDF downloaded successfully!")
+else:
+    raise Exception(f"Failed to download: {data.status_code}, {data.text}")
+
+# 4. Save PDF to Local File
+local_pdf_path = "downloaded_file.pdf"
+with open(local_pdf_path, "wb") as f:
+    f.write(pdf_content)
+
