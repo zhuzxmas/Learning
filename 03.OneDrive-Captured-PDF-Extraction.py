@@ -33,9 +33,9 @@ result_secret = login_return_secret['result']
 access_token_secret = result_secret['access_token']
 proxies = login_return_secret['proxies']
 
-File_ID =  "01L7SVHIRH5GPDWC7B4BHIOEIBDGXX3BUB",
-File_Name_With_Extension = "2026.01.10.云朵病历.pdf",
-Parent_ID = "01L7SVHIXC562XMZ6UHVA2WDOF7JSON4OD"
+File_ID = os.environ['file_id']
+File_Name_With_Extension = os.environ['file_name_with_extension']
+Parent_ID = os.environ['parent_id']
 
 ### to get the user_id first... ####
 # the endpoint shall not use /me, use [users] instead...
