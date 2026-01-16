@@ -4,7 +4,7 @@ from pdf2image import convert_from_path
 import os
 
 
-def pdf_to_images(pdf_path, output_folder="output_images", dpi=400):
+def pdf_to_images(pdf_path, output_folder="output_images", dpi=300):
     # Create output folder
     os.makedirs(output_folder, exist_ok=True)
 
