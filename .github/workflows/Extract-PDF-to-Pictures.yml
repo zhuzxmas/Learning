@@ -65,7 +65,7 @@ jobs:
         ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
         file_id : ${{ github.event.client_payload.File_ID }}
         parent_id : ${{ github.event.client_payload.Parent_ID }}
-        file_name_with_extention : ${{ github.event.client_payload.File_Name_With_Extension }}
+        file_name_with_extension : ${{ github.event.client_payload.File_Name_With_Extension }}
         git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
       id: run_script
       run: |
