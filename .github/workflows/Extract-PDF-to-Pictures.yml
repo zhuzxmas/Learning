@@ -1,0 +1,102 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Extract-PDF-to-Pictures
+
+on:
+  # schedule:
+  #   - cron:  '22 8 * * 3'
+  # push:
+  #  branches: [ "main" ]
+  #pull_request:
+  #  branches: [ "main" ]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [extract-pdf-pages-to-pictures]
+
+permissions:
+  contents: read
+
+jobs:
+  run-python-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout repo content
+      uses: actions/checkout@v3
+
+    - name: setup python 3.13.9
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13.9'  # You can specify any available Python version here
+    
+    - name: Install Poppler (Linux)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y poppler-utils
+      
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-finance.txt ]; then pip install -r requirements-finance.txt; fi
+
+    - name: run main file
+      env:
+        client_id : ${{secrets.CLIENT_ID}}
+        site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
+        site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
+        site__id_zhuzxself : ${{secrets.SITE__ID_ZHUZXSELF}}
+        list__id_secret : ${{secrets.LIST__ID_SECRET}}
+        item_id : ${{secrets.ITEM_ID}}
+        team_id_zhuzxself : ${{secrets.team_id_zhuzxself}}
+        channel_id_Notification : ${{secrets.channel_id_Notification}}
+        message_id_Login_Notification : ${{secrets.message_id_Login_Notification}}
+        client_secret : ${{secrets.CLIENT_SECRET}}
+        tenant_id : ${{secrets.TENANT_ID}}
+        scope_list : ${{secrets.CLIENT_ID}}
+        wx_APPID : ${{secrets.WX_APPID}}
+        wx_SECRET : ${{secrets.WX_SECRET}}
+        template_id : ${{secrets.TEMPLATE_ID}}
+        openid : ${{secrets.OPENID}}
+        proxy_add : ${{secrets.PROXY_ADD}}
+        finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
+        username : ${{secrets.USERNAME}}
+        deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
+        ali_cloud_secret : ${{secrets.ALI_CLOUD_SECRET}}
+        image_edit_input_url: ${{ github.event.client_payload.image_url }}
+        image_edit_input_text: ${{ github.event.client_payload.text }}
+        git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
+      id: run_script
+      run: |
+        # Create a temp file to store full output
+        LOG_FILE=$(mktemp)
+    
+        # Run script, show live output, AND save to file
+        python -u 03.OneDrive-Captured-PDF-Extraction.py 2>&1 | tee "$LOG_FILE"
+    
+        # Capture last 3 lines from the log file
+        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+    
+        # Save to GITHUB_OUTPUT
+        echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$TRUNCATED" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+    
+        # Optional: clean up
+        rm -f "$LOG_FILE"
+
+    - name: Notify Power Automate (Success)
+      if: success()
+      run: |
+        curl -X POST "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "event": "workflow_completed",
+            "status": "success",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "repo": "${{ github.repository }}",
+            "results": "${{ steps.run_script.outputs.LOG_OUTPUT }}",
+            "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
+            "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
+          }'
