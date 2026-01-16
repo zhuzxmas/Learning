@@ -4,9 +4,11 @@ from pdf2image import convert_from_path
 import os
 
 
-def pdf_to_images(pdf_path, output_folder="output_images", dpi=300):
+def pdf_to_images(pdf_path, filename, output_folder="output_images", dpi=300):
     # Create output folder
     os.makedirs(output_folder, exist_ok=True)
+    name_without_ext = os.path.splitext(filename)[0]
+    print(name_without_ext)  # Output: 2026.01.10.云朵病历
 
     # Convert PDF pages to images
     pages = convert_from_path(
@@ -23,7 +25,7 @@ def pdf_to_images(pdf_path, output_folder="output_images", dpi=300):
             number = '0{}'.format(i)
         else:
             number = '{}'.format(i)
-        image_path = os.path.join(output_folder, "page_{}.png".format(number))
+        image_path = os.path.join(output_folder, "{}_{}.png".format(name_without_ext, number))
         page.save(image_path, "PNG")
         print(f"Saved: {image_path}")
 
@@ -77,7 +79,7 @@ with open(local_pdf_path, "wb") as f:
 
 
 # Usage
-pdf_to_images("downloaded_file.pdf")
+pdf_to_images("downloaded_file.pdf", File_Name_With_Extension)
 
 for filename in os.listdir('output_images'):
     if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
