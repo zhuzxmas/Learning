@@ -33,9 +33,9 @@ result_secret = login_return_secret['result']
 access_token_secret = result_secret['access_token']
 proxies = login_return_secret['proxies']
 
-File_ID = 'b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc.01L7SVHISXEAVEETMLRVE2LV5GLHAOH2T3'
-File_Path = '/drives/b!xffZdpd4YESDjLdN0Cq5v8nw5q7AyqpGmqCBv_YRp666chyUVvwSSZLyY1S5yMDc/root:/Pictures/zz/Scan from 2026-01-10 12_18_35 PM.pdf'
-File_Name_With_Extension = 'Scan from 2026-01-10 12_18_35 PM.pdf'
+File_ID =  "01L7SVHIRH5GPDWC7B4BHIOEIBDGXX3BUB",
+File_Name_With_Extension = "2026.01.10.云朵病历.pdf",
+Parent_ID = "01L7SVHIXC562XMZ6UHVA2WDOF7JSON4OD"
 
 ### to get the user_id first... ####
 # the endpoint shall not use /me, use [users] instead...
@@ -56,7 +56,7 @@ for i in range(0, len(data['value'])):
 
 # https://learn.microsoft.com/en-us/graph/api/driveitem-get-content?view=graph-rest-1.0&tabs=http
 # check the link for the manual
-endpoint = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}/content'.format(user_id, File_ID.split('.')[-1])
+endpoint = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}/content'.format(user_id, File_ID)
 http_headers = {'Authorization': 'Bearer ' + access_token_secret}
 try:
     data = requests.get(endpoint, headers=http_headers, stream=False)
@@ -83,15 +83,17 @@ for filename in os.listdir('output_images'):
     if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
         continue
 
-    image_path = os.path.join('output_images', filename)
-    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{upload_folder}/{filename}:/content"
-
+    upload_url = 'https://graph.microsoft.com/v1.0/users/{}/drive/items/{}:/{}:/content'.format(user_id, Parent_ID, filename)
     headers = {"Authorization": f"Bearer {access_token_secret}"}
     
+    image_path = os.path.join('output_images', filename)
     with open(image_path, 'rb') as f:
         image_data = f.read()
 
-    response = requests.put(upload_url, headers=headers, data=image_data)
+    try:
+        response = requests.put(upload_url, headers=headers, data=image_data)
+    except:
+        response = requests.put(upload_url, headers=headers, data=image_data, proxies=proxies)
 
     if response.status_code == 201:
         print(f"✅ Uploaded: {filename}")
