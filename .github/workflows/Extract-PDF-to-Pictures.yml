@@ -76,7 +76,7 @@ jobs:
         python -u 03.OneDrive-Captured-PDF-Extraction.py 2>&1 | tee "$LOG_FILE"
     
         # Capture last 3 lines from the log file
-        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+        TRUNCATED=$(tail -n 1 "$LOG_FILE")
     
         # Save to GITHUB_OUTPUT
         echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
