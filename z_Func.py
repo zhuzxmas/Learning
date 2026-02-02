@@ -105,15 +105,21 @@ def Year_report_url_HK(day_one= day_one, stock_hk = '02359.HK'):
     
     """
     string_v1 = generate_random_string(17)
+    string_v2 = generate_random_string(17)
 
     report_name_main = 'RPT_HKF10_FN_MAI{}CATOR'.format('NINDI')
+    report_name_balance = 'RPT_HKF10_FN_BAL{}_PC'.format('ANCE')
+    
     stock_hk = '02359.HK'
 
     if (stock_hk[-2:] == 'HK'):
         url_easmon_main = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&pageNumber=1&pageSize=9&sortTypes=-1&sortColumns=STD_REPORT_DATE&source=F10&client=PC&v={}'.format(
             'ace', 'tmo', report_name_main, stock_hk, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v1)
+        url_easmon_balance = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&pageNumber=1&pageSize=&sortTypes=-1%2C1&sortColumns=REPORT_DATE%2CSTD_ITEM_CODE&source=F10&client=PC&v={}'.format(
+            'ace', 'tmo', report_name_balance, stock_hk, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v2)
 
-    return [url_easmon_main]
+
+    return [url_easmon_main, url_easmon_balance]
 
 ################# Define Seasonly report #################################################
 
@@ -375,6 +381,8 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
 def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
     url_easmon_income = url[0]
+    url_easmon_balance = url[1]
+
     try:
         response_income = requests.get(
             url_easmon_income, headers=headers_easmon)
@@ -386,12 +394,28 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         print('Got the response from Eas Mon for {} Income.\n'.format(stock_hk))
         pass
     else:
-        print(f"Failed to retrieve data: {response_income.status_code}")
+        print(f"Failed to retrieve data for ---- Income : {response_income.status_code}")
+    time.sleep(random.uniform(15, 25))
+
+    try:
+        response_balance = requests.get(
+            url_easmon_balance, headers=headers_easmon)
+    except:
+        response_balance = requests.get(
+            url_easmon_balance, headers=headers_easmon, proxies=proxies)
+    if response_balance.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for {} Balance Sheet.\n'.format(stock_hk))
+        pass
+    else:
+        print(f"Failed to retrieve data --- Balance Sheet : {response_balance.status_code}")
     time.sleep(random.uniform(15, 25))
 
     try:
         df_income_stock = df(response_income.json()['result']['data'])
         stock_name_from_year_income = df_income_stock['SECURITY_NAME_ABBR'][0]
+
+        df_balance_stock = df(response_balance.json()['result']['data'])
 
         # df_income_stock = df_income_stock.set_index('STD_REPORT_DATE')
 
@@ -421,7 +445,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_0_TotalRevenue_y = df_income_stock['OPERATE_INCOME']/100000000
         stock_0_TotalRevenue_y.name = '营业总收入 销售额 亿元'
         # 总资产
-        stock_0_TotalAssets_y = df_balance_sheet['TOTAL_ASSETS']/100000000
+        stock_0_TotalAssets_y = df_income_stock['TOTAL_ASSETS']/100000000
         stock_0_TotalAssets_y.name = '总资产 亿元'
         stock_0_EBIT_y = df_income_stock['OPERATE_PROFIT']/100000000  # 息税前利润
         stock_0_EBIT_y.name = '营业收入 息税前利润 亿元'
@@ -459,18 +483,16 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### How Well The Company Financial Status is ###
         # 流动资产
-        stock_0_CurrentAssets_y = df_balance_sheet['TOTAL_CURRENT_ASSETS']/100000000
+        stock_0_CurrentAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动资产合计"]['AMOUNT']/100000000).reset_index(drop=True)
         stock_0_CurrentAssets_y.name = '流动资产 亿元'
         # 流动负债
-        stock_0_CurrentLiabilities_y = df_balance_sheet['TOTAL_CURRENT_LIAB']/100000000
+        stock_0_CurrentLiabilities_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动负债合计"]['AMOUNT']/100000000).reset_index(drop=True)
         stock_0_CurrentLiabilities_y.name = '流动负债 亿元'
         # 流动资产与流动负债之比 应>2
-        stock_0_CurrentAssets_vs_Liabilities_y = df_balance_sheet[
-            'TOTAL_CURRENT_ASSETS']/df_balance_sheet['TOTAL_CURRENT_LIAB']
+        stock_0_CurrentAssets_vs_Liabilities_y = stock_0_CurrentAssets_y / stock_0_CurrentLiabilities_y
         stock_0_CurrentAssets_vs_Liabilities_y.name = '流动资产/流动负债>2'
         # 非流动负债合计，我认为是长期负债
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y = df_balance_sheet[
-            'TOTAL_NONCURRENT_LIAB']/100000000
+        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "非流动负债合计"]['AMOUNT']/100000000).reset_index(drop=True)
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y.name = '非流动负债'
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y = stock_0_CurrentAssets_y - \
             stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y  # 流动资产扣除长期负债后应大于0
@@ -1091,4 +1113,6 @@ if __name__ == "__main__":
     login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
     result = login_return['result']
     proxies = login_return['proxies']
+    url = Year_report_url_HK(day_one, stock_hk='02359.HK')
+    report = report_from_Eas_Mon_HK(url, proxies=proxies, stock_hk= '02359.HK')
     pass
