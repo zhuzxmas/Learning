@@ -76,7 +76,7 @@ jobs:
         python -u 03.OneDrive-Captured-PDF-Extraction.py 2>&1 | tee "$LOG_FILE"
     
         # Capture last 3 lines from the log file
-        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+        TRUNCATED=$(tail -n 1 "$LOG_FILE")
     
         # Save to GITHUB_OUTPUT
         echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
@@ -89,7 +89,7 @@ jobs:
     - name: Notify Power Automate (Success)
       if: success()
       run: |
-        curl -X POST "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ" \
+        curl -X POST "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/23f4371c43e74e2985fb83e85293c1fa/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=_oe9XaAo2bD-5xx9MzyZU0VUvR1UxYQX-tW-7uijVww" \
         -H "Content-Type: application/json" \
         -d '{
             "event": "workflow_completed",
