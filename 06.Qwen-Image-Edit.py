@@ -33,7 +33,7 @@ messages = [
 
 response = MultiModalConversation.call(
     api_key=api_key,
-    model="qwen-image-edit",
+    model="qwen-image-edit-plus-2025-12-15",
     messages=messages,
     result_format='message',
     stream=False,
