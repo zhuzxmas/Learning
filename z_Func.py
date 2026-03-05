@@ -597,7 +597,7 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
 
     headers_easmon_price_range = {
         'Host': 'push2his.eas{}ney.com'.format('tmo'),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
