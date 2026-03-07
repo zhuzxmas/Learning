@@ -294,17 +294,17 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         found = False
         ##### data exists ####
         if not found:
-            print(f"'{stock_file_str}' was not found in saved files from OneDrive.\n") 
+            print(f"'{stock_file_str}' was not found .\n") 
 
             if check_item_name == 'yearly':
-                print('---------No Yearly data saved before, it\'s time to save it...---------\n')
+                print('-----------------\n')
 
             if stock == 'F':
                 pass
             else: # for other stocks from HK:
                 if check_item_name == 'yearly':
                     ### get the yearly report date ################################
-                    url_yearly = z_Func.Year_report_url(stock=stock, stock_cn=stock_cn, p_income_year=p_income_year, p_cash_flow=p_cash_flow, p_balance_sheet=p_balance_sheet, day_one=day_one)
+                    url_yearly = z_Func.Year_report_url_HK(stock_hk=stock_cn, day_one=day_one)
                     yearly_report_raw_out = z_Func.report_from_Eas_Mon_HK(url=url_yearly, proxies=proxies, stock_hk=stock_cn)
                     yearly_report_raw = yearly_report_raw_out[0] # for dataframe info
                     stock_name = yearly_report_raw_out[1] # for stock name
