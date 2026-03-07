@@ -111,7 +111,7 @@ def Year_report_url_HK(day_one= day_one, stock_hk = '02359.HK'):
     report_name_main = 'RPT_HKF10_FN_MAI{}CATOR'.format('NINDI')
     report_name_balance = 'RPT_HKF10_FN_BAL{}_PC'.format('ANCE')
     
-    stock_hk = '02359.HK'
+    # stock_hk = '02359.HK'
 
     if (stock_hk[-2:] == 'HK'):
         url_easmon_main = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&pageNumber=1&pageSize=9&sortTypes=-1&sortColumns=STD_REPORT_DATE&source=F10&client=PC&v={}'.format(
