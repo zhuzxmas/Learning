@@ -311,13 +311,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                     stock_output_yearly = yearly_report_raw
     
-    ### to get the stock price range from EasMon #############################
-    print('------- To get the Yearly stock price range from EasMon------------\n')
-    print('Please Note: the stock price for the latest period is just to as of now...\n')
-    stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon(stock_cn=stock_cn, proxies=proxies, limit_number='1800')
-    if stock != 'F':
-        stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
-        stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
+        stock_output_yearly_f = pd.concat([stock_output_yearly], axis=0)
 
         try:
             stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)
@@ -326,11 +320,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
 
     stock_Top_temp.append('{}--{}-{}'.format(iii, stock, stock_name))
-
-
-    ### to get the latest 10 days stock price #########################################
-    last_7_days_stock_price_high_low = z_Func.get_latest_7_days_stock_price_Based_on_EasMon(stock_price_df=stock_price_df, proxy_add=proxy_add)
-    print('---Got latest 10 days stock price from Yahoo Finance---------\n')
 
     ############## Checking Status ###################################
 
@@ -378,8 +367,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         except NameError:
             # Handle the case where stock_output_combined is not defined
             pass
-        page_content += "<div><p>This is the last 10 days stock price for {} {}: {}</p></div>".format(
-            stock, stock_name, last_7_days_stock_price_high_low)
 
         page_content += "<div><p>                                                                                                </p></div>"
         page_content = page_content.replace('<th></th>', '<th>item</th>')
@@ -395,8 +382,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             print(tabulate(stock_output_combined, headers='keys', tablefmt='simple'))
         except:
             pass
-        print('This is the last 10 days stock price for {} {}: {} \n'.format(
-            stock, stock_name, last_7_days_stock_price_high_low))
         print('--------Complete this one : ↑ ↑ ↑ ↑ ↑  ---------------------\n')
         print('                                                                                                \n')
 
