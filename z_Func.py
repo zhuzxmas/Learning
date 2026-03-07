@@ -1165,6 +1165,6 @@ if __name__ == "__main__":
     login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
     result = login_return['result']
     proxies = login_return['proxies']
-    url = Year_report_url_HK(day_one, stock_hk='02359.HK')
-    report = report_from_Eas_Mon_HK(url, proxies=proxies, stock_hk= '02359.HK')
+    url = Year_report_url_HK(day_one, stock_hk='01548.HK')
+    report = report_from_Eas_Mon_HK(url, proxies=proxies, stock_hk= '01548.HK')
     pass
