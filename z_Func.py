@@ -9,6 +9,7 @@ import pandas as pd
 import yfinance as yf
 import datetime
 import funcLG
+from bs4 import BeautifulSoup
 
 ### to define the date for today, in order to get the year info ###
 day_one = datetime.date.today()
@@ -377,6 +378,52 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
         print('Data is not available for {} in EasMon.\n'.format(stock_cn))
     return [stock_output_y, stock_name_from_year_income]
 
+def fetch_cashflow_data_HK(stock_hk="02359.HK", day_one = day_one):
+    """获取东方财富现金流量表数据"""
+    current_year = day_one.year
+    # Generate last 8 year-end dates (Dec 31 of previous years)
+    years = [f"{year}-12-31" for year in range(current_year - 1, current_year - 9, -1)]
+    print('查看的自由现金流年份包含：',years)
+    
+    url = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
+    params = {
+        "reportName": "RPT_HKF10_FN_CASHFLOW_PC",
+        "columns": "SECUCODE,REPORT_DATE,STD_ITEM_CODE,STD_ITEM_NAME,AMOUNT",
+        "filter": f'(SECUCODE="{stock_hk}")(REPORT_DATE in ({",".join([f"\'{y}\'" for y in years])}))',
+        "sortColumns": "REPORT_DATE,STD_ITEM_CODE",
+        "sortTypes": "-1,1",
+        "source": "F10", "client": "PC"
+    }
+    try:
+        resp = requests.get(url, params=params, headers=headers_easmon)
+    except:
+        resp = requests.get(url, params=params, headers=headers_easmon, proxies=proxies)
+    if resp.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for {} Cash Flow...\n'.format(stock_hk))
+        pass
+    else:
+        print(f"Failed to retrieve data --- Cash Flow : {resp.status_code}")
+    time.sleep(random.uniform(15, 25))
+
+    data = resp.json()["result"]["data"]
+    return pd.DataFrame(data)
+
+def calc_fcf_direct(df):
+    """自由现金流:    直接法：经营现金净额 - CapEx"""
+    # 透视表：按报告日期+项目名聚合
+    pivot = df.pivot_table(index=["REPORT_DATE", "STD_ITEM_NAME"], values="AMOUNT", aggfunc="first").reset_index()
+    
+    # 提取关键字段
+    ocf = pivot[pivot["STD_ITEM_NAME"]=="经营业务现金净额"][["REPORT_DATE", "AMOUNT"]].rename(columns={"AMOUNT": "OCF"})
+    capex = pivot[pivot["STD_ITEM_NAME"]=="购建固定资产"][["REPORT_DATE", "AMOUNT"]].rename(columns={"AMOUNT": "CapEx"})
+    
+    # 合并计算
+    result = ocf.merge(capex, on="REPORT_DATE", how="inner")
+    result["FCF_Direct"] = result["OCF"] - result["CapEx"]
+    result["自由现金流 亿元"] = result["FCF_Direct"] / 1e8  # 转换为亿元
+    return result[["REPORT_DATE", "自由现金流 亿元"]]
+
 
 def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
@@ -417,7 +464,8 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         df_balance_stock = df(response_balance.json()['result']['data'])
 
-        # df_income_stock = df_income_stock.set_index('STD_REPORT_DATE')
+        df_income_stock = df_income_stock.set_index('STD_REPORT_DATE')
+        df_balance_stock = df_balance_stock.set_index('STD_REPORT_DATE')
 
         # quarter_mapping_income = {
         #     '一季度': '-03-31',
@@ -432,13 +480,13 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         #     pd.Index(new_index_income, name='REPORT_DATE_NAME'))
 
         # to get the report notice date
-        # df_report_notification_date_y = df_income_stock['NOTICE_DATE']
-        # df_report_notification_date_y.name = '年报公布时间'
+        df_report_notification_date_y = df_income_stock['REPORT_DATE']
+        df_report_notification_date_y.name = '年报公布时间'
 
-        # notification_date_list = []
-        # for i in range(len(df_report_notification_date_y)):
-        #     temp_date = df_report_notification_date_y.iloc[i][:10]
-        #     notification_date_list.append(temp_date)
+        notification_date_list = []
+        for i in range(len(df_report_notification_date_y)):
+            temp_date = df_report_notification_date_y.iloc[i][:10]
+            notification_date_list.append(temp_date)
 
         ### How Big The Company Is ###
         # 销售额
@@ -483,16 +531,16 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### How Well The Company Financial Status is ###
         # 流动资产
-        stock_0_CurrentAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动资产合计"]['AMOUNT']/100000000).reset_index(drop=True)
+        stock_0_CurrentAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动资产合计"]['AMOUNT']/100000000)
         stock_0_CurrentAssets_y.name = '流动资产 亿元'
         # 流动负债
-        stock_0_CurrentLiabilities_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动负债合计"]['AMOUNT']/100000000).reset_index(drop=True)
+        stock_0_CurrentLiabilities_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "流动负债合计"]['AMOUNT']/100000000)
         stock_0_CurrentLiabilities_y.name = '流动负债 亿元'
         # 流动资产与流动负债之比 应>2
         stock_0_CurrentAssets_vs_Liabilities_y = stock_0_CurrentAssets_y / stock_0_CurrentLiabilities_y
         stock_0_CurrentAssets_vs_Liabilities_y.name = '流动资产/流动负债>2'
         # 非流动负债合计，我认为是长期负债
-        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "非流动负债合计"]['AMOUNT']/100000000).reset_index(drop=True)
+        stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "非流动负债合计"]['AMOUNT']/100000000)
         stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y.name = '非流动负债'
         stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y = stock_0_CurrentAssets_y - \
             stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y  # 流动资产扣除长期负债后应大于0
@@ -505,23 +553,27 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         # 资本支出 : 现金流量表里面 的 投资活动现金流出小计中, 购建固定资产支付的现金, in Cash Flow, it is "CONSTRUCT_LONG_ASSET"
         # 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
         # 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
-        stock_0_NetProfit_y = df_cash_flow['NETPROFIT']
-        stock_0_FixAsset_Depr_y = df_cash_flow['FA_IR_DEPR']
-        stock_0_Cash_OutFlow_y = df_cash_flow['CONSTRUCT_LONG_ASSET']
-        stock_0_Delta_Working_Capital = (
-            df_balance_sheet['TOTAL_CURRENT_ASSETS'] - df_balance_sheet['TOTAL_CURRENT_LIAB']).diff(-1)
-        stock_0_Free_Cash_Flow = (stock_0_NetProfit_y + stock_0_FixAsset_Depr_y -
-                                  stock_0_Cash_OutFlow_y - stock_0_Delta_Working_Capital)/100000000
-        stock_0_Free_Cash_Flow.name = "自由现金流 亿元"
+        cash_flow_df = fetch_cashflow_data_HK(stock_hk=stock_hk)
+        df_Cash_Flow = calc_fcf_direct(cash_flow_df).sort_values(by='REPORT_DATE', ascending=False).reset_index(drop=True)
+        df_Cash_Flow= df_Cash_Flow.set_index('REPORT_DATE')
+        stock_0_Free_Cash_Flow = df_Cash_Flow['自由现金流 亿元']
+        print("自由现金流 亿元:\n", stock_0_Free_Cash_Flow)
+        # stock_0_NetProfit_y = df_cash_flow['NETPROFIT']
+        # stock_0_FixAsset_Depr_y = df_cash_flow['FA_IR_DEPR']
+        # stock_0_Cash_OutFlow_y = df_cash_flow['CONSTRUCT_LONG_ASSET']
+        # stock_0_Delta_Working_Capital = (
+        #     df_balance_sheet['TOTAL_CURRENT_ASSETS'] - df_balance_sheet['TOTAL_CURRENT_LIAB']).diff(-1)
+        # stock_0_Free_Cash_Flow = (stock_0_NetProfit_y + stock_0_FixAsset_Depr_y -
+        #                           stock_0_Cash_OutFlow_y - stock_0_Delta_Working_Capital)/100000000
+        # stock_0_Free_Cash_Flow.name = "自由现金流 亿元"
 
         ### Stock price vs Assets ratio ###
         # 无形资产
-        stock_0_OtherIntangibleAssets_y = df_balance_sheet['INTANGIBLE_ASSET']/100000000
+        stock_0_OtherIntangibleAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "无形资产"]['AMOUNT']/100000000)
         # 总负债
-        stock_0_TotalLiabilitiesNetMinorityInterest_y = df_balance_sheet[
-            'TOTAL_LIABILITIES']/100000000
+        stock_0_TotalLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "总负债"]['AMOUNT']/100000000)
         # 普通股数量
-        stock_0_OrdinarySharesNumber_y = df_balance_sheet['SHARE_CAPITAL']/1000000
+        stock_0_OrdinarySharesNumber_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "股本"]['AMOUNT']/1000000)
         stock_0_OrdinarySharesNumber_y.name = '普通股数量 百万'
         stock_0_BookValue_y = stock_0_TotalAssets_y - stock_0_OtherIntangibleAssets_y - \
             stock_0_TotalLiabilitiesNetMinorityInterest_y  # 总账面价值
@@ -540,7 +592,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### PE Ratio of the Company ###
         stock_PE_ratio_target = 15  # 这个是目标市盈率，股份不超过这个可以考虑入手
-        if 'INCOMEQC' in url_easmon_income:  # meaning it is Seasonly data:
+        if 'INCOMEQC' in url_easmon_income:  # meaning it is Seasonly data(#TODO, to be updated, since for HongKong, the INCOMEQC may not be used):
             stock_price_less_than_PE_ratio_y = stock_PE_ratio_target * \
                 stock_0_profit_margin_y * 4  # 股份不能超过的值
         else:  # Meaning it is yealy data, no need to x4
@@ -550,15 +602,15 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### UNASSIGN_RPOFIT ###
         # 每股未分配利润，为历年累加
-        stock_0_UNASSIGN_RPOFIT_Total_y = df_balance_sheet['UNASSIGN_RPOFIT']/100000000
+        stock_0_UNASSIGN_RPOFIT_Total_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "储备"]['AMOUNT']/100000000)
         stock_0_UNASSIGN_RPOFIT_Total_y.name = '未分配利润累积 亿元'
-        stock_0_UNASSIGN_RPOFIT_y = df_balance_sheet['UNASSIGN_RPOFIT'] / \
-            df_balance_sheet['SHARE_CAPITAL']
+        stock_0_UNASSIGN_RPOFIT_y = stock_0_UNASSIGN_RPOFIT_Total_y / \
+            stock_0_TotalLiabilitiesNetMinorityInterest_y
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
 
         ############### 每股现金资产 #################
-        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = df_balance_sheet[
-            'MONETARYFUNDS']/df_balance_sheet['SHARE_CAPITAL']
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/100000000)\
+            /stock_0_TotalLiabilitiesNetMinorityInterest_y
         stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
 
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
