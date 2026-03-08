@@ -10,6 +10,9 @@ import yfinance as yf
 import datetime
 import funcLG
 from bs4 import BeautifulSoup
+import akshare as ak
+import re
+from typing import List, Optional
 
 ### to define the date for today, in order to get the year info ###
 day_one = datetime.date.today()
@@ -378,7 +381,7 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
         print('Data is not available for {} in EasMon.\n'.format(stock_cn))
     return [stock_output_y, stock_name_from_year_income]
 
-def fetch_cashflow_data_HK(stock_hk="02359.HK", day_one = day_one):
+def fetch_cashflow_data_HK(proxies, stock_hk="02359.HK", day_one = day_one):
     """获取东方财富现金流量表数据"""
     current_year = day_one.year
     # Generate last 8 year-end dates (Dec 31 of previous years)
@@ -483,10 +486,10 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         df_report_notification_date_y = df_income_stock['REPORT_DATE']
         df_report_notification_date_y.name = '年报公布时间'
 
-        notification_date_list = []
-        for i in range(len(df_report_notification_date_y)):
-            temp_date = df_report_notification_date_y.iloc[i][:10]
-            notification_date_list.append(temp_date)
+        # notification_date_list = []
+        # for i in range(len(df_report_notification_date_y)):
+        #     temp_date = df_report_notification_date_y.iloc[i][:10]
+        #     notification_date_list.append(temp_date)
 
         ### How Big The Company Is ###
         # 销售额
@@ -553,7 +556,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         # 资本支出 : 现金流量表里面 的 投资活动现金流出小计中, 购建固定资产支付的现金, in Cash Flow, it is "CONSTRUCT_LONG_ASSET"
         # 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
         # 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
-        cash_flow_df = fetch_cashflow_data_HK(stock_hk=stock_hk)
+        cash_flow_df = fetch_cashflow_data_HK(proxies=proxies, stock_hk=stock_hk)
         df_Cash_Flow = calc_fcf_direct(cash_flow_df).sort_values(by='REPORT_DATE', ascending=False).reset_index(drop=True)
         df_Cash_Flow= df_Cash_Flow.set_index('REPORT_DATE')
         stock_0_Free_Cash_Flow = df_Cash_Flow['自由现金流 亿元']
@@ -627,10 +630,12 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
                                    stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
+        print('---------The Output Financial Report for this Stock is -----------: \n')
+        print(f'{list(stock_output_y.columns)}')
 
-        notice_date_df = pd.DataFrame(
-            notification_date_list, index=stock_output_y.columns, columns=['Notice Date']).T
-        stock_output_y = pd.concat([notice_date_df, stock_output_y], axis=0)
+        # notice_date_df = pd.DataFrame(
+        #     notification_date_list, index=stock_output_y.columns, columns=['Notice Date']).T
+        # stock_output_y = pd.concat([notice_date_df, stock_output_y], axis=0)
 
         # # df_income_stock.T.to_excel('00.in.xlsx',encoding='utf-8')
         # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
@@ -1172,10 +1177,37 @@ def get_SH_SZ_All_list_from_eas_mon():
     response_sh_sz_all_df.set_index('SECURITY_CODE', inplace=True)
     return response_sh_sz_all_df
 
+
+def save_Notice_Date_data_to_OneDrive_newFile(stock_code, stock_data, user_id, parent_id, result, proxies):
+    stock_data.to_pickle('{}-Notice_Date.pkl'.format(stock_code))
+
+    # 打开一个二进制文件进行读取
+    with open('{}-Notice_Date.pkl'.format(stock_code), 'rb') as filedata:
+        # create a file file for this data:
+        endpoint_create_file = 'https://graph.microsoft.com/v1.0/users/' + \
+            '{}/drive/items/{}:/{}-Notice_Date.pkl:/content'.format(
+                user_id, parent_id, stock_code)
+        http_headers_create_file = {'Authorization': 'Bearer ' + result['access_token'],
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'text/plain'}
+        try:
+            data_create_file = requests.put(
+                endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False)
+        except:
+            data_create_file = requests.put(
+                endpoint_create_file, headers=http_headers_create_file, data=filedata, stream=False, proxies=proxies)
+        print('Updated Notice Date data file: status code is: {}----\n'.format(data_create_file.status_code))
+        if data_create_file.status_code == 201:
+            print('Notice Date file uploaded to OneDrive Successfully!-------- \n')
+    os.remove('{}-Notice_Date.pkl'.format(stock_code))
+
+
 if __name__ == "__main__":
     login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
     result = login_return['result']
     proxies = login_return['proxies']
+
+    # 测试金斯瑞 (01548.HK)
     url = Year_report_url_HK(day_one, stock_hk='01548.HK')
     report = report_from_Eas_Mon_HK(url, proxies=proxies, stock_hk= '01548.HK')
     pass
