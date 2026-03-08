@@ -312,8 +312,6 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
         found = False
         ##### data exists ####
         if not found:
-            print(f"'{stock_file_str}' was not found .\n") 
-
             if check_item_name == 'yearly':
                 print('-----------------\n')
 
@@ -330,8 +328,11 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     stock_name = yearly_report_raw_out[1] # for stock name
 
                     stock_output_yearly = yearly_report_raw
+
+                    stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon_HK(stock_hk=stock_code, proxies=proxies, limit_number='1800')
+                    stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
+                    stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
     
-        stock_output_yearly_f = pd.concat([stock_output_yearly], axis=0)
 
         try:
             stock_output_combined = pd.concat([stock_output_yearly_f], axis=1)

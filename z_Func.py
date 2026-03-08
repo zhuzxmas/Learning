@@ -632,6 +632,8 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_output_y = stock_output_y.T.astype('float64').round(2)
         print('---------The Output Financial Report for this Stock is -----------: \n')
         print(f'{list(stock_output_y.columns)}')
+        print('You Need to save the notice date to OneDrive [H01423]-abc.xlsx with [Notice_Date] and [Report_Title].\n')
+        print('---------------  Content in the []  is a Must....-------------\n')
 
         # notice_date_df = pd.DataFrame(
         #     notification_date_list, index=stock_output_y.columns, columns=['Notice Date']).T
@@ -734,6 +736,88 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     time.sleep(random.uniform(15, 25))
     return price_df
 
+
+def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
+    # Generate a random UUID (version 4)
+    random_uuid = uuid.uuid4()
+    # Convert to string without hyphens
+    ut_string = str(random_uuid).replace('-', '')
+    # print('ut string used is: {}\n'.format(ut_string))
+
+    stock_mkt = '116'
+    stock_number = stock_hk[0][1:]
+
+    headers_easmon_price_range = {
+        'Host': 'push2his.eas{}ney.com'.format('tmo'),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
+        'DNT': '1',
+        'Referer': 'https://quote.eas{}ney.com/'.format('tmo'),
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+    }
+
+    klt_code = '101'
+    fqt_code = '1'
+
+    # Get today's date and format it as YYYYMMDD
+    today_str = datetime.datetime.now().strftime("%Y%m%d")
+
+    url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=_jp1'.format(
+        'sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
+
+
+    try:
+        response_price = requests.get(
+            url_price_range, headers=headers_easmon_price_range)
+    except:
+        response_price = requests.get(
+            url_price_range, headers=headers_easmon_price_range, proxies=proxies)
+    if response_price.status_code == 200:
+        # Process the response data here
+        print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_hk))
+        # Remove the JSONP wrapper
+        start_index = response_price.text.find('(') + 1
+        end_index = response_price.text.rfind(');')
+        json_data = response_price.text[start_index:end_index]
+
+        # Parse the JSON string into a Python dictionary
+        price_range_raw_data = json.loads(json_data)
+        price_range_raw_data_list = price_range_raw_data['data']['klines']
+
+        # to turn price range list into DataFrame
+        columns = ["日期", "开盘", "收盘", "最高", "最低",
+                   "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        # Split each line into components
+        parsed_data = [line.split(",") for line in price_range_raw_data_list]
+
+        # Create the DataFrame
+        price_df = pd.DataFrame(parsed_data, columns=columns)
+
+        # Convert numeric columns to appropriate data types
+        numeric_columns = ["开盘", "收盘", "最高", "最低",
+                           "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        price_df[numeric_columns] = price_df[numeric_columns].apply(
+            pd.to_numeric)
+
+        # Convert '日期' column to datetime for easier filtering
+        price_df['日期'] = pd.to_datetime(price_df['日期'])
+
+    else:
+        print(
+            f"Failed to retrieve data: {response_price.status_code} for Price Range... ")
+        # to turn price range list into DataFrame
+        columns = ["日期", "开盘", "收盘", "最高", "最低",
+                   "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+        parsed_data = []
+        # Create the DataFrame
+        price_df = pd.DataFrame(parsed_data, columns=columns)
+
+    time.sleep(random.uniform(15, 25))
+    return price_df
 
 ################# to get the stock price for each year #####################################
 def get_stock_price_range_Based_on_EasMon(stock_price_df, stock_output, day_one):
