@@ -165,6 +165,7 @@ else:
     for i in range(len(saved_files_list_from_OD)):
         saved_files_list_lite[saved_files_list_from_OD[i]['name']] = saved_files_list_from_OD[i]['id']
 
+
 # ################ MS Graph API with APP-Only Token Not Working Any More #################
 # #Mar 31, 2025 - Retirement of App-only Authentication for OneNote Microsoft Graph APIs
 # #Microsoft is deprecating app-only authentication for Microsoft Graph OneNote APIs. Starting March 31, 2025, requests using application permissions (app-only tokens) will fail with 401 unauthorized errors.
@@ -253,6 +254,23 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
             stock_cn = prefix + str(stock_code[iii]) + '.SZ'  # SZ stock
 
 
+    #TODO  to get the fild content for Notification Date:
+    for item in saved_files_list_lite.keys():
+        if stock_code[iii] in item:
+            data_file_id = saved_files_list_lite[item]
+    endpoint_data_file_content = 'https://graph.microsoft.com/v1.0/users/' + '/{}/drive/items/{}/content'.format(user_id, data_file_id)
+    try:
+        data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False)
+    except:
+        data_get_data_content = requests.get(endpoint_data_file_content, headers=http_headers, stream=False, proxies=proxies)
+    
+    from io import BytesIO
+    file_content = data_get_data_content.content
+    df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+    notification_date_df = df
+    notification_date_series = df['Notice_Date']
+    notification_date_list = notification_date_series.dt.strftime('%Y-%m-%d').tolist()
+
     print('-----Stock No.{}---Begin of {}: ↓ ↓ ↓ ↓ ↓  ---------------\n'.format(iii, stock))
 
     ### to get the yearly report from the Eas Mon ################################
@@ -307,6 +325,8 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                     url_yearly = z_Func.Year_report_url_HK(stock_hk=stock_cn, day_one=day_one)
                     yearly_report_raw_out = z_Func.report_from_Eas_Mon_HK(url=url_yearly, proxies=proxies, stock_hk=stock_cn)
                     yearly_report_raw = yearly_report_raw_out[0] # for dataframe info
+                    notification_date_df = pd.DataFrame(notification_date_list, index=yearly_report_raw.columns, columns=['Notice Date']).T
+                    yearly_report_raw = pd.concat([notification_date_df, yearly_report_raw], axis=0)
                     stock_name = yearly_report_raw_out[1] # for stock name
 
                     stock_output_yearly = yearly_report_raw
