@@ -569,16 +569,32 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### Stock price vs Assets ratio ###
         # 无形资产
-        stock_0_OtherIntangibleAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "无形资产"]['AMOUNT']/100000000)
+        stock_0_OtherIntangibleAssets_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "无形资产"]['AMOUNT']/1000000)
+        stock_0_OtherIntangibleAssets_y.name = '无形资产 百万'
         # 总负债
         stock_0_TotalLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "总负债"]['AMOUNT']/100000000)
+        stock_0_TotalLiabilitiesNetMinorityInterest_y.name = '总负债 亿元'
         # 普通股数量
-        stock_0_OrdinarySharesNumber_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "股本"]['AMOUNT']/1000000)
+        stock_0_OrdinarySharesNumber_y = df_income_stock['HK_COMMON_SHARES']/1000000
         stock_0_OrdinarySharesNumber_y.name = '普通股数量 百万'
-        stock_0_BookValue_y = stock_0_TotalAssets_y - stock_0_OtherIntangibleAssets_y - \
-            stock_0_TotalLiabilitiesNetMinorityInterest_y  # 总账面价值
-        stock_0_BookValue_per_Share_y = stock_0_BookValue_y * \
-            100000000/(stock_0_OrdinarySharesNumber_y*1000000)  # 每股账面价值
+
+        # 现金调整账面价值: 现金调整BookValue = (股东权益 − 无形资产 − 商誉 + 净现金) ÷ 股数
+        # 其中：净现金 = 现金及等价物 − 有息负债
+        stock_0_ShareHolder_Eqt_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "股东权益"]['AMOUNT']/1000000)
+        stock_0_ShareHolder_Eqt_y.name = '股东权益 百万'
+        stock_0_Shangyu_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "商誉"]['AMOUNT']/1000000)
+        stock_0_Shangyu_y.name = '商誉 百万'
+
+        ############### 每股现金资产 #################
+        stock_0_Cash_and_Cash_Equivalentsi_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/1000000)
+        stock_0_Cash_and_Cash_Equivalentsi_y.name = '现金及等价物 百万'
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/100000000)\
+            /stock_0_TotalLiabilitiesNetMinorityInterest_y
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
+
+        # 总账面价值
+        stock_0_BookValue_y = stock_0_ShareHolder_Eqt_y - stock_0_OtherIntangibleAssets_y - stock_0_Shangyu_y + stock_0_Cash_and_Cash_Equivalentsi_y
+        stock_0_BookValue_per_Share_y = stock_0_BookValue_y/(stock_0_OrdinarySharesNumber_y)  # 每股账面价值
         stock_0_BookValue_per_Share_y.name = '每股账面价值 元'
         stock_price_less_than_BookValue_ratio_y = stock_0_BookValue_per_Share_y * \
             1.5  # 按账面价值计算出来的目标股价
@@ -607,11 +623,6 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_0_UNASSIGN_RPOFIT_y = stock_0_UNASSIGN_RPOFIT_Total_y / \
             stock_0_TotalLiabilitiesNetMinorityInterest_y
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
-
-        ############### 每股现金资产 #################
-        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/100000000)\
-            /stock_0_TotalLiabilitiesNetMinorityInterest_y
-        stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
 
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
                                    stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
