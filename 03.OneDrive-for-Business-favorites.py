@@ -47,7 +47,7 @@ else:
 
 # to get the Pictures folder id from OneDrive for Business:
 
-endpoint = 'https://graph.microsoft.com/v1.0/me/drive/following'
+endpoint = 'https://graph.microsoft.com/v1.0/me/drive/following?$top=100'
 http_headers = {'Authorization': 'Bearer ' + access_token_with_refresh_token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
