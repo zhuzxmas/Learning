@@ -102,7 +102,7 @@ for item in following_data['value']:
         picture_name = item['name']
         picture_id = item['id']
         picture_folder_name = item['webUrl'].split('/')[-2]
-        print("Picture name: {}, \nPicture id: {}, \n, webUrl: {}, \nPicture folder name: {}\n".format(picture_name, picture_id, item['webUrl'], picture_folder_name))
+        print("Picture name: {}, \n, webUrl: {}, \nPicture folder name: {}\n".format(picture_name, item['webUrl'], picture_folder_name))
 
         # to list the items in the Family Life folder of SharePoint document library:
         endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children?$top=1000'.format(site_id, Family_Life_folder_id)
@@ -166,6 +166,6 @@ for item in following_data['value']:
         except:
             data_unfollow = requests.post(endpoint_unfollow, headers=http_headers, proxies=proxies)
         if data_unfollow.status_code == 204:
-            print("Picture {} is unfollowed successfully.".format(picture_name))
+            print("Picture {} is unfollowed successfully.\n".format(picture_name))
         else:
-            print("Failed to unfollow picture {}. Status code: {}, Response: {}".format(picture_name, data_unfollow.status_code, data_unfollow.text))
+            print("Failed to unfollow picture {}. Status code: {}, Response: {}\n".format(picture_name, data_unfollow.status_code, data_unfollow.text))
