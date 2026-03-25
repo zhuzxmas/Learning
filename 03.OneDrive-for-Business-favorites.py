@@ -169,3 +169,5 @@ for item in following_data['value']:
             print("Picture {} is unfollowed successfully.\n".format(picture_name))
         else:
             print("Failed to unfollow picture {}. Status code: {}, Response: {}\n".format(picture_name, data_unfollow.status_code, data_unfollow.text))
+
+print("All pictures are processed successfully...\n")
