@@ -47,7 +47,7 @@ else:
 
 # to get the Pictures folder id from OneDrive for Business:
 
-endpoint = 'https://graph.microsoft.com/v1.0/me/drive/following?$top=100'
+endpoint = 'https://graph.microsoft.com/v1.0/me/drive/following?$top=1000'
 http_headers = {'Authorization': 'Bearer ' + access_token_with_refresh_token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
@@ -102,9 +102,10 @@ for item in following_data['value']:
         picture_name = item['name']
         picture_id = item['id']
         picture_folder_name = item['webUrl'].split('/')[-2]
+        print("Picture name: {}, \nPicture id: {}, \n, webUrl: {}, \nPicture folder name: {}\n".format(picture_name, picture_id, item['webUrl'], picture_folder_name))
 
         # to list the items in the Family Life folder of SharePoint document library:
-        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Family_Life_folder_id)
+        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children$top=1000'.format(site_id, Family_Life_folder_id)
         try:
             Family_Life_Children_data = requests.get(endpoint_items, headers=http_headers, stream=False).json()
         except:
