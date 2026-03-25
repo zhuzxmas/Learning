@@ -26,7 +26,7 @@ today = datetime.now().strftime('%Y-%m-%d')
 
 # Check condition
 if delta_days_number < 40:
-    print("Refresh Token is still ok to use.\n")
+    print("\nRefresh Token is still ok to use.\n")
     access_token_with_refresh_token = funcLG.get_access_token_with_refresh(refresh_token=refresh_token)
 else:
     print("Refresh Token will expire soon, let's update it now...\n")
