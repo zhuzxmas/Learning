@@ -56,43 +56,55 @@ try:
 except:
     data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
+    # verify if the folder with the same name exists in the Pictures folder of SharePoint document library, if not, then create a new folder with the same name in the Pictures folder of SharePoint document library, and copy the picture to the new folder in the Pictures folder of SharePoint document library.
+    # to get the site id of the SharePoint site:
+    endpoint_site_id = 'https://graph.microsoft.com/v1.0/sites/cnmas.sharepoint.com:/sites/cmmas'
+    try:
+        data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False).json()
+    except:
+        data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False, proxies=proxies).json()
+    site_id = data_site_id['id']
+
+    # to Access the default drive (document library) for the given site.
+    endpoint_Doc_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/root/'.format(site_id)
+    try:
+        Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False).json()
+    except:
+        Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False, proxies=proxies).json()
+    Doc_drive_id = Doc_data_drive_id['id']
+
+    # to get the Family Life folder id of SharePoint document library:
+    endpoint_folders = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Doc_drive_id)
+    try:
+        data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False).json()
+    except:
+        data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False, proxies=proxies).json()
+    folders = data_folders['value']
+    for item in folders:
+        if item['name'] == 'Family Life':
+            Picture_folder_id = item['id']
+            break
+        
+    # to get the drive id of the Pictures folder of SharePoint document library:
+    endpoint_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/'.format(site_id)
+    try:
+        data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False)
+    except:
+        data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False, proxies=proxies)
+    if data_drive_id.status_code == 200:
+        print("Successfully get the drive id of the Pictures folder of SharePoint document library.")
+    else:
+        print("Failed to get the drive id of the Pictures folder of SharePoint document library. Status code: {}, Response: {}".format(data_drive_id.status_code, data_drive_id.text))
+    drive_id = data_drive_id.json()['id']
+
 # for item in data['value'], if item['name'] ends with .jpg, .png, .jpeg, .heic, then it's a picture, and i will copy it to a new folder with the same name in the Pictures folder of OneDrive for Business to the Pictures folder in SharePoint document library.
 for item in data['value']:
-    if item['name'].lower().endswith(('.jpg', '.png', '.jpeg', '.heic')):
+    if item['name'].lower().endswith(('.jpg', '.png', '.jpeg', '.heic')) and '微信经营账户' not in item['name']:
         picture_name = item['name']
         picture_id = item['id']
         picture_folder_name = item['webUrl'].split('/')[-2]
 
-        # verify if the folder with the same name exists in the Pictures folder of SharePoint document library, if not, then create a new folder with the same name in the Pictures folder of SharePoint document library, and copy the picture to the new folder in the Pictures folder of SharePoint document library.
-        # to get the site id of the SharePoint site:
-        endpoint_site_id = 'https://graph.microsoft.com/v1.0/sites/cnmas.sharepoint.com:/sites/cmmas'
-        try:
-            data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False).json()
-        except:
-            data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False, proxies=proxies).json()
-        site_id = data_site_id['id']
-
-        # to Access the default drive (document library) for the given site.
-        endpoint_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/root/'.format(site_id)
-        try:
-            data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False).json()
-        except:
-            data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False, proxies=proxies).json()
-        drive_id = data_drive_id['id']
-
-        # to get the list folders in the Pictures folder of SharePoint document library:
-        endpoint_folders = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, drive_id)
-        try:
-            data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False).json()
-        except:
-            data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False, proxies=proxies).json()
-        folders = data_folders['value']
-        for item in folders:
-            if item['name'] == 'Family Life':
-                Picture_folder_id = item['id']
-                break
-        
-        # to list the items in the Pictures folder of SharePoint document library:
+        # to list the items in the Family Life folder of SharePoint document library:
         endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Picture_folder_id)
         try:
             Picture_folder_data = requests.get(endpoint_items, headers=http_headers, stream=False).json()
@@ -106,6 +118,7 @@ for item in data['value']:
             if item['name'] == picture_folder_name:
                 folder_exists = True
                 folder_id = item['id']
+                print("Folder {} already exists in the Pictures folder of SharePoint document library.".format(picture_folder_name))
                 break
         if not folder_exists:
             # to create a new folder with the same name in the Pictures folder of SharePoint document library:
@@ -116,19 +129,14 @@ for item in data['value']:
                 "@microsoft.graph.conflictBehavior": "rename"
             }
             try:
-                data_create_folder = requests.post(endpoint_create_folder, headers=http_headers, json=folder_data).json()
+                data_create_folder = requests.post(endpoint_create_folder, headers=http_headers, json=folder_data)
             except:
-                data_create_folder = requests.post(endpoint_create_folder, headers=http_headers, json=folder_data, proxies=proxies).json()
-            folder_id = data_create_folder['id']
-
-        # to get the drive id of the Pictures folder of SharePoint document library:
-        endpoint_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/'.format(site_id)
-        # endpoint_drive_id  = 'https://graph.microsoft.com/v1.0/sites/cnmas.sharepoint.com:/sites/cmmas'
-        try:
-            data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False).json()
-        except:
-            data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False, proxies=proxies).json()
-        drive_id = data_drive_id['id']
+                data_create_folder = requests.post(endpoint_create_folder, headers=http_headers, json=folder_data, proxies=proxies)
+            if data_create_folder.status_code == 201:
+                print("Folder {} is created successfully.".format(picture_folder_name))
+            else:
+                print("Failed to create folder {}. Status code: {}, Response: {}".format(picture_folder_name, data_create_folder.status_code, data_create_folder.text))
+            folder_id = data_create_folder.json()['id']
 
         # to copy the picture to the new folder in the Pictures folder of SharePoint document library:
         endpoint_copy_picture = 'https://graph.microsoft.com/v1.0/me/drive/items/{}/copy'.format(picture_id)
@@ -140,37 +148,22 @@ for item in data['value']:
             "name": picture_name
         }
         try:
-            data_copy_picture = requests.post(endpoint_copy_picture, headers=http_headers, json=copy_data).json()
+            data_copy_picture = requests.post(endpoint_copy_picture, headers=http_headers, json=copy_data)
         except: 
-            data_copy_picture = requests.post(endpoint_copy_picture, headers=http_headers, json=copy_data, proxies=proxies).json()
+            data_copy_picture = requests.post(endpoint_copy_picture, headers=http_headers, json=copy_data, proxies=proxies)
+        if data_copy_picture.status_code == 202:
+            print("Picture {} is copied successfully.".format(picture_name))
+        else:
+            print("Failed to copy picture {}. Status code: {}, Response: {}".format(picture_name, data_copy_picture.status_code, data_copy_picture.text))
 
-# to unfollow a item: 
-# POST https://graph.microsoft.com/v1.0/me/drive/items/{item-id}/unfollow
-
-# to get the sub-folder within Pictures.
-endpoint = 'https://graph.microsoft.com/v1.0/me/drive/items/{}/children'.format(Picture_folder_id)
-try:
-    data = requests.get(endpoint, headers=http_headers, stream=False).json()
-except:
-    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
-
-# to sort the pages by date, from latest to oldest ones:
-data = data['value']
-data = sorted(data, key=lambda x: datetime.fromisoformat(x['lastModifiedDateTime'].replace("Z", "+00:00")),reverse=True)
-last_modified_folder_id = data[0]['id']
-last_modified_folder_name = data[0]['name']
-
-# to get the Favorites pictures I marked:
-
-endpoint = 'https://graph.microsoft.com/v1.0/me/drive/items/{}/children?$select=id,name,isFavorite'.format(last_modified_folder_id)
-try:
-    data = requests.get(endpoint, headers=http_headers, stream=False).json()
-except:
-    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
-
-'''
-https://graph.microsoft.com/v1.0/drives/{}/items/{}/children?$select=id,name,isFavorite
-https://graph.microsoft.com/v1.0/users/{}/drives/{}/items/{}/children?$select=id,name,isFavorite
-
-# tbd
-'''
+        # to unfollow a item: 
+        # POST https://graph.microsoft.com/v1.0/me/drive/items/{picture-id}/unfollow
+        endpoint_unfollow = 'https://graph.microsoft.com/v1.0/me/drive/items/{}/unfollow'.format(picture_id)
+        try:
+            data_unfollow = requests.post(endpoint_unfollow, headers=http_headers)
+        except:
+            data_unfollow = requests.post(endpoint_unfollow, headers=http_headers, proxies=proxies)
+        if data_unfollow.status_code == 204:
+            print("Picture {} is unfollowed successfully.".format(picture_name))
+        else:
+            print("Failed to unfollow picture {}. Status code: {}, Response: {}".format(picture_name, data_unfollow.status_code, data_unfollow.text))

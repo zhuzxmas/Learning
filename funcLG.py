@@ -124,7 +124,7 @@ def get_access_token_with_refresh(refresh_token, client_id=client_id, tenant_id=
         response = requests.post(url, data=data, proxies=proxies)
 
     if response.status_code == 200:
-        print("Access Token Obtained successfully!")
+        print("Access Token based on Refresh Token --- Obtained successfully!")
         Access_token = response.json()['access_token']
     else:
         Access_token = ''
