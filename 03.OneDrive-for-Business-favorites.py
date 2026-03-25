@@ -52,77 +52,78 @@ http_headers = {'Authorization': 'Bearer ' + access_token_with_refresh_token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
 try:
-    data = requests.get(endpoint, headers=http_headers, stream=False).json()
+    following_data = requests.get(endpoint, headers=http_headers, stream=False).json()
 except:
-    data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
+    following_data = requests.get(endpoint, headers=http_headers, stream=False, proxies=proxies).json()
 
-    # verify if the folder with the same name exists in the Pictures folder of SharePoint document library, if not, then create a new folder with the same name in the Pictures folder of SharePoint document library, and copy the picture to the new folder in the Pictures folder of SharePoint document library.
-    # to get the site id of the SharePoint site:
-    endpoint_site_id = 'https://graph.microsoft.com/v1.0/sites/cnmas.sharepoint.com:/sites/cmmas'
-    try:
-        data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False).json()
-    except:
-        data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False, proxies=proxies).json()
-    site_id = data_site_id['id']
+# to get the site id of the SharePoint site:
+endpoint_site_id = 'https://graph.microsoft.com/v1.0/sites/cnmas.sharepoint.com:/sites/cmmas'
+try:
+    data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False).json()
+except:
+    data_site_id = requests.get(endpoint_site_id, headers=http_headers, stream=False, proxies=proxies).json()
+site_id = data_site_id['id']
 
-    # to Access the default drive (document library) for the given site.
-    endpoint_Doc_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/root/'.format(site_id)
-    try:
-        Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False).json()
-    except:
-        Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False, proxies=proxies).json()
-    Doc_drive_id = Doc_data_drive_id['id']
+# to Access the default drive (document library) for the given site.
+endpoint_Doc_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/root/'.format(site_id)
+try:
+    Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False).json()
+except:
+    Doc_data_drive_id = requests.get(endpoint_Doc_drive_id, headers=http_headers, stream=False, proxies=proxies).json()
+Doc_drive_id = Doc_data_drive_id['id']
 
-    # to get the Family Life folder id of SharePoint document library:
-    endpoint_folders = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Doc_drive_id)
-    try:
-        data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False).json()
-    except:
-        data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False, proxies=proxies).json()
-    folders = data_folders['value']
-    for item in folders:
-        if item['name'] == 'Family Life':
-            Picture_folder_id = item['id']
-            break
-        
-    # to get the drive id of the Pictures folder of SharePoint document library:
-    endpoint_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/'.format(site_id)
-    try:
-        data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False)
-    except:
-        data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False, proxies=proxies)
-    if data_drive_id.status_code == 200:
-        print("Successfully get the drive id of the Pictures folder of SharePoint document library.")
-    else:
-        print("Failed to get the drive id of the Pictures folder of SharePoint document library. Status code: {}, Response: {}".format(data_drive_id.status_code, data_drive_id.text))
-    drive_id = data_drive_id.json()['id']
+# to get the Family Life folder id of SharePoint document library:
+endpoint_folders = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Doc_drive_id)
+try:
+    data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False).json()
+except:
+    data_folders = requests.get(endpoint_folders, headers=http_headers, stream=False, proxies=proxies).json()
+folders = data_folders['value']
+for item in folders:
+    if item['name'] == 'Family Life':
+        Family_Life_folder_id = item['id']
+        break
+    
+# to get the drive id of the Pictures folder of SharePoint document library:
+endpoint_drive_id = 'https://graph.microsoft.com/v1.0/sites/{}/drive/'.format(site_id)
+try:
+    data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False)
+except:
+    data_drive_id = requests.get(endpoint_drive_id, headers=http_headers, stream=False, proxies=proxies)
+if data_drive_id.status_code == 200:
+    print("Successfully get the drive id of the Pictures folder of SharePoint document library.")
+else:
+    print("Failed to get the drive id of the Pictures folder of SharePoint document library. Status code: {}, Response: {}".format(data_drive_id.status_code, data_drive_id.text))
+drive_id = data_drive_id.json()['id']
 
-# for item in data['value'], if item['name'] ends with .jpg, .png, .jpeg, .heic, then it's a picture, and i will copy it to a new folder with the same name in the Pictures folder of OneDrive for Business to the Pictures folder in SharePoint document library.
-for item in data['value']:
+# for item in following_data['value'], if item['name'] ends with .jpg, .png, .jpeg, .heic, then it's a picture, and i will copy it to a new folder with the same name in the Pictures folder of OneDrive for Business to the Pictures folder in SharePoint document library.
+for item in following_data['value']:
     if item['name'].lower().endswith(('.jpg', '.png', '.jpeg', '.heic')) and '微信经营账户' not in item['name']:
         picture_name = item['name']
         picture_id = item['id']
         picture_folder_name = item['webUrl'].split('/')[-2]
 
         # to list the items in the Family Life folder of SharePoint document library:
-        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Picture_folder_id)
+        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Family_Life_folder_id)
         try:
-            Picture_folder_data = requests.get(endpoint_items, headers=http_headers, stream=False).json()
+            Family_Life_Children_data = requests.get(endpoint_items, headers=http_headers, stream=False).json()
         except:
-            Picture_folder_data = requests.get(endpoint_items, headers=http_headers, stream=False, proxies=proxies).json()
-        Picture_folder_list = Picture_folder_data['value']
+            Family_Life_Children_data = requests.get(endpoint_items, headers=http_headers, stream=False, proxies=proxies).json()
+        Family_Life_Children_List = Family_Life_Children_data['value']
 
-        # to check if the folder with the same name exists in the Pictures folder of SharePoint document library, if not, then create a new folder with the same name in the Pictures folder of SharePoint document library, and copy the picture to the new folder in the Pictures folder of SharePoint document library.
+        # to check if the folder with the same name exists in the Pictures folder of SharePoint document library, 
+        # if not, then create a new folder with the same name in the Pictures folder of SharePoint document library, 
+        # and copy the picture to the new folder in the Pictures folder of SharePoint document library.
         folder_exists = False
-        for item in Picture_folder_list:
-            if item['name'] == picture_folder_name:
+        for chidren_folder_name in Family_Life_Children_List:
+            if chidren_folder_name['name'] == picture_folder_name:
                 folder_exists = True
-                folder_id = item['id']
+                folder_id = chidren_folder_name['id']
                 print("Folder {} already exists in the Pictures folder of SharePoint document library.".format(picture_folder_name))
                 break
         if not folder_exists:
             # to create a new folder with the same name in the Pictures folder of SharePoint document library:
-            endpoint_create_folder = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Picture_folder_id)
+            endpoint_create_folder = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children'.format(site_id, Family_Life_folder_id)
             folder_data = {
                 "name": picture_folder_name,
                 "folder": {},
