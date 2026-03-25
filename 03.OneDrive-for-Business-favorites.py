@@ -105,7 +105,7 @@ for item in following_data['value']:
         print("Picture name: {}, \nPicture id: {}, \n, webUrl: {}, \nPicture folder name: {}\n".format(picture_name, picture_id, item['webUrl'], picture_folder_name))
 
         # to list the items in the Family Life folder of SharePoint document library:
-        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children$top=1000'.format(site_id, Family_Life_folder_id)
+        endpoint_items = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children?$top=1000'.format(site_id, Family_Life_folder_id)
         try:
             Family_Life_Children_data = requests.get(endpoint_items, headers=http_headers, stream=False).json()
         except:
