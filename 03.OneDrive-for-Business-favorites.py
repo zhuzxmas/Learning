@@ -169,5 +169,7 @@ for item in following_data['value']:
             print("Picture {} is unfollowed successfully.\n".format(picture_name))
         else:
             print("Failed to unfollow picture {}. Status code: {}, Response: {}\n".format(picture_name, data_unfollow.status_code, data_unfollow.text))
-
-print("All pictures are processed successfully...\n")
+            
+        print("This picture is processed successfully...\n")
+    else:
+        print("This item {} is not a picture, or it's a picture but contains '微信经营账户' in the name, so it will be skipped.\n".format(item['name']))
