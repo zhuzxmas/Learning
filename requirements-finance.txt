@@ -8,3 +8,4 @@ pillow==11.1.0
 dashscope==1.24.7
 pynacl
 pdf2image
+pillow_heif

@@ -2,6 +2,10 @@ import json, requests, datetime, os
 from pandas import DataFrame
 from datetime import datetime, timezone
 import funcLG
+from PIL import Image
+from io import BytesIO
+from pillow_heif import register_heif_opener  # ← Import the opener
+
 
 login_return_secret = funcLG.func_login_secret() # to login into MS365 and get the return value info.
 result_secret = login_return_secret['result']
@@ -157,6 +161,55 @@ for item in following_data['value']:
             print("Picture {} is copied successfully.".format(picture_name))
         else:
             print("Failed to copy picture {}. Status code: {}, Response: {}".format(picture_name, data_copy_picture.status_code, data_copy_picture.text))
+        
+
+        # if the picture is heic format, then convert it to jpg format in the new folder in the Pictures folder of SharePoint document library, 
+        if picture_name.lower().endswith('.heic'):
+            # to get the picture content from the /me/drive/items/{item-id}/content endpoint, and then convert it to jpg format locally with Pillow, 
+            # and then upload the converted picture to the new folder in the Pictures folder of SharePoint document library
+            endpoint_get_picture_content = 'https://graph.microsoft.com/v1.0/me/drive/items/{}/content'.format(picture_id)
+            try:
+                picture_content = requests.get(endpoint_get_picture_content, headers=http_headers, stream=True)
+            except:
+                picture_content = requests.get(endpoint_get_picture_content, headers=http_headers, stream=True, proxies=proxies)
+            if picture_content.status_code == 200:
+                print("Successfully get the picture content of {}.".format(picture_name))
+            else:
+                print("Failed to get the picture content of {}. Status code: {}, Response: {}".format(picture_name, picture_content.status_code, picture_content.text))
+
+            # Register HEIF opener BEFORE opening any HEIC images
+            register_heif_opener()
+
+            try:
+                image = Image.open(BytesIO(picture_content.content))
+                jpg_picture_name = picture_name[:-5] + '.jpg'
+                jpg_picture_path = os.path.join(os.getcwd(), jpg_picture_name)
+                image.save(jpg_picture_path, 'JPEG')
+                print("Successfully convert the picture {} to jpg format.".format(picture_name))
+            except Exception as e:
+                print("Failed to convert the picture {} to jpg format. Error: {}".format(picture_name, str(e)))
+
+            # to upload the converted picture to the new folder in the Pictures folder of SharePoint document library:
+            with open(jpg_picture_path, 'rb') as f:
+                upload_picture_content = f.read()
+
+            endpoint_upload_picture = 'https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/children/{}/content'.format(site_id, folder_id, jpg_picture_name)
+            try:
+                data_upload_picture = requests.put(endpoint_upload_picture, headers=http_headers, data=upload_picture_content)
+            except :
+                data_upload_picture = requests.put(endpoint_upload_picture, headers=http_headers, data=upload_picture_content, proxies=proxies)
+            if data_upload_picture.status_code == 201:
+                print("Successfully upload the converted picture {} to the new folder in the Pictures folder of SharePoint document library.".format(jpg_picture_name))
+            else:
+                print("Failed to upload the converted picture {} to the new folder in the Pictures folder of SharePoint document library. Status code: {}, Response: {}".format(jpg_picture_name, data_upload_picture.status_code, data_upload_picture.text))
+
+            # to delete the local converted picture after uploading it to the new folder in the Pictures folder of SharePoint document library:
+            try:
+                os.remove(jpg_picture_path)
+                print("Successfully delete the local converted picture {} after uploading it to the new folder in the Pictures folder of SharePoint document library.".format(jpg_picture_name))
+            except Exception as e:
+                print("Failed to delete the local converted picture {} after uploading it to the new folder in the Pictures folder of SharePoint document library. Error: {}".format(jpg_picture_name, str(e)))
+
 
         # to unfollow a item: 
         # POST https://graph.microsoft.com/v1.0/me/drive/items/{picture-id}/unfollow
