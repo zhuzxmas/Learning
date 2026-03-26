@@ -225,4 +225,5 @@ for item in following_data['value']:
             
         print("This picture is processed successfully...\n")
     else:
-        print("This item {} is not a picture, or it's a picture but contains '微信经营账户' in the name, so it will be skipped.\n".format(item['name']))
+        # print("This item {} is not a picture, or it's a picture but contains '微信经营账户' in the name, so it will be skipped.\n".format(item['name']))
+        pass
