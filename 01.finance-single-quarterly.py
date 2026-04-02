@@ -375,7 +375,7 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
 
                             stock_output_yearly = yearly_report_raw
 
-                            ### to update data, keep the info from East Mondy, and remove the outdated info from OD
+                            ### to update data, keep the info from East Money, and remove the outdated info from OD
                             # temp_output = pd.merge(stock_output_yearly, yearly_report_from_OD, left_index=True, right_index=True, suffixes=('', '_y'))
                             unique_in_report_from_OD = yearly_report_from_OD.index.difference(stock_output_yearly.index).tolist()
                             unique_in_report_from_z_Func = stock_output_yearly.index.difference(yearly_report_from_OD.index).tolist()
@@ -387,12 +387,20 @@ for iii in range(0, len(stock_code)):  # 在所有的沪深300成分股里面进
                             # Overwrite overlapping rows and columns from df2 
                             df_merged.update(stock_output_yearly)
 
-                            # Now concatenate to include new rows from df2 
-                            df_final = pd.concat([
-                                df_merged,
-                                stock_output_yearly.loc[stock_output_yearly.index.difference(df_merged.index)]
-                            ])
-                            df_final = df_final.reindex(new_columns_list)
+
+                            # 1. Find columns in stock_output_yearly that don't exist in df_merged
+                            new_cols = stock_output_yearly.columns.difference(df_merged.columns)
+
+                            # 2. Append only the new columns (auto-aligns by index)
+                            if len(new_cols) > 0:
+                                df_merged_new = pd.concat([
+                                    df_merged, 
+                                    stock_output_yearly[new_cols].rename_axis(columns=None)  # prevents index-name warnings
+                                ], axis=1)
+
+                            # 3. (Optional) Sort columns newest → oldest
+                            df_final = df_merged_new.reindex(columns=sorted(df_merged_new.columns, reverse=True))
+
 
                             # Convert column names to datetime, sort in descending order
                             sorted_cols = pd.to_datetime(df_final.columns).sort_values(ascending=False)
