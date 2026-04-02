@@ -10,7 +10,6 @@ import yfinance as yf
 import datetime
 import funcLG
 from bs4 import BeautifulSoup
-import akshare as ak
 import re
 from typing import List, Optional
 
