@@ -151,12 +151,14 @@ def func_login():
     # Firstly, check the cache to see if this end user has signed in before...
     accounts = app.get_accounts(username=username)
     if accounts:
-        result = app.acquire_token_silent(scope_list, account=accounts[0])
+        # result = app.acquire_token_silent(scope_list, account=accounts[0])
+        result = app.acquire_token_silent(["https://graph.microsoft.com/.default"], account=accounts[0])
 
     if not result:
         print("No suitable token exists in cache. Let's get a new one from Azure AD.")
 
-        flow = app.initiate_device_flow(scopes=scope_list)
+        # flow = app.initiate_device_flow(scopes=scope_list)
+        flow = app.initiate_device_flow(scopes=["https://graph.microsoft.com/.default"])
         if "user_code" not in flow:
             raise ValueError(
                 "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4))
