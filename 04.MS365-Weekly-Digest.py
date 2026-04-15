@@ -61,6 +61,8 @@ http_headers = {'Authorization': 'Bearer ' + access_token_with_refresh_token,
 
 last_7days_date = (datetime.now(timezone.utc) - timedelta(days=7))
 last_7days_date = last_7days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
+last_30days_date = (datetime.now(timezone.utc) - timedelta(days=30))
+last_30days_date = last_30days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 today_date = datetime.now(timezone.utc)
 today_date = today_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 
@@ -147,13 +149,17 @@ for mail_id in mail_id_list:
         mail_content_data = requests.get(endpoint_mail_content, headers=http_headers, stream=False, proxies=proxies)
     if mail_content_data.status_code == 200:
         mail_content_data_json = mail_content_data.json()
-        mail_content_data_html = mail_content_data_json['body']['content']
-        mail_content_data_html = html.unescape(mail_content_data_html)  # Unescape HTML entities
-        mail_content_data_text = BeautifulSoup(mail_content_data_html, 'html.parser').get_text(separator='\n', strip=True)  # Convert HTML to plain text
-        mail_content_data_clean_text = mail_content_data_text.replace("\xa0", " ")  # Replace non-breaking spaces with regular spaces
-        mail_content_subject = mail_content_data_json['subject']
+        # mail_content_data_html = mail_content_data_json['body']['content']
+        # mail_content_data_html = html.unescape(mail_content_data_html)  # Unescape HTML entities
+        # mail_content_data_text = BeautifulSoup(mail_content_data_html, 'html.parser').get_text(separator='\n', strip=True)  # Convert HTML to plain text
+        # mail_content_data_clean_text = mail_content_data_text.replace("\xa0", " ")  # Replace non-breaking spaces with regular spaces
+        mail_content_data_text = BeautifulSoup(mail_content_data_json['body']['content'], 'html.parser')
+        mail_content_data_clean_text = mail_content_data_text.get_text(separator=' ', strip=True)
+
+        # mail_content_subject = mail_content_data_json['subject']
         mail_content_receivedDateTime = mail_content_data_json['receivedDateTime']
-        mail_content_list.append(dict(subject=mail_content_subject, content=mail_content_data_clean_text, receivedDateTime=mail_content_receivedDateTime))
+        # mail_content_list.append(dict(subject=mail_content_subject, content=mail_content_data_clean_text, receivedDateTime=mail_content_receivedDateTime))
+        mail_content_list.append(dict(content=mail_content_data_clean_text, receivedDateTime=mail_content_receivedDateTime))
     else:
         print("Failed to get mail content data. Status code:", mail_content_data.status_code)
 
@@ -161,7 +167,7 @@ print(mail_content_list)
 
 
 # to get the latest 7days of Teams chat messages:
-
+teams_chat_content_list = []
 # first, you need to get the chat id for the Teams chat you want to get messages from, you can use this API to list all the chats:
 endpoint_teams_chats = 'https://graph.microsoft.com/v1.0/me/chats'
 try:    
@@ -191,27 +197,35 @@ if teams_chats_data.status_code == 200:
             messages = teams_chat_data_json['value']
             for message in messages:
                 message_createdDateTime = message['createdDateTime']
-                if message_createdDateTime >= last_7days_date:
+                if message_createdDateTime >= last_30days_date:
                     print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
-                    # use nextlink to get more messages if there are more than 50 messages in the chat:
-                    while '@odata.nextLink' in teams_chat_data_json:
-                        next_link = teams_chat_data_json['@odata.nextLink']
-                        try:
-                            teams_chat_data = requests.get(next_link, headers=http_headers, stream=False)
-                        except:
-                            teams_chat_data = requests.get(next_link, headers=http_headers, stream=False, proxies=proxies)
-                        if teams_chat_data.status_code == 200:
-                            teams_chat_data_json = teams_chat_data.json()
-                            messages = teams_chat_data_json['value']
-                            for message in messages:
-                                message_createdDateTime = message['createdDateTime']
-                                if message_createdDateTime >= last_7days_date:
-                                    print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
-                                else:
-                                    break
+                    soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                    # Extract ALL text from the entire document
+                    message_text = soup_message.get_text(separator=' ', strip=True)
+                    teams_chat_content_list.append(dict(content=message_text, receivedDateTime=message_createdDateTime))
+
+            # use nextlink to get more messages if there are more than 50 messages in the chat:
+            while '@odata.nextLink' in teams_chat_data_json and message_createdDateTime >= last_30days_date:
+                next_link = teams_chat_data_json['@odata.nextLink']
+                try:
+                    teams_chat_data = requests.get(next_link, headers=http_headers, stream=False)
+                except:
+                    teams_chat_data = requests.get(next_link, headers=http_headers, stream=False, proxies=proxies)
+                if teams_chat_data.status_code == 200:
+                    teams_chat_data_json = teams_chat_data.json()
+                    messages = teams_chat_data_json['value']
+                    for message in messages:
+                        message_createdDateTime = message['createdDateTime']
+                        if message_createdDateTime >= last_30days_date:
+                            print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
+                            soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                            message_text = soup_message.get_text(separator=' ', strip=True)
+                            teams_chat_content_list.append(dict(content=message_text, receivedDateTime=message_createdDateTime))
                         else:
-                            print("Failed to get more Teams chat messages data. Status code:", teams_chat_data.status_code)
                             break
+                else:
+                    print("Failed to get more Teams chat messages data. Status code:", teams_chat_data.status_code)
+                    break
         else:
             print("Failed to get Teams chat messages data. Status code:", teams_chat_data.status_code)
 else:    print("Failed to get Teams chats data. Status code:", teams_chats_data.status_code)
@@ -258,3 +272,26 @@ try:
     calendar_data = requests.get(endpoint_calendar, headers=http_headers, stream=False)
 except:
     calendar_data = requests.get(endpoint_calendar, headers=http_headers, stream=False, proxies=proxies)
+
+
+raw_list = mail_content_list + teams_chat_content_list
+
+valid_msgs = [
+    m for m in raw_list 
+    if m.get("content") and str(m["content"]).strip()
+]
+valid_msgs.sort(key=lambda x: x.get("receivedDateTime", ""))
+
+# 3. Format into a clean, chronological log
+formatted_chat = "\n".join(
+    f"[{m['receivedDateTime']}] {m['content']}" for m in valid_msgs
+)
+
+# 5. Construct prompt
+SYSTEM_PROMPT = """你是一个专业的对话摘要助手。请根据以下聊天记录，用中文生成一份结构化摘要。要求：
+1. 核心主题：用1-2句话概括讨论焦点
+2. 关键内容：提取重要观点、AI生成的文本核心意图、以及反复提及的关键词
+3. 情绪/上下文：简要说明对话氛围或背景（如：职场规划、AI辅助写作等）
+4. 保持客观精炼，忽略无意义的语气词（如“哈哈”、“嗯嗯”）。"""
+
+USER_PROMPT = f"聊天记录：\n{formatted_chat}"
