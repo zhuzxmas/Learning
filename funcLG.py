@@ -12,6 +12,7 @@ if os.path.exists('./config.cfg'):
     wx_settings = config['wx_public_service']
     proxy_settings = config['proxy_add']
     github_settings = config['Git_Hub']
+    aliyun_settings = config['Aliyun']
 
     client_id = azure_settings['client_id']
     site__id_personal_z = azure_settings['site__id_personal_z']
@@ -35,11 +36,11 @@ if os.path.exists('./config.cfg'):
     # https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo?action=showinfo&t=sandbox/index
     proxy_add = proxy_settings['proxy_add']
     # days_number = int(input("Please enter the number of days to extract the information from Teams Shifts API: \n"))
-
+    aliyun_secret = aliyun_settings['aliyun_SECRET']
     deeplx_settings = config['DeepLx']
     deeplx_secret_key = deeplx_settings['deeplx_secret_key']
 
-    git_hub_token = github_settings['git_hub_token']
+
 
 
 else:  # to get this info from Github Secrets, for Github Action running application
@@ -62,7 +63,7 @@ else:  # to get this info from Github Secrets, for Github Action running applica
     openid = os.environ['openid']
     proxy_add = os.environ['proxy_add']
     deeplx_secret_key = os.environ['deeplx_secret_key']
-    git_hub_token = os.environ['git_hub_token']
+    aliyun_secret = os.environ['aliyun_SECRET']
 
 config.read(['config1.cfg'])  # to get the scopes
 azure_settings_scope = config['azure1']
