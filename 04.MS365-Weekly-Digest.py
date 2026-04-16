@@ -59,6 +59,10 @@ http_headers = {'Authorization': 'Bearer ' + access_token_with_refresh_token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'}
 
+http_headers_application = {'Authorization': 'Bearer ' + access_token_secret,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'}
+
 last_7days_date = (datetime.now(timezone.utc) - timedelta(days=7))
 last_7days_date = last_7days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 last_30days_date = (datetime.now(timezone.utc) - timedelta(days=30))
@@ -229,42 +233,74 @@ if teams_chats_data.status_code == 200:
         else:
             print("Failed to get Teams chat messages data. Status code:", teams_chat_data.status_code)
 else:    print("Failed to get Teams chats data. Status code:", teams_chats_data.status_code)
+print(teams_chat_content_list)
+
 
 
 # to get the latest 7days of Teams channel messages for certain channels only:
+teams_channel_content_list = []
 # to get the channel id, you can use this API to list all the teams and channels: 
-endpoint_channels = 'https://graph.microsoft.com/v1.0/me/joinedTeams?$expand=channels'
+endpoint_channels = 'https://graph.microsoft.com/v1.0/me/joinedTeams'
 try:
-    teams_channel_data = requests.get(endpoint_channels, headers=http_headers, stream=False)
+    teams_data = requests.get(endpoint_channels, headers=http_headers, stream=False)
 except:
-    teams_channel_data = requests.get(endpoint_channels, headers=http_headers, stream=False, proxies=proxies)
+    teams_data = requests.get(endpoint_channels, headers=http_headers, stream=False, proxies=proxies)
 
-if teams_channel_data.status_code == 200:
-    teams_channel_data_json = teams_channel_data.json()
-    teams_channel_list = teams_channel_data_json['value']
-    channel_messages_list = []
-    for team in teams_channel_list:
+if teams_data.status_code == 200:
+    teams_data_json = teams_data.json()
+    teams_list = teams_data_json['value']
+    for team in teams_list:
         team_id = team['id']
-        channels = team['channels']
-        for channel in channels:
-            if channel['displayName'] in ['General', 'Stock_Info_Batch']:  # specify the channel names you want to get messages from
-                channel_id = channel['id']
-                endpoint_channel_messages = 'https://graph.microsoft.com/v1.0/teams/{}/channels/{}/messages?$filter=lastModifiedDateTime ge {}'.format(team_id, channel_id, last_7days_date)
+
+        # 1. Build the raw filter string (NO quotes around datetime)
+        filter_raw = "lastModifiedDateTime gt {} and lastModifiedDateTime lt {}".format(last_30days_date, today_date)
+        # 2. URL-encode the filter: spaces become '+' or '%20'
+        filter_encoded = quote(filter_raw, safe=':/')  # safe='' encodes everything except unreserved chars
+        # Or use: filter_encoded = filter_raw.replace(' ', '+')  # simpler alternative
+
+        endpoint_channel_messages = 'https://graph.microsoft.com/v1.0/teams/{}/channels/getAllMessages?$filter={} &$top=15'.format(team_id, filter_encoded)
+        try:
+            channel_messages_data = requests.get(endpoint_channel_messages, headers=http_headers_application, stream=False)
+        except:
+            channel_messages_data = requests.get(endpoint_channel_messages, headers=http_headers_application, stream=False, proxies=proxies)
+        if channel_messages_data.status_code == 200:
+            channel_messages_data_json = channel_messages_data.json()
+            messages_data_json = channel_messages_data_json['value']
+            for message in messages_data_json:
+                channel_message_createdDateTime = message['createdDateTime']
+                if channel_message_createdDateTime >= last_30days_date:
+                    print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                    soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                    # Extract ALL text from the entire document
+                    message_text = soup_message.get_text(separator=' ', strip=True)
+                    teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+            
+            # use nextlink to get more messages if there are more than 15 messages in the channel:
+            while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_30days_date:
+                next_link = channel_messages_data_json['@odata.nextLink']
                 try:
-                    channel_messages_data = requests.get(endpoint_channel_messages, headers=http_headers, stream=False)
+                    channel_messages_data = requests.get(next_link, headers=http_headers_application, stream=False)
                 except:
-                    channel_messages_data = requests.get(endpoint_channel_messages, headers=http_headers, stream=False, proxies=proxies)
+                    channel_messages_data = requests.get(next_link, headers=http_headers_application, stream=False, proxies=proxies)
                 if channel_messages_data.status_code == 200:
                     channel_messages_data_json = channel_messages_data.json()
-                    messages = channel_messages_data_json['value']
-                    for message in messages:
-                        message['teamId'] = team_id
-                        message['channelId'] = channel_id
-                        channel_messages_list.append(message)
+                    messages_data_json = channel_messages_data_json['value']
+                    for message in messages_data_json:
+                        channel_message_createdDateTime = message['createdDateTime']
+                        if channel_message_createdDateTime >= last_30days_date:
+                            print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                            soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                            # Extract ALL text from the entire document
+                            message_text = soup_message.get_text(separator=' ', strip=True)
+                            teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+                        else:
+                            break
+                else:
+                    print("Failed to get more Teams channel messages data. Status code:", channel_messages_data.status_code)
+                    break
 else:
-    print("Failed to get Teams channel data. Status code:", teams_channel_data.status_code)
-    channel_messages_list = []
-
+    print("Failed to get Teams data. Status code:", teams_data.status_code)
+print(teams_channel_content_list)
 
 # to get the latest 7days of events from Outlook calendar, make sure to not select the events after today date:
 endpoint_calendar = 'https://graph.microsoft.com/v1.0/me/calendar/events?$filter=start/dateTime ge {} and end/dateTime le {}&$select=subject,start,webLink'.format(last_7days_date, today_date)
@@ -274,7 +310,8 @@ except:
     calendar_data = requests.get(endpoint_calendar, headers=http_headers, stream=False, proxies=proxies)
 
 
-raw_list = mail_content_list + teams_chat_content_list
+# use the obtained mail content, teams chat content and teams channel content to generate a weekly digest summary with DashScope Qwen model:
+raw_list = mail_content_list + teams_chat_content_list + teams_channel_content_list
 
 valid_msgs = [
     m for m in raw_list 
@@ -288,10 +325,56 @@ formatted_chat = "\n".join(
 )
 
 # 5. Construct prompt
-SYSTEM_PROMPT = """你是一个专业的对话摘要助手。请根据以下聊天记录，用中文生成一份结构化摘要。要求：
-1. 核心主题：用1-2句话概括讨论焦点
-2. 关键内容：提取重要观点、AI生成的文本核心意图、以及反复提及的关键词
-3. 情绪/上下文：简要说明对话氛围或背景（如：职场规划、AI辅助写作等）
-4. 保持客观精炼，忽略无意义的语气词（如“哈哈”、“嗯嗯”）。"""
+SYSTEM_PROMPT = """
+你是一位资深的内容分析师与信息架构师。请严格基于以下提供的文本，完成以下任务：
+1. 识别文本中涵盖的核心主题（建议 3~10 个，避免过细或过泛）。
+2. 将内容按主题归类，确保主题之间尽量互斥且覆盖全面（MECE原则）。
+3. 为每个主题生成一段总结（200~600字），需包含：核心观点、关键事实/数据、结论或倾向。
+4. 严格按以下格式输出，不要添加任何额外解释：
+
+【主题一】：[主题名称]
+- 包含要点：[用3个以内短句概括该主题下的主要内容]
+- 总结：[总结内容]
+
+【主题二】：...
+（以此类推）
+
+⚠️ 要求：
+- 仅基于提供文本，不补充外部知识，不虚构内容。情绪/上下文：简要说明对话氛围或背景（如：职场规划、AI辅助写作等）
+- 若某段内容明显涉及多个主题，请归入最相关的一个，并在“包含要点”中标注“（交叉内容）”。
+- 保持客观精炼，忽略无意义的语气词（如“哈哈”、“嗯嗯”）。
+- 如文本中存在无法归类的零散信息，请单独列出【其他/待归类】。"""
 
 USER_PROMPT = f"聊天记录：\n{formatted_chat}"
+
+# url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+
+headers = {
+    "Authorization": f"Bearer {funcLG.aliyun_secret}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "model": "qwen3.6-plus-2026-04-02",
+    "messages": [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": USER_PROMPT},
+    ],
+    "enable_thinking": False
+}
+
+try:
+     response = requests.post(url, headers=headers, json=payload)
+except:
+     response = requests.post(url, headers=headers, json=payload, proxies=proxies)
+
+# Handle response
+if response.status_code == 200:
+    result = response.json()
+    print(result['choices'][0]['message']['content'])  # Print the assistant's reply
+    print("✅ Success: Received response from Qwen model.")
+    
+else:
+    print(f"❌ Error {response.status_code}: {response.text}")
+
