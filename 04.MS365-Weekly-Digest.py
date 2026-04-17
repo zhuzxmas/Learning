@@ -71,9 +71,12 @@ today_date = datetime.now(timezone.utc)
 today_date = today_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 
 
+# to get the latest 7days of events from Outlook calendar, make sure to not select the events after today date:
+calendar_content_list = []
+
 # to get the latest 7days of SharePoint List items, make sure to specify the site id and list id:
 site_id = site_id_cmmas
-list_name = 'Family Spending'
+list_name = 'Celine-Nathan-Calendar'
 # to get the list id, you can use this API to list all the lists in the site:
 endpoint_sharepoint_lists = 'https://graph.microsoft.com/v1.0/sites/{}/lists'.format(site_id)
 try:    sharepoint_lists_data = requests.get(endpoint_sharepoint_lists, headers=http_headers, stream=False)
@@ -104,15 +107,20 @@ except:
 if sharepoint_list_data.status_code == 200:
     sharepoint_list_data_json = sharepoint_list_data.json()
     list_items = sharepoint_list_data_json['value']
+    for item in list_items:
+        item_start_date = item['fields']['StartT']
+        if item_start_date >= last_7days_date:
+            # print("List item id:", item['id'], "List item content:", item['fields']['Title'], "Modified date time:", modified_date)
+            print(item['fields']['Subject'][0:25], "Start date time:", item_start_date)
+            calendar_content_list.append(dict(content=item['fields']['Subject'], receivedDateTime=item_start_date))
 else:    
     print("Failed to get SharePoint list items data. Status code:", sharepoint_list_data.status_code)
-    list_items = []
-
+print(calendar_content_list)
 
 
 
 # to get the latest 7days of files from OneDrive for Business:
-#TODO
+# TODO
 
 
 # to get the latest 7days of mail from Outlook inbox and sent items:
@@ -202,7 +210,8 @@ if teams_chats_data.status_code == 200:
             for message in messages:
                 message_createdDateTime = message['createdDateTime']
                 if message_createdDateTime >= last_30days_date:
-                    print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
+                    # print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
+                    print(message['body']['content'][0:25], "Created date time:", message_createdDateTime)
                     soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                     # Extract ALL text from the entire document
                     message_text = soup_message.get_text(separator=' ', strip=True)
@@ -221,7 +230,8 @@ if teams_chats_data.status_code == 200:
                     for message in messages:
                         message_createdDateTime = message['createdDateTime']
                         if message_createdDateTime >= last_30days_date:
-                            print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
+                            # print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
+                            print(message['body']['content'][0:25], "Created date time:", message_createdDateTime)
                             soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                             message_text = soup_message.get_text(separator=' ', strip=True)
                             teams_chat_content_list.append(dict(content=message_text, receivedDateTime=message_createdDateTime))
@@ -240,8 +250,9 @@ print(teams_chat_content_list)
 # to get the latest 7days of Teams channel messages for certain channels only:
 teams_channel_content_list = []
 Channel_Life_Digest_Team_id = ''
+Channel_Life_Digest_channel_id = '19:19c38cf3573143429783cd275da79066@thread.tacv2' 
+Channel_Msg_Life_Digest_id = '1776415740398' # the message id of the weekly digest summary message in the Life_Digest channel.
 
-Channel_Life_Digest_id = '19:19c38cf3573143429783cd275da79066@thread.tacv2' 
 # Exclude Life_Digest channel data since it's used for posting the weekly digest summary, 
 # and we don't want to include the historical digest messages in the new digest generation.
 
@@ -255,6 +266,12 @@ except:
 if teams_data.status_code == 200:
     teams_data_json = teams_data.json()
     teams_list = teams_data_json['value']
+
+    for team in teams_list:
+        pass
+        if team['displayName'] == 'CNMAS': # get CNMAS team id
+            Channel_Life_Digest_Team_id = team['id']
+
     for team in teams_list:
         team_id = team['id']
 
@@ -273,10 +290,11 @@ if teams_data.status_code == 200:
             channel_messages_data_json = channel_messages_data.json()
             messages_data_json = channel_messages_data_json['value']
             for message in messages_data_json:
-                if message['channelIdentity']['channelId'] != Channel_Life_Digest_id: # Exclude Life_Digest channel id
+                if message['channelIdentity']['channelId'] != Channel_Life_Digest_channel_id: # Exclude Life_Digest channel id
                     channel_message_createdDateTime = message['createdDateTime']
                     if channel_message_createdDateTime >= last_30days_date:
-                        print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                        # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                        print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
                         soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                         # Extract ALL text from the entire document
                         message_text = soup_message.get_text(separator=' ', strip=True)
@@ -295,7 +313,8 @@ if teams_data.status_code == 200:
                     for message in messages_data_json:
                         channel_message_createdDateTime = message['createdDateTime']
                         if channel_message_createdDateTime >= last_30days_date:
-                            print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                            # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                            print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
                             soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                             # Extract ALL text from the entire document
                             message_text = soup_message.get_text(separator=' ', strip=True)
@@ -309,16 +328,8 @@ else:
     print("Failed to get Teams data. Status code:", teams_data.status_code)
 print(teams_channel_content_list)
 
-# to get the latest 7days of events from Outlook calendar, make sure to not select the events after today date:
-endpoint_calendar = 'https://graph.microsoft.com/v1.0/me/calendar/events?$filter=start/dateTime ge {} and end/dateTime le {}&$select=subject,start,webLink'.format(last_7days_date, today_date)
-try:
-    calendar_data = requests.get(endpoint_calendar, headers=http_headers, stream=False)
-except:
-    calendar_data = requests.get(endpoint_calendar, headers=http_headers, stream=False, proxies=proxies)
-
-
 # use the obtained mail content, teams chat content and teams channel content to generate a weekly digest summary with DashScope Qwen model:
-raw_list = mail_content_list + teams_chat_content_list + teams_channel_content_list
+raw_list = calendar_content_list + mail_content_list + teams_chat_content_list + teams_channel_content_list
 
 valid_msgs = [
     m for m in raw_list 
@@ -388,7 +399,7 @@ except:
 if response.status_code == 200:
     result = response.json()
     output_text = result['choices'][0]['message']['content']
-    funcLG.send_Teams_Channel_Message(output_text, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
+    funcLG.send_Teams_Channel_Message(output_text, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_channel_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
     print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
     
