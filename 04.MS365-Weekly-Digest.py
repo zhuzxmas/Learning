@@ -239,6 +239,11 @@ print(teams_chat_content_list)
 
 # to get the latest 7days of Teams channel messages for certain channels only:
 teams_channel_content_list = []
+
+Channel_Life_Digest_id = '19:19c38cf3573143429783cd275da79066@thread.tacv2' 
+# Exclude Life_Digest channel data since it's used for posting the weekly digest summary, 
+# and we don't want to include the historical digest messages in the new digest generation.
+
 # to get the channel id, you can use this API to list all the teams and channels: 
 endpoint_channels = 'https://graph.microsoft.com/v1.0/me/joinedTeams'
 try:
@@ -267,13 +272,14 @@ if teams_data.status_code == 200:
             channel_messages_data_json = channel_messages_data.json()
             messages_data_json = channel_messages_data_json['value']
             for message in messages_data_json:
-                channel_message_createdDateTime = message['createdDateTime']
-                if channel_message_createdDateTime >= last_30days_date:
-                    print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
-                    soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
-                    # Extract ALL text from the entire document
-                    message_text = soup_message.get_text(separator=' ', strip=True)
-                    teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+                if message['channelIdentity']['channelId'] != Channel_Life_Digest_id: # Exclude Life_Digest channel id
+                    channel_message_createdDateTime = message['createdDateTime']
+                    if channel_message_createdDateTime >= last_30days_date:
+                        print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                        soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                        # Extract ALL text from the entire document
+                        message_text = soup_message.get_text(separator=' ', strip=True)
+                        teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
             
             # use nextlink to get more messages if there are more than 15 messages in the channel:
             while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_30days_date:
@@ -328,7 +334,7 @@ formatted_chat = "\n".join(
 SYSTEM_PROMPT = """
 你是一位资深内容分析师与信息架构师。请严格基于以下提供的文本，完成以下任务：
 
-1. 识别核心主题：提取文本中涵盖的主要主题（建议 3～10 个，避免过细或过泛）。
+1. 识别核心主题：提取文本中涵盖的主要主题（建议 2～20 个，避免过细或过泛）。
 2. 按主题归类：确保主题之间互斥且整体覆盖全面（MECE 原则）。
 3. 撰写主题总结：每个主题生成一段 200～600 字的总结，包含：
    · 核心观点
@@ -380,7 +386,8 @@ except:
 # Handle response
 if response.status_code == 200:
     result = response.json()
-    print(result['choices'][0]['message']['content'])  # Print the assistant's reply
+    output_text = result['choices'][0]['message']['content']
+    print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
     
 else:
