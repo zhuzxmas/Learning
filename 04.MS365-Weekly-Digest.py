@@ -239,6 +239,7 @@ print(teams_chat_content_list)
 
 # to get the latest 7days of Teams channel messages for certain channels only:
 teams_channel_content_list = []
+Channel_Life_Digest_Team_id = ''
 
 Channel_Life_Digest_id = '19:19c38cf3573143429783cd275da79066@thread.tacv2' 
 # Exclude Life_Digest channel data since it's used for posting the weekly digest summary, 
@@ -387,6 +388,7 @@ except:
 if response.status_code == 200:
     result = response.json()
     output_text = result['choices'][0]['message']['content']
+    funcLG.send_Teams_Channel_Message(output_text, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
     print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
     
