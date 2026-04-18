@@ -21,13 +21,15 @@ jobs:
 
     steps:
     - name: Check if it's a bi-weekly run
+      id: schedule_check
       run: |
           WEEK_NUM=$(date -u +%V)  # ISO week number (01-53)
-          if [ $((WEEK_NUM % 2)) -eq 1 ]; then
+          if [ $((WEEK_NUM % 2)) -eq 0 ]; then
             echo "✅ Odd week → proceeding with run"
+            echo "run=true" >> $GITHUB_OUTPUT
           else
             echo "⏭️ Even week → skipping"
-            exit 0  # Graceful skip
+            echo "run=false" >> $GITHUB_OUTPUT
           fi
           
     - name: checkout repo content
@@ -44,6 +46,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: run main file
+      if: steps.schedule_check.outputs.run == 'true'
       env:
         client_id : ${{secrets.CLIENT_ID}}
         site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
