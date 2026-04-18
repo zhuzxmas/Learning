@@ -5,7 +5,7 @@ name: Family Weekly Digest
 
 on:
   schedule:
-    - cron:  '22 15 * * 6'
+    - cron:  '22 22 * * 5'
   #push:
   #  branches: [ "main" ]
   #pull_request:
@@ -24,7 +24,7 @@ jobs:
       id: schedule_check
       run: |
           WEEK_NUM=$(date -u +%V)  # ISO week number (01-53)
-          if [ $((WEEK_NUM % 2)) -eq 1 ]; then
+          if [ $((WEEK_NUM % 2)) -eq 0 ]; then
             echo "✅ Odd week → proceeding with run"
             echo "run=true" >> $GITHUB_OUTPUT
           else
