@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Move Favorites Pictures to SP CNMAS Family Sharing
+name: Family Weekly Digest
 
 on:
   schedule:
@@ -67,4 +67,4 @@ jobs:
         deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
         git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
         aliyun_SECRET : ${{secrets.ALIYUN_SECRET}}
-      run: python -u 03.OneDrive-for-Business-favorites.py
+      run: python -u 04.MS365-Weekly-Digest.py
