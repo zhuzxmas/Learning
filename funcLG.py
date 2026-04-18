@@ -3,6 +3,7 @@ import requests
 import configparser
 import os
 from msal import PublicClientApplication, ConfidentialClientApplication
+import re
 
 config = configparser.ConfigParser()
 # to check if local file config.cfg is available, for local application
@@ -248,29 +249,33 @@ def func_login_secret():
     return {'result': result, 'proxies': proxies, 'finance_section_id': finance_section_id, 'openid': openid, 'template_id': template_id, 'site__id_personal_z': site__id_personal_z, 'site__id_cmmas': site__id_cmmas}
 
 
-def send_Teams_Channel_Message(message_str, team_id=team_id_zhuzxself, channel_id=channel_id_Notification, message_id=message_id_Login_Notification):
+def send_Teams_Channel_Message(message_str, headers, team_id=team_id_zhuzxself, channel_id=channel_id_Notification, message_id=message_id_Login_Notification):
 
-    login_return_app = func_login_secret()
-    result_app = login_return_app['result']
-    access_token_app = result_app['access_token']
-    proxies = login_return_app['proxies']
+    # login_return_app = func_login_secret()
+    # result_app = login_return_app['result']
+    # access_token_app = result_app['access_token']
+    # proxies = login_return_app['proxies']
 
-    refresh_token = get_refresh_token_from_SP(access_token=access_token_app)
-    access_token = get_access_token_with_refresh(refresh_token=refresh_token)
+    # login_return_refresh = get_refresh_token_from_SP(access_token_secret=access_token_app)
+    # refresh_token = login_return_refresh[0]
+    # access_token = get_access_token_with_refresh(refresh_token=refresh_token)
 
     # Construct the URL
     # POST /teams/{team-id}/channels/{channel-id}/messages
     url = f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{channel_id}/messages/{message_id}/replies"
 
-    # Prepare headers
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
+    # # Prepare headers
+    # headers = {
+    #     'Authorization': f'Bearer {access_token}',
+    #     'Content-Type': 'application/json'
+    # }
+
+    message_str_html = advanced_text_to_html(message_str)
 
     fields_data = {
         "body": {
-            "content": message_str
+            "content": message_str_html,
+            "contentType": "html"
         }
     }
 
@@ -371,3 +376,45 @@ def send_template_message(openid, template_id, data):
         response = requests.post(url, headers=headers,
                                  data=json.dumps(login_info), proxies=proxies)
     return response.json()
+
+def advanced_text_to_html(text: str) -> str:
+    """
+    增强版：支持 
+    - 【标题】→ <b>标题</b>
+    - •/-/* → 列表项
+    - **加粗** → <b>加粗</b>
+    - *斜体* → <i>斜体</i>
+    - 空行 → <br/><br/>
+    """
+    # 转义基础字符
+    text = (text
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;'))
+    
+    # 处理加粗 **text**
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    
+    # 处理斜体 *text*
+    text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+    
+    # 处理【标题】
+    text = re.sub(r'【(.*?)】', r'<b>\1</b>', text)
+    
+    # 按行处理
+    lines = text.split('\n')
+    result = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            result.append('<br/>')  # 空行
+            continue
+        # 列表项
+        if re.match(r'^[\s]*[•\-\*]\s*', stripped):
+            content = re.sub(r'^[\s]*[•\-\*]\s*', '', stripped)
+            result.append(f'&bull; {content}<br/>')
+        else:
+            result.append(f'{stripped}<br/>')
+    
+    return ''.join(result)
