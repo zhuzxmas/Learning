@@ -65,8 +65,8 @@ http_headers_application = {'Authorization': 'Bearer ' + access_token_secret,
 
 last_7days_date = (datetime.now(timezone.utc) - timedelta(days=7))
 last_7days_date = last_7days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
-last_15days_date = (datetime.now(timezone.utc) - timedelta(days=15))
-last_15days_date = last_15days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
+last_14days_date = (datetime.now(timezone.utc) - timedelta(days=14))
+last_14days_date = last_14days_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 today_date = datetime.now(timezone.utc)
 today_date = today_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 
@@ -109,7 +109,7 @@ if sharepoint_list_data.status_code == 200:
     list_items = sharepoint_list_data_json['value']
     for item in list_items:
         item_start_date = item['fields']['StartT']
-        if item_start_date >= last_15days_date:
+        if item_start_date >= last_14days_date:
             # print("List item id:", item['id'], "List item content:", item['fields']['Title'], "Modified date time:", modified_date)
             print(item['fields']['Subject'][0:25], "Start date time:", item_start_date)
             calendar_content_list.append(dict(content=item['fields']['Subject'], receivedDateTime=item_start_date))
@@ -126,7 +126,7 @@ print(calendar_content_list)
 # to get the latest 7days of mail from Outlook inbox and sent items:
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?' \
     '$filter=receivedDateTime ge {}&' \
-    '$select=subject,receivedDateTime,webLink'.format(last_15days_date)
+    '$select=subject,receivedDateTime,webLink'.format(last_14days_date)
 try:
     mail_data_inbox = requests.get(endpoint_mail, headers=http_headers, stream=False)
 except:
@@ -134,7 +134,7 @@ except:
 
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?' \
     '$filter=receivedDateTime ge {}&' \
-    '$select=subject,receivedDateTime,webLink'.format(last_15days_date)
+    '$select=subject,receivedDateTime,webLink'.format(last_14days_date)
 try:
     mail_data_sent = requests.get(endpoint_mail, headers=http_headers, stream=False)
 except:
@@ -210,7 +210,7 @@ if teams_chats_data.status_code == 200:
             messages = teams_chat_data_json['value']
             for message in messages:
                 message_createdDateTime = message['createdDateTime']
-                if message_createdDateTime >= last_15days_date:
+                if message_createdDateTime >= last_14days_date:
                     # print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
                     print(message['body']['content'][0:25], "Created date time:", message_createdDateTime)
                     soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
@@ -219,7 +219,7 @@ if teams_chats_data.status_code == 200:
                     teams_chat_content_list.append(dict(content=message_text, receivedDateTime=message_createdDateTime))
 
             # use nextlink to get more messages if there are more than 50 messages in the chat:
-            while '@odata.nextLink' in teams_chat_data_json and message_createdDateTime >= last_15days_date:
+            while '@odata.nextLink' in teams_chat_data_json and message_createdDateTime >= last_14days_date:
                 next_link = teams_chat_data_json['@odata.nextLink']
                 try:
                     teams_chat_data = requests.get(next_link, headers=http_headers, stream=False)
@@ -230,7 +230,7 @@ if teams_chats_data.status_code == 200:
                     messages = teams_chat_data_json['value']
                     for message in messages:
                         message_createdDateTime = message['createdDateTime']
-                        if message_createdDateTime >= last_15days_date:
+                        if message_createdDateTime >= last_14days_date:
                             # print("Message id:", message['id'], "Message content:", message['body']['content'], "Created date time:", message_createdDateTime)
                             print(message['body']['content'][0:25], "Created date time:", message_createdDateTime)
                             soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
@@ -277,7 +277,7 @@ if teams_data.status_code == 200:
         team_id = team['id']
 
         # 1. Build the raw filter string (NO quotes around datetime)
-        filter_raw = "lastModifiedDateTime gt {} and lastModifiedDateTime lt {}".format(last_15days_date, today_date)
+        filter_raw = "lastModifiedDateTime gt {} and lastModifiedDateTime lt {}".format(last_14days_date, today_date)
         # 2. URL-encode the filter: spaces become '+' or '%20'
         filter_encoded = quote(filter_raw, safe=':/')  # safe='' encodes everything except unreserved chars
         # Or use: filter_encoded = filter_raw.replace(' ', '+')  # simpler alternative
@@ -293,7 +293,7 @@ if teams_data.status_code == 200:
             for message in messages_data_json:
                 if message['channelIdentity']['channelId'] != Channel_Life_Digest_channel_id: # Exclude Life_Digest channel id
                     channel_message_createdDateTime = message['createdDateTime']
-                    if channel_message_createdDateTime >= last_15days_date:
+                    if channel_message_createdDateTime >= last_14days_date:
                         # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
                         print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
                         soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
@@ -302,7 +302,7 @@ if teams_data.status_code == 200:
                         teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
             
             # use nextlink to get more messages if there are more than 15 messages in the channel:
-            while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_15days_date:
+            while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_14days_date:
                 next_link = channel_messages_data_json['@odata.nextLink']
                 try:
                     channel_messages_data = requests.get(next_link, headers=http_headers_application, stream=False)
@@ -313,7 +313,7 @@ if teams_data.status_code == 200:
                     messages_data_json = channel_messages_data_json['value']
                     for message in messages_data_json:
                         channel_message_createdDateTime = message['createdDateTime']
-                        if channel_message_createdDateTime >= last_15days_date:
+                        if channel_message_createdDateTime >= last_14days_date:
                             # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
                             print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
                             soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
