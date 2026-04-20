@@ -67,6 +67,7 @@ jobs:
         parent_id : ${{ github.event.client_payload.Parent_ID }}
         file_name_with_extension : ${{ github.event.client_payload.File_Name_With_Extension }}
         git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
+        aliyun_SECRET : ${{secrets.ALIYUN_SECRET}}
       id: run_script
       run: |
         # Create a temp file to store full output
