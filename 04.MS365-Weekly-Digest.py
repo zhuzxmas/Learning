@@ -298,8 +298,19 @@ if teams_data.status_code == 200:
                         print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
                         soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                         # Extract ALL text from the entire document
-                        message_text = soup_message.get_text(separator=' ', strip=True)
-                        teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+                        message_text = soup_message.get_text(separator=' ', strip=True).replace("\xa0", " ").replace("\n", " ").replace("Qwen", " ").replace("SPnew", " ")
+                        if '--a-a-a-a-a-a-a--' in message_text: # Exclude the message content with this string since it's used for LLM chat
+                            message_text = message_text.split('--a-a-a-a-a-a-a--')[1].replace("最终结果：", "")
+                        if 'means successfully published!' in message_text: # Exclude the message content with this string since it's used for LLM chat
+                            pass
+                        elif 'Access token got successfully!' in message_text: # Exclude the message content with this string
+                            pass
+                        elif 'thanks to Create OneNote Page with OneDrive File' in message_text: # Exclude the message content with this string
+                            pass
+                        elif 'Uploaded: Scan from' in message_text: # Exclude the message content with this string since it's used for file upload notification
+                            pass
+                        else:
+                            teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
             
             # use nextlink to get more messages if there are more than 15 messages in the channel:
             while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_14days_date:
