@@ -418,12 +418,12 @@ headers = {
 }
 
 payload = {
-    "model": "qwen3.6-plus-2026-04-02",
+    "model": "deepseek-v4-pro",
     "messages": [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": USER_PROMPT},
     ],
-    "enable_thinking": False
+    "enable_thinking": True
 }
 
 try:
@@ -434,7 +434,9 @@ except:
 # Handle response
 if response.status_code == 200:
     result = response.json()
-    output_text = result['choices'][0]['message']['content']
+    output_text_content = result['choices'][0]['message']['content']
+    output_text_reasoning_content = result['choices'][0]['message']['reasoning_content']
+    output_text = "推理过程：" + output_text_reasoning_content + "\n--a-a-a-a-a-a-a--\n" + "最终结果：" + output_text_reasoning_content
     funcLG.send_Teams_Channel_Message(output_text, headers=http_headers, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_channel_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
     print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
