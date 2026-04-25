@@ -71,6 +71,29 @@ today_date = datetime.now(timezone.utc)
 today_date = today_date.strftime('%Y-%m-%dT%H:%M:%SZ')  # Convert to ISO format string for API query
 
 
+# define string function for teams chat and channel message
+def refined_message(message_text, channel_message_createdDateTime, teams_channel_content_list):
+    if '--a-a-a-a-a-a-a--' in message_text: # Exclude the message content with this string since it's used for LLM chat
+        message_text = message_text.split('--a-a-a-a-a-a-a--')[1].replace("最终结果：", "")
+    if 'means successfully published!' in message_text: # Exclude the message content with this string since it's used for LLM chat
+        pass
+    elif 'Access token got successfully!' in message_text: # Exclude the message content with this string
+        pass
+    elif 'thanks to Create OneNote Page with OneDrive File' in message_text: # Exclude the message content with this string
+        pass
+    elif 'Uploaded: Scan from' in message_text: # Exclude the message content with this string since it's used for file upload notification
+        pass
+    elif 'Github Action Run Log' in message_text: # Exclude the message content with this string since it's used for Github Action run log notification
+        pass
+    elif 'Bingwall' == message_text: # Exclude the message content with this string since it's used for Bingwall notification
+        pass
+    elif 'adaptivecards.io' in message_text: # Exclude adaptive cards content
+        pass
+    elif len(message_text.strip()) == 0: # Exclude the message content if it's empty after cleaning
+        pass
+    else:
+        teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+
 # to get the latest 7days of events from Outlook calendar, make sure to not select the events after today date:
 calendar_content_list = []
 
@@ -122,7 +145,8 @@ print(calendar_content_list)
 # to get the latest 7days of files from OneDrive for Business:
 # TODO
 
-
+print('==========================================\n')
+print('Getting the latest 7days of mail from Outlook inbox and sent items...\n')
 # to get the latest 7days of mail from Outlook inbox and sent items:
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?' \
     '$filter=receivedDateTime ge {}&' \
@@ -181,6 +205,8 @@ for mail_id in mail_id_list:
 print(mail_content_list)
 
 
+print('\n==========================================\n')
+print('Try to Get the Teams chat messages and channel messages ...\n')
 # to get the latest 7days of Teams chat messages:
 teams_chat_content_list = []
 # first, you need to get the chat id for the Teams chat you want to get messages from, you can use this API to list all the chats:
@@ -301,18 +327,7 @@ if teams_data.status_code == 200:
                         soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
                         # Extract ALL text from the entire document
                         message_text = soup_message.get_text(separator=' ', strip=True).replace("\xa0", " ").replace("\n", " ").replace("Qwen", " ").replace("SPnew", " ")
-                        if '--a-a-a-a-a-a-a--' in message_text: # Exclude the message content with this string since it's used for LLM chat
-                            message_text = message_text.split('--a-a-a-a-a-a-a--')[1].replace("最终结果：", "")
-                        if 'means successfully published!' in message_text: # Exclude the message content with this string since it's used for LLM chat
-                            pass
-                        elif 'Access token got successfully!' in message_text: # Exclude the message content with this string
-                            pass
-                        elif 'thanks to Create OneNote Page with OneDrive File' in message_text: # Exclude the message content with this string
-                            pass
-                        elif 'Uploaded: Scan from' in message_text: # Exclude the message content with this string since it's used for file upload notification
-                            pass
-                        else:
-                            teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
+                        refined_message(message_text, channel_message_createdDateTime, teams_channel_content_list)
             
             # use nextlink to get more messages if there are more than 15 messages in the channel:
             while '@odata.nextLink' in channel_messages_data_json and channel_message_createdDateTime >= last_14days_date:
@@ -325,31 +340,17 @@ if teams_data.status_code == 200:
                     channel_messages_data_json = channel_messages_data.json()
                     messages_data_json = channel_messages_data_json['value']
                     for message in messages_data_json:
-                        channel_message_createdDateTime = message['createdDateTime']
-                        if channel_message_createdDateTime >= last_14days_date:
-                            # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
-                            print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
-                            soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
-                            # Extract ALL text from the entire document
-                            message_text = soup_message.get_text(separator=' ', strip=True).replace("\xa0", " ").replace("\n", " ").replace("Qwen", " ").replace("SPnew", " ")
-                            if '--a-a-a-a-a-a-a--' in message_text: # Exclude the message content with this string since it's used for LLM chat
-                                message_text = message_text.split('--a-a-a-a-a-a-a--')[1].replace("最终结果：", "")
-                            if 'means successfully published!' in message_text: # Exclude the message content with this string since it's used for LLM chat
-                                pass
-                            elif 'Access token got successfully!' in message_text: # Exclude the message content with this string
-                                pass
-                            elif 'thanks to Create OneNote Page with OneDrive File' in message_text: # Exclude the message content with this string
-                                pass
-                            elif 'Uploaded: Scan from' in message_text: # Exclude the message content with this string since it's used for file upload notification
-                                pass
-                            elif 'Github Action Run Log' in message_text: # Exclude the message content with this string since it's used for Github Action run log notification
-                                pass
-                            elif 'Bingwall' == message_text: # Exclude the message content with this string since it's used for Bingwall notification
-                                pass
+                        if message['channelIdentity']['channelId'] != Channel_Life_Digest_channel_id: # Exclude Life_Digest channel id
+                            channel_message_createdDateTime = message['createdDateTime']
+                            if channel_message_createdDateTime >= last_14days_date:
+                                # print("Channel message id:", message['id'], "Channel message content:", message['body']['content'], "Created date time:", channel_message_createdDateTime)
+                                print(message['body']['content'][0:25], "Created date time:", channel_message_createdDateTime)
+                                soup_message = BeautifulSoup(message['body']['content'], 'html.parser')
+                                # Extract ALL text from the entire document
+                                message_text = soup_message.get_text(separator=' ', strip=True).replace("\xa0", " ").replace("\n", " ").replace("Qwen", " ").replace("SPnew", " ")
+                                refined_message(message_text, channel_message_createdDateTime, teams_channel_content_list)
                             else:
-                                teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
-                        else:
-                            break
+                                break
                 else:
                     print("Failed to get more Teams channel messages data. Status code:", channel_messages_data.status_code)
                     break
@@ -367,7 +368,7 @@ valid_msgs = [
 valid_msgs.sort(key=lambda x: x.get("receivedDateTime", ""))
 
 # 3. Format into a clean, chronological log
-formatted_chat = "\n".join(
+formatted_chat = ". ".join(
     # f"[{m['receivedDateTime']}] {m['content']}" for m in valid_msgs
     f"{m['content']}" for m in valid_msgs
 )
