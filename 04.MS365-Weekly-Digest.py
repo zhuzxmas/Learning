@@ -126,7 +126,7 @@ print(calendar_content_list)
 # to get the latest 7days of mail from Outlook inbox and sent items:
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?' \
     '$filter=receivedDateTime ge {}&' \
-    '$select=subject,receivedDateTime,webLink'.format(last_14days_date)
+    '$select=subject,receivedDateTime,webLink, from'.format(last_14days_date)
 try:
     mail_data_inbox = requests.get(endpoint_mail, headers=http_headers, stream=False)
 except:
@@ -134,19 +134,21 @@ except:
 
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?' \
     '$filter=receivedDateTime ge {}&' \
-    '$select=subject,receivedDateTime,webLink'.format(last_14days_date)
+    '$select=subject,receivedDateTime,webLink, from'.format(last_14days_date)
 try:
     mail_data_sent = requests.get(endpoint_mail, headers=http_headers, stream=False)
 except:
     mail_data_sent = requests.get(endpoint_mail, headers=http_headers, stream=False, proxies=proxies)
 
 mail_id_list = []
+excluded_senders = ['PowerAutomateNoReply@microsoft.com', '12306@rails.com.cn', 'ccsvc@message.cmbchina.com']
 for mail_data in [mail_data_inbox, mail_data_sent]:
     if mail_data.status_code == 200:
         mail_data_json = mail_data.json()
         mails = mail_data_json['value']
         for mail in mails:
-            mail_id_list.append(mail['id'])
+            if mail['from']['emailAddress']['address'] not in  excluded_senders:  # Exclude GitHub notification emails
+                mail_id_list.append(mail['id'])
     else:
         print("Failed to get mail data. Status code:", mail_data.status_code)
 
@@ -340,6 +342,10 @@ if teams_data.status_code == 200:
                                 pass
                             elif 'Uploaded: Scan from' in message_text: # Exclude the message content with this string since it's used for file upload notification
                                 pass
+                            elif 'Github Action Run Log' in message_text: # Exclude the message content with this string since it's used for Github Action run log notification
+                                pass
+                            elif 'Bingwall' == message_text: # Exclude the message content with this string since it's used for Bingwall notification
+                                pass
                             else:
                                 teams_channel_content_list.append(dict(content=message_text, receivedDateTime=channel_message_createdDateTime))
                         else:
@@ -370,13 +376,6 @@ formatted_chat = "\n".join(
 SYSTEM_PROMPT = """
 你是一位资深内容分析师与信息架构师。请严格基于以下提供的文本，完成以下任务：
 
-## 📅 输出前置要求（首要执行）
-在输出结果的最开头，先添加日期范围标识：
-- 格式：`📅 时间范围：[起始日期] 至 [结束日期]`
-- 日期计算规则：
-  • 使用调用方传入的 {{current_date}} 计算最近15天（含当日）
-  • 格式统一：日期采用 `YYYY-MM-DD` 格式，如 `2024-01-15`
-
 ## 🔍 核心分析任务
 1. 识别核心主题：提取文本中涵盖的主要主题（建议 2～20 个，避免过细或过泛）。
 2. 按主题归类：确保主题之间互斥且整体覆盖全面（MECE 原则）。
@@ -387,8 +386,6 @@ SYSTEM_PROMPT = """
 4. 严格按以下格式输出，不要添加任何额外解释或内容：
 
 ## 📋 严格输出格式（禁止偏离）
-📅 时间范围：[起始日期] 至 [结束日期]
-
 【主题一】：[主题名称]
 
 · 包含要点：[用 3 个以内短句概括该主题下的主要内容]
@@ -401,7 +398,6 @@ SYSTEM_PROMPT = """
 
 附加要求：
 
-· 日期行必须为输出第一行，其后空一行再开始主题列表。
 · 仅基于提供的文本，不补充外部知识，不虚构内容。
 · 若某段内容明显涉及多个主题，归入最相关的一个，并在“包含要点”中标注“（交叉内容）”。
 · 保持客观精炼，忽略无意义的语气词（如“哈哈”“嗯嗯”），并进行点评。
@@ -436,7 +432,8 @@ if response.status_code == 200:
     result = response.json()
     output_text_content = result['choices'][0]['message']['content']
     output_text_reasoning_content = result['choices'][0]['message']['reasoning_content']
-    output_text = "推理过程：" + output_text_reasoning_content + "\n--a-a-a-a-a-a-a--\n" + "最终结果：" + output_text_reasoning_content
+    # output_text = f"📅 时间范围：{last_14days_date[:10]} 至 {today_date[:10]}\n\n" + "推理过程：" + output_text_reasoning_content + "\n--a-a-a-a-a-a-a--\n" + "最终结果：" + output_text_content
+    output_text = f"📅 时间范围：{last_14days_date[:10]} 至 {today_date[:10]}\n\n" + output_text_content
     funcLG.send_Teams_Channel_Message(output_text, headers=http_headers, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_channel_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
     print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
