@@ -146,7 +146,7 @@ print(calendar_content_list)
 # TODO
 
 print('==========================================\n')
-print('Getting the latest 7days of mail from Outlook inbox and sent items...\n')
+print('Getting the latest 14days of mail from Outlook inbox and sent items...\n')
 # to get the latest 7days of mail from Outlook inbox and sent items:
 endpoint_mail = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?' \
     '$filter=receivedDateTime ge {}&' \
