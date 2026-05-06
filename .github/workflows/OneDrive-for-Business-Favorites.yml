@@ -5,7 +5,7 @@ name: Move Favorites Pictures to SP CNMAS Family Sharing
 
 on:
   schedule:
-    - cron:  '22 15 * * 2'
+    - cron:  '22 11 * * 2'
   #push:
   #  branches: [ "main" ]
   #pull_request:
