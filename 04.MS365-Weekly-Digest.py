@@ -374,8 +374,8 @@ valid_msgs.sort(key=lambda x: x.get("receivedDateTime", ""))
 
 # 3. Format into a clean, chronological log
 formatted_chat = ". ".join(
-    # f"[{m['receivedDateTime']}] {m['content']}" for m in valid_msgs
-    f"{m['content']}" for m in valid_msgs
+    f"[{m['receivedDateTime']}] {m['content']}" for m in valid_msgs
+    # f"{m['content']}" for m in valid_msgs
 )
 
 # 5. Construct prompt
