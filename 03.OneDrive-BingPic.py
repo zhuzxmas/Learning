@@ -3,6 +3,7 @@
 Created on Jul 18, 2018  @author: CloudSkyRiver. File function: download today's Bing China wallpaper, and set as windows desktop background.
 """
 import urllib.request
+from datetime import date
 import requests
 import os.path
 import json
@@ -11,6 +12,10 @@ import funcLG
 
 notifymsg = 'today\'s Bing wallpaper'
 
+def get_weeks_remaining():
+    today = date.today()
+    target = date(2029, 4, 30)
+    return (target - today).days // 7
 
 def save_img(img_url):  # save downloaded file to directory: dirname
     # get the image name,  including suffix
@@ -75,6 +80,19 @@ def add_img_description(notifymsg, filepath):
         x += font.getlength(char)  # For Pillow version >= 9.0.1
         # x += font.getbbox(char)[0]   # for pillow version >= 10.4.1, but further updates are needed, this sentence is not correct.
 
+    # Draw week countdown number — same font/height as description, right-aligned 50px from right edge
+    week_text = str(get_weeks_remaining())
+    bbox = font_english.getbbox(week_text)
+    text_w = bbox[2] - bbox[0]
+    img_w, img_h = imagetemp.size
+    wx = img_w - text_w - 50
+    wy = 1970  # same y as description text
+    # Draw text border
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        draw.text((wx + dx, wy + dy), week_text, fill=(112, 39, 77), font=font_english)
+    # Draw text
+    draw.text((wx, wy), week_text, fill=(250, 250, 250), font=font_english)
+    
     imagetemp.save(filepath)
 
 
