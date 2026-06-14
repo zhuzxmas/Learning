@@ -35,7 +35,7 @@ delta_days_number = delta_days_date.days
 today = datetime.now().strftime('%Y-%m-%d')
 
 # Check condition
-if delta_days_number < 40:
+if delta_days_number < 80:
     print("\nRefresh Token is still ok to use.\n")
     access_token_with_refresh_token = funcLG.get_access_token_with_refresh(refresh_token=refresh_token)
     if access_token_with_refresh_token is not '':
@@ -43,7 +43,7 @@ if delta_days_number < 40:
     else:
         print("Failed to get access token with refresh token, something wrong with current refresh token.\n")
 
-if delta_days_number >= 40 or access_token_with_refresh_token is '':
+if delta_days_number >= 80 or access_token_with_refresh_token is '':
     print("Refresh Token will or has expire(d) soon, let's update it now...\n")
     login_return = funcLG.func_login() # to login into MS365 and get the return value info.
     result_login = login_return['result']
