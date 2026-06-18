@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 
 
-login_return_secret = funcLG.func_login_secret() # to login into MS365 and get the return value info.
+login_return_secret = funcLG.func_login_secret() # to login into MS365 and get the return value info..
 result_secret = login_return_secret['result']
 access_token_secret = result_secret['access_token']
 site_id_cmmas = login_return_secret['site__id_cmmas']
