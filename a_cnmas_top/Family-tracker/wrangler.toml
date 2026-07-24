@@ -1,0 +1,14 @@
+name = "family-spending-tracker"
+compatibility_date = "2024-11-01"
+
+# Serve the static SPA from ./public with no extra Worker code needed.
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+
+# Attach your custom domain. Requires a.cnmas.top to be an active zone in this
+# Cloudflare account. After the first `wrangler deploy`, verify the route in the
+# dashboard (Workers & Pages -> your Worker -> Settings -> Domains & Routes).
+routes = [
+  { pattern = "a.cnmas.top", custom_domain = true }
+]

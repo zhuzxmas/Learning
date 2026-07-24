@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家庭记账 · Family Spending</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>家庭记账</h1>
+    <div class="user-area">
+      <span id="userName" class="user-name"></span>
+      <button id="loginBtn" class="btn btn-primary">使用 Microsoft 登录</button>
+      <button id="logoutBtn" class="btn btn-ghost hidden">退出</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Login prompt -->
+    <section id="loginView" class="card center-view">
+      <p>请使用您的 Microsoft 账户登录，以读取和保存 OneDrive 中的记账数据。</p>
+      <button id="loginBtn2" class="btn btn-primary">使用 Microsoft 登录</button>
+      <p id="bootStatus" class="status"></p>
+    </section>
+
+    <!-- App view -->
+    <section id="appView" class="hidden">
+      <!-- Mode switch: 支出 / 收入 -->
+      <div class="mode-switch" role="tablist">
+        <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
+        <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
+      </div>
+
+      <!-- Status bar: shows "已载入 … 条记录" etc. (below the mode switch) -->
+      <div class="savebar hidden" id="savebar">
+        <span id="statusMsg" class="status"></span>
+      </div>
+
+      <!-- ============ SPENDING APP ============ -->
+      <div id="spendingApp">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="tabAddBtn" data-tab="add">新建</button>
+        <button type="button" class="tab-btn" id="tabListBtn" data-tab="list">支出明细</button>
+        <button type="button" class="tab-btn" id="tabChartBtn" data-tab="chart">图表</button>
+        <button type="button" class="tab-btn" id="tabSettingsBtn" data-tab="settings">设置</button>
+      </div>
+
+      <!-- Tab: add / edit form -->
+      <div class="tab-panel" id="tabAdd">
+      <div class="card">
+        <h2 id="formTitle">添加记录</h2>
+        <form id="recordForm" class="record-form">
+          <input type="hidden" id="editId" />
+          <div class="field">
+            <label for="iCat">一级分类</label>
+            <div class="select-row">
+              <select id="iCat" required></select>
+              <button type="button" class="btn-add-cat" id="addICat" title="新增一级分类">＋</button>
+              <button type="button" class="btn-hide-cat" id="hideICat" title="隐藏该一级分类">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="iiCat">二级分类</label>
+            <div class="select-row">
+              <select id="iiCat" required></select>
+              <button type="button" class="btn-add-cat" id="addIICat" title="新增二级分类">＋</button>
+              <button type="button" class="btn-hide-cat" id="hideIICat" title="隐藏该二级分类">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="iiiCat">三级分类</label>
+            <div class="select-row">
+              <select id="iiiCat" required></select>
+              <button type="button" class="btn-add-cat" id="addIIICat" title="新增三级分类">＋</button>
+              <button type="button" class="btn-hide-cat" id="hideIIICat" title="隐藏该三级分类">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="amount">金额</label>
+            <input type="number" id="amount" step="0.01" min="0" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" required />
+          </div>
+          <div class="field">
+            <label for="date">日期</label>
+            <input type="date" id="date" required />
+          </div>
+          <div class="field field-wide">
+            <label for="note">备注</label>
+            <input type="text" id="note" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="addBtn">添加到列表</button>
+            <button type="button" class="btn btn-ghost hidden" id="cancelEditBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Tab: records table -->
+      <div class="tab-panel hidden" id="tabList">
+      <div class="card">
+        <div class="table-head-row">
+          <h2>支出明细</h2>
+          <span id="recordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="filterDate">按日期查看：</label>
+          <input type="date" id="filterDate" />
+          <button type="button" id="clearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="showAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        <div class="table-wrap">
+          <table id="recordsTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>一级分类</th>
+                <th>二级分类</th>
+                <th>三级分类</th>
+                <th class="num">金额</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyHint" class="muted center hidden">暂无记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Tab: analytics chart -->
+      <div class="tab-panel hidden" id="tabChart">
+      <div class="card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="chartYearTitle">年度家庭支出明细</div>
+          </div>
+          <div class="chart-total-box">
+            <div class="chart-total" id="chartTotal">0.00</div>
+            <div class="chart-total-label">Sum of 金额</div>
+          </div>
+          <div class="chart-asof">
+            <div class="chart-asof-label">截至 As Of :</div>
+            <div id="chartAsOf"></div>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-cell">
+            <div class="chart-cell-title">各一级分类支出</div>
+            <div id="barChart" class="bar-chart"></div>
+          </div>
+          <div class="chart-cell">
+            <div class="chart-cell-head">
+              <div class="chart-cell-title" id="pieTitle">分类明细</div>
+              <div class="top-select" id="topSelect">
+                <button type="button" class="top-btn active" data-rank="0">最高1</button>
+                <button type="button" class="top-btn" data-rank="1">第2</button>
+                <button type="button" class="top-btn" data-rank="2">第3</button>
+              </div>
+            </div>
+            <div class="pie-wrap">
+              <div id="pieChart" class="pie"></div>
+              <div id="pieLegend" class="pie-legend"></div>
+            </div>
+          </div>
+        </div>
+        <p id="chartEmpty" class="muted center hidden">本年度暂无支出数据。</p>
+      </div>
+      </div>
+
+      <!-- Tab: settings -->
+      <div class="tab-panel hidden" id="tabSettings">
+      <div class="card">
+        <h2>设置</h2>
+        <div class="cat-manager" id="catManager">
+          <h3>管理隐藏分类</h3>
+          <div id="hiddenList"></div>
+        </div>
+      </div>
+      </div>
+      </div><!-- /#spendingApp -->
+
+      <!-- ============ INCOME APP ============ -->
+      <div id="incomeApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="incTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="incTabListBtn">收入明细</button>
+        <button type="button" class="tab-btn" id="incTabChartBtn">图表</button>
+        <button type="button" class="tab-btn" id="incTabSettingsBtn">设置</button>
+      </div>
+
+      <!-- Income tab: add / edit form -->
+      <div class="tab-panel" id="incTabAdd">
+      <div class="card">
+        <h2 id="incFormTitle">添加收入</h2>
+        <form id="incForm" class="record-form">
+          <input type="hidden" id="incEditId" />
+          <div class="field">
+            <label for="incTitle">收入分类</label>
+            <div class="select-row">
+              <select id="incTitle" required></select>
+              <button type="button" class="btn-add-cat" id="incAddTitle" title="新增收入分类">＋</button>
+              <button type="button" class="btn-hide-cat" id="incHideTitle" title="隐藏该收入分类">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="incPayee">收款人</label>
+            <div class="select-row">
+              <select id="incPayee" required></select>
+              <button type="button" class="btn-add-cat" id="incAddPayee" title="新增收款人">＋</button>
+              <button type="button" class="btn-hide-cat" id="incHidePayee" title="隐藏该收款人">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="incDate">日期</label>
+            <input type="date" id="incDate" required />
+          </div>
+
+          <div class="money-group">
+            <div class="money-group-title">收入项</div>
+            <div class="money-grid">
+              <div class="field"><label for="incBase">基本工资</label>
+                <input type="number" id="incBase" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incOvertime">加班费</label>
+                <input type="number" id="incOvertime" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incBonus">奖金</label>
+                <input type="number" id="incBonus" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incOther">其他收入</label>
+                <input type="number" id="incOther" step="0.01" inputmode="decimal" placeholder="0" /></div>
+            </div>
+          </div>
+
+          <div class="money-group">
+            <div class="money-group-title">扣除项</div>
+            <div class="money-grid">
+              <div class="field"><label for="incSocial">社保扣除</label>
+                <input type="number" id="incSocial" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incFund">公积金扣除</label>
+                <input type="number" id="incFund" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incTax">个人所得税</label>
+                <input type="number" id="incTax" step="0.01" inputmode="decimal" placeholder="0" /></div>
+            </div>
+          </div>
+
+          <div class="money-group">
+            <div class="money-group-title">合计</div>
+            <div class="money-grid">
+              <div class="field"><label for="incGross">税前总收入</label>
+                <input type="number" id="incGross" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="incNet">实际收入金额</label>
+                <input type="number" id="incNet" step="0.01" inputmode="decimal" required placeholder="0" /></div>
+            </div>
+            <p class="muted mini">税前 / 实际金额会随上方数值自动计算，可手动修改。</p>
+          </div>
+
+          <div class="field field-wide">
+            <label for="incNote">备注</label>
+            <input type="text" id="incNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="incAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="incCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Income tab: records table -->
+      <div class="tab-panel hidden" id="incTabList">
+      <div class="card">
+        <div class="table-head-row">
+          <h2>收入明细</h2>
+          <span id="incRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="incFilterDate">按日期查看：</label>
+          <input type="date" id="incFilterDate" />
+          <button type="button" id="incClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="incShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        <div class="table-wrap">
+          <table id="incTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>分类</th>
+                <th>收款人</th>
+                <th class="num">税前总收入</th>
+                <th class="num">社保</th>
+                <th class="num">公积金</th>
+                <th class="num">个税</th>
+                <th class="num">实际收入</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="incBody"></tbody>
+          </table>
+        </div>
+        <p id="incEmptyHint" class="muted center hidden">暂无收入记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Income tab: charts -->
+      <div class="tab-panel hidden" id="incTabChart">
+      <div class="card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="incChartTitle">年度家庭收入</div>
+          </div>
+          <div class="chart-total-box">
+            <div class="chart-total" id="incChartTotal">0.00</div>
+            <div class="chart-total-label">实际收入合计</div>
+          </div>
+          <div class="chart-asof">
+            <div class="chart-asof-label">年度：</div>
+            <select id="incChartYear"></select>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">各月累计瀑布图（累计至年度合计）</div>
+          <div id="incWaterfall" class="waterfall"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各月收入（按分类分色堆叠）</div>
+          </div>
+          <div id="incMonthBars" class="month-bars"></div>
+          <div id="incCatLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <p id="incChartEmpty" class="muted center hidden">该年度暂无收入数据。</p>
+      </div>
+      </div>
+
+      <!-- Income tab: settings -->
+      <div class="tab-panel hidden" id="incTabSettings">
+      <div class="card">
+        <h2>设置</h2>
+        <div class="cat-manager">
+          <h3>管理隐藏分类</h3>
+          <div id="incHiddenCats"></div>
+        </div>
+        <div class="cat-manager">
+          <h3>管理隐藏收款人</h3>
+          <div id="incHiddenPayees"></div>
+        </div>
+      </div>
+      </div>
+      </div><!-- /#incomeApp -->
+    </section>
+  </main>
+
+  <!-- Libraries -->
+  <script src="msal-browser.min.js"></script>
+  <script src="categories.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
