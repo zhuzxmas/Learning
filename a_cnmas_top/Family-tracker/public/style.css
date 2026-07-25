@@ -611,3 +611,79 @@ td:nth-child(6) {
   .money-grid { grid-template-columns: 1fr 1fr; }
   .mode-btn { padding: 9px 20px; }
 }
+
+/* =========================== STOCK MODULE =============================== */
+/* Read-only derived fields in the add form */
+#stkAmount, #stkCommission, #stkStamp, #stkTransfer, #stkTotal {
+  background: #f2f4f8;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+/* Negative numbers (卖出股数, 亏损) shown in red */
+.num.neg, .stk-bar-val.neg { color: #D64550; }
+
+/* Horizontal bar chart (P&L / fees / accounts) */
+.stk-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 7px 0;
+}
+.stk-bar-name {
+  flex: 0 0 34%;
+  max-width: 34%;
+  font-size: 12px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stk-bar-track {
+  flex: 1 1 auto;
+  height: 16px;
+  background: #eef1f6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.stk-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  min-width: 2px;
+}
+.stk-bar-val {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 84px;
+  text-align: right;
+}
+@media (max-width: 480px) {
+  .stk-bar-name { flex-basis: 30%; max-width: 30%; font-size: 11px; }
+  .stk-bar-val { min-width: 70px; font-size: 11px; }
+}
+
+/* ---- Stock chart: header two-column layout ---- */
+.stk-chart-header { flex-direction: column; gap: 12px; }
+.stk-head-cols {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.chart-total.neg { color: #D64550; }
+
+/* ---- Stock waterfall / account charts: negatives + highlight ---- */
+.waterfall { position: relative; }
+.stk-zero {
+  position: absolute;
+  left: 0; right: 0;
+  height: 0;
+  border-top: 1px solid #c9ccd3;
+  z-index: 0;
+}
+.wf-col.dim { opacity: 0.28; }
+

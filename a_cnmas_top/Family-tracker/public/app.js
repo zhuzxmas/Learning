@@ -100,6 +100,22 @@ const INCOME_BASE_TITLES = [
 ];
 const INCOME_BASE_PAYEES = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 
+/* --------------------------- STOCK CONFIG -------------------------------- */
+// Stock files live in a dedicated folder. By default we reuse the income
+// folder's share URL (files are separately named, so data stays independent).
+// Replace with a dedicated folder's 1drv.ms share URL if you want them apart.
+const STOCK_FOLDER_SHARE_URL = INCOME_FOLDER_SHARE_URL;
+const STOCK_RECORDS_FILE = "stock-records.json";
+const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{custom,hidden}}
+
+// Base (seed) stock codes + accounts, from the migrated data.
+const STOCK_BASE_CODES = [
+  "000999华润三九", "600132重庆啤酒", "600690海尔智家", "600845宝信软件",
+  "600885宏发股份", "603259药明康德", "603369今世缘", "603899晨光文具",
+  "H01548金斯瑞", "东方电气600875", "隆基绿能601012",
+];
+const STOCK_BASE_ACCOUNTS = ["15--7583教", "88--5302"];
+
 /* --------------------------- MSAL setup ---------------------------------- */
 const msalConfig = {
   auth: {
@@ -244,6 +260,61 @@ const els = {
   // --- income settings ---
   incHiddenCats: $("incHiddenCats"),
   incHiddenPayees: $("incHiddenPayees"),
+  // --- stock mode ---
+  modeStockBtn: $("modeStockBtn"),
+  stockApp: $("stockApp"),
+  // --- stock tabs ---
+  stkTabAddBtn: $("stkTabAddBtn"),
+  stkTabListBtn: $("stkTabListBtn"),
+  stkTabChartBtn: $("stkTabChartBtn"),
+  stkTabSettingsBtn: $("stkTabSettingsBtn"),
+  stkTabAdd: $("stkTabAdd"),
+  stkTabList: $("stkTabList"),
+  stkTabChart: $("stkTabChart"),
+  stkTabSettings: $("stkTabSettings"),
+  // --- stock form ---
+  stkForm: $("stkForm"),
+  stkEditId: $("stkEditId"),
+  stkCode: $("stkCode"),
+  stkAccount: $("stkAccount"),
+  stkAddCode: $("stkAddCode"),
+  stkHideCode: $("stkHideCode"),
+  stkAddAccount: $("stkAddAccount"),
+  stkHideAccount: $("stkHideAccount"),
+  stkPrice: $("stkPrice"),
+  stkShares: $("stkShares"),
+  stkFx: $("stkFx"),
+  stkFxField: $("stkFxField"),
+  stkDate: $("stkDate"),
+  stkAmount: $("stkAmount"),
+  stkCommission: $("stkCommission"),
+  stkStamp: $("stkStamp"),
+  stkTransfer: $("stkTransfer"),
+  stkTotal: $("stkTotal"),
+  stkAddBtn: $("stkAddBtn"),
+  stkCancelBtn: $("stkCancelBtn"),
+  stkFormTitle: $("stkFormTitle"),
+  // --- stock list ---
+  stkBody: $("stkBody"),
+  stkRecordCount: $("stkRecordCount"),
+  stkEmptyHint: $("stkEmptyHint"),
+  stkFilterDate: $("stkFilterDate"),
+  stkSearchInput: $("stkSearchInput"),
+  stkFilterCode: $("stkFilterCode"),
+  stkFilterAccount: $("stkFilterAccount"),
+  stkClearFilterBtn: $("stkClearFilterBtn"),
+  stkShowAllBtn: $("stkShowAllBtn"),
+  // --- stock charts ---
+  stkChartTotal: $("stkChartTotal"),
+  stkChartTotalLabel: $("stkChartTotalLabel"),
+  stkChartYear: $("stkChartYear"),
+  stkPnlBars: $("stkPnlBars"),
+  stkPnlLegend: $("stkPnlLegend"),
+  stkFeeBars: $("stkFeeBars"),
+  stkChartEmpty: $("stkChartEmpty"),
+  // --- stock settings ---
+  stkHiddenCodes: $("stkHiddenCodes"),
+  stkHiddenAccounts: $("stkHiddenAccounts"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -293,16 +364,21 @@ async function getToken() {
     const res = await msalApp.acquireTokenSilent(req);
     return res.accessToken;
   } catch (e) {
-    const res = await msalApp.acquireTokenPopup(req);
-    return res.accessToken;
+    // Silent renewal failed (session/refresh token expired). Use a full-page
+    // redirect instead of a popup so browser popup blockers can't stop it.
+    // The page navigates away; on return handleRedirectPromise() restores the
+    // session and re-runs onSignedIn().
+    setStatus("正在跳转到登录页面…", "info");
+    await msalApp.acquireTokenRedirect(req);
+    // Navigation started; this promise never resolves. Return to satisfy callers.
+    return new Promise(() => {});
   }
 }
 
 async function login() {
-  const res = await msalApp.loginPopup({ scopes: SCOPES });
-  account = res.account;
-  msalApp.setActiveAccount(account);
-  await onSignedIn();
+  // Full-page redirect login — never blocked by popup blockers. The response
+  // is handled by handleRedirectPromise() during boot when the page returns.
+  await msalApp.loginRedirect({ scopes: SCOPES });
 }
 
 function logout() {
@@ -1131,7 +1207,7 @@ async function onSubmitForm(e) {
 
   if (ok) {
     resetForm();
-    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok");
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
   } else {
     // Roll back the in-memory change so the table matches OneDrive.
     currentRecords = snapHot;
@@ -1506,7 +1582,7 @@ function switchTab(name) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chart") { ensureArchive().then(() => renderChart()); }
-  if (name === "settings") renderHiddenList();
+  if (name === "settings") { renderHiddenList(); }
 }
 
 /* --------------------------- Wire up ------------------------------------- */
@@ -2203,15 +2279,22 @@ function incSwitchTab(name) {
 async function setMode(next) {
   mode = next;
   const isInc = next === "income";
+  const isStk = next === "stock";
+  const isSpend = next === "spending";
+  els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
-  els.modeSpendingBtn.classList.toggle("active", !isInc);
+  els.modeStockBtn.classList.toggle("active", isStk);
+  els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
-  els.spendingApp.classList.toggle("hidden", isInc);
+  els.stockApp.classList.toggle("hidden", !isStk);
   if (!account) return;
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
     try { await incLoad(); }
     catch (e) { setStatus("收入数据载入失败：" + (e.message || e), "error"); }
+  } else if (isStk) {
+    try { await stkLoad(); }
+    catch (e) { setStatus("股票数据载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -2222,6 +2305,7 @@ async function setMode(next) {
 function incWireEvents() {
   els.modeSpendingBtn.onclick = () => setMode("spending");
   els.modeIncomeBtn.onclick = () => setMode("income");
+  els.modeStockBtn.onclick = () => setMode("stock");
 
   els.incTabAddBtn.onclick = () => incSwitchTab("add");
   els.incTabListBtn.onclick = () => incSwitchTab("list");
@@ -2251,6 +2335,817 @@ function incWireEvents() {
   els.incChartYear.onchange = () => { incChartYearVal = els.incChartYear.value; incRenderChart(); };
 }
 
+/* ========================================================================= *
+ *                            STOCK  MODULE                                  *
+ * ========================================================================= */
+let stockRecords = [];
+let stkEtag = null;
+let stockLoaded = false;
+let stkDriveBase = null;
+let stkMeta = { codes: { custom: [], hidden: [] }, accounts: { custom: [], hidden: [] } };
+let stkEtagMeta = null;
+let stkShowAll = false;
+let stkFilterOn = false;
+let stkTab = "add";
+let stkSearchText = "";
+let stkCodeFilter = "";
+let stkAccountFilter = "";
+let stkChartYearVal = null;
+let stkSearchTimer = null;
+
+function stkNormMeta(d) {
+  d = (d && typeof d === "object") ? d : {};
+  const arr = (x) => (Array.isArray(x) ? x.slice() : []);
+  const codes = (d.codes && typeof d.codes === "object") ? d.codes : {};
+  const accts = (d.accounts && typeof d.accounts === "object") ? d.accounts : {};
+  return {
+    codes: { custom: arr(codes.custom), hidden: arr(codes.hidden) },
+    accounts: { custom: arr(accts.custom), hidden: arr(accts.hidden) },
+  };
+}
+function stkMergeMeta(target, src) {
+  src = stkNormMeta(src);
+  const uni = (t, s) => { for (const x of s) if (!t.includes(x)) t.push(x); };
+  uni(target.codes.custom, src.codes.custom);
+  uni(target.codes.hidden, src.codes.hidden);
+  uni(target.accounts.custom, src.accounts.custom);
+  uni(target.accounts.hidden, src.accounts.hidden);
+}
+function stkVisCodes() {
+  const all = STOCK_BASE_CODES.concat(stkMeta.codes.custom.filter((x) => !STOCK_BASE_CODES.includes(x)));
+  return all.filter((x) => !stkMeta.codes.hidden.includes(x));
+}
+function stkVisAccounts() {
+  const all = STOCK_BASE_ACCOUNTS.concat(stkMeta.accounts.custom.filter((x) => !STOCK_BASE_ACCOUNTS.includes(x)));
+  return all.filter((x) => !stkMeta.accounts.hidden.includes(x));
+}
+
+/* ------------------------ Stock derived formulas ------------------------- *
+ * H-share detection: code[0] === "H". All fee formulas match the migration
+ * script (tools/migrate_stock.py) and were verified against the source CSV.
+ * Intermediate values are kept unrounded; 总金额 sums the unrounded parts.  */
+function stkComputeDerived(code, price, shares, fx) {
+  const isH = !!code && code[0] === "H";
+  const rate = isH ? (fx || 1) : 1;
+  const amt = isH ? price * shares * rate : price * shares;
+
+  let comm;
+  if (isH) comm = amt < -25000 ? amt * 0.0002 : (amt < 25000 ? -5 : -amt * 0.0002);
+  else comm = amt < -50000 ? amt * 0.0001 : (amt < 50000 ? -5 : -amt * 0.0001);
+
+  let stamp;
+  if (isH) stamp = shares <= 0 ? amt * 0.001127 : -amt * 0.001127;
+  else stamp = shares <= 0 ? 0 : -amt * 0.0005;
+
+  let transfer;
+  if (isH) transfer = 0;
+  else transfer = shares <= 0 ? amt * 0.00001 : -amt * 0.00001;
+
+  const total = amt + comm + stamp + transfer;
+  return {
+    amount: round2(amt),
+    commission: round2(comm),
+    stampTax: round2(stamp),
+    transferFee: round2(transfer),
+    total: round2(total),
+  };
+}
+
+/* ------------------------- Stock Graph I/O ------------------------------- */
+async function stkResolveFolder(token) {
+  if (stkDriveBase) return;
+  const sid = encodeShareUrl(STOCK_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问股票文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  stkDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function stkFileUrls(name) {
+  return {
+    content: `${stkDriveBase}:/${name}:/content`,
+    meta: `${stkDriveBase}:/${name}?$select=id,eTag`,
+  };
+}
+async function stkReadETag(token, name) {
+  const { meta } = stkFileUrls(name);
+  const res = await fetch(meta, { headers: { Authorization: "Bearer " + token } });
+  if (!res.ok) return null;
+  const item = await res.json();
+  return item.eTag || null;
+}
+async function stkReadJson(token, name) {
+  const { content } = stkFileUrls(name);
+  const res = await fetch(content, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { data: null, etag: null, exists: false };
+  if (!res.ok) throw new Error("载入失败(" + name + ")：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const etag = res.headers.get("ETag") || (await stkReadETag(token, name));
+  return { data, etag, exists: true };
+}
+async function stkWriteJson(token, name, getData, etag, applyOnConflict) {
+  const { content } = stkFileUrls(name);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (etag) headers["If-Match"] = etag;
+    const data = getData();
+    const body = JSON.stringify(data);
+    const res = await fetch(content, { method: "PUT", headers, body });
+    if (res.ok) {
+      const item = await res.json();
+      const newEtag = item.eTag || (await stkReadETag(token, name));
+      if (name === STOCK_RECORDS_FILE) {
+        idbSet(STOCK_RECORDS_FILE, newEtag, (data && data.records) || []);
+      }
+      return newEtag;
+    }
+    if (res.status === 412 && applyOnConflict) {
+      setStatus("有人同时更新了股票数据，正在合并…", "warn");
+      const fresh = await stkReadJson(token, name);
+      applyOnConflict(fresh.data);
+      etag = fresh.etag;
+      stkRender();
+      continue;
+    }
+    throw new Error("保存失败(" + name + ")：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存冲突，重试多次仍失败(" + name + ")。");
+}
+
+/* ---------------------------- Stock load --------------------------------- */
+async function stkLoad() {
+  if (stockLoaded) return;
+  setStatus("正在载入股票数据…");
+  const token = await getToken();
+  await stkResolveFolder(token);
+  const m = await stkReadJson(token, STOCK_META_FILE);
+  stkMeta = stkNormMeta(m.data);
+  stkEtagMeta = m.etag;
+
+  const liveEtag = await stkReadETag(token, STOCK_RECORDS_FILE);
+  const cached = liveEtag ? await idbGet(STOCK_RECORDS_FILE) : null;
+  if (cached && cached.etag === liveEtag && Array.isArray(cached.records)) {
+    stockRecords = cached.records;
+    stkEtag = liveEtag;
+  } else {
+    const r = await stkReadJson(token, STOCK_RECORDS_FILE);
+    stockRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+    stkEtag = r.etag;
+    if (r.exists && r.etag) idbSet(STOCK_RECORDS_FILE, r.etag, stockRecords);
+  }
+  stockLoaded = true;
+  stkInitForm();
+  stkFillFilters();
+  stkRender();
+  stkRenderHidden();
+  setStatus("已载入 " + stockRecords.length + " 条交易记录。", "ok", 2000);
+}
+
+async function stkSaveMeta() {
+  const token = await getToken();
+  stkEtagMeta = await stkWriteJson(
+    token, STOCK_META_FILE, () => stkMeta, stkEtagMeta,
+    (fresh) => { stkMergeMeta(stkMeta, fresh); }
+  );
+}
+
+function stkApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function stkPersist(op) {
+  setStatus("正在保存交易…");
+  const token = await getToken();
+  stkEtag = await stkWriteJson(
+    token, STOCK_RECORDS_FILE, () => ({ records: stockRecords }), stkEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      stockRecords = stkApplyOp(list, op);
+    }
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* ---------------------------- Stock form --------------------------------- */
+function stkFillSelect(sel, options, placeholder, keep) {
+  const opts = options.slice();
+  if (keep && !opts.includes(keep)) opts.push(keep);
+  sel.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = placeholder; ph.disabled = true; ph.selected = true;
+  sel.appendChild(ph);
+  for (const o of opts) {
+    const op = document.createElement("option");
+    op.value = o; op.textContent = o; sel.appendChild(op);
+  }
+}
+function stkRebuildSelects(keepCode, keepAccount) {
+  stkFillSelect(els.stkCode, stkVisCodes(), "请选择股票代码", keepCode);
+  if (keepCode) els.stkCode.value = keepCode;
+  stkFillSelect(els.stkAccount, stkVisAccounts(), "请选择交易账户", keepAccount);
+  if (keepAccount) els.stkAccount.value = keepAccount;
+}
+function stkNum(el) { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+
+// Toggle the 汇率 field visibility based on whether the selected code is H-share.
+function stkUpdateFxVisibility() {
+  const code = els.stkCode.value || "";
+  const isH = code[0] === "H";
+  if (els.stkFxField) els.stkFxField.style.display = isH ? "" : "none";
+}
+
+// Live-preview the derived (read-only) fields from the current inputs.
+function stkRecalc() {
+  const code = els.stkCode.value || "";
+  const price = stkNum(els.stkPrice);
+  const shares = stkNum(els.stkShares);
+  const fx = stkNum(els.stkFx);
+  if (!code || !price || !shares) {
+    els.stkAmount.value = ""; els.stkCommission.value = "";
+    els.stkStamp.value = ""; els.stkTransfer.value = ""; els.stkTotal.value = "";
+    return;
+  }
+  const d = stkComputeDerived(code, price, shares, fx);
+  els.stkAmount.value = d.amount;
+  els.stkCommission.value = d.commission;
+  els.stkStamp.value = d.stampTax;
+  els.stkTransfer.value = d.transferFee;
+  els.stkTotal.value = d.total;
+}
+
+function stkInitForm() {
+  stkRebuildSelects();
+  stkResetForm();
+}
+function stkResetForm() {
+  els.stkForm.reset();
+  els.stkEditId.value = "";
+  els.stkDate.value = todayStr();
+  stkRebuildSelects();
+  stkUpdateFxVisibility();
+  stkRecalc();
+  els.stkFormTitle.textContent = "添加交易";
+  els.stkAddBtn.textContent = "添加并保存";
+  hide(els.stkCancelBtn);
+}
+
+async function stkOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.stkEditId.value;
+  const code = els.stkCode.value;
+  const price = stkNum(els.stkPrice);
+  const shares = stkNum(els.stkShares);
+  const isH = !!code && code[0] === "H";
+  const fx = isH ? stkNum(els.stkFx) : 0;
+  if (!code) { setStatus("请选择股票代码。", "warn"); return; }
+  if (!els.stkAccount.value) { setStatus("请选择交易账户。", "warn"); return; }
+  if (!price) { setStatus("请填写交易价格。", "warn"); return; }
+  if (!shares) { setStatus("请填写交易股数（买入负、卖出正）。", "warn"); return; }
+  if (isH && !fx) { setStatus("H 股请填写汇率。", "warn"); return; }
+  if (!els.stkDate.value) { setStatus("请选择交易时间。", "warn"); return; }
+
+  const d = stkComputeDerived(code, price, shares, fx);
+  const rec = {
+    id: els.stkEditId.value || uuid(),
+    code: code,
+    account: els.stkAccount.value,
+    price: price,
+    shares: shares,
+    fx: isH ? fx : 0,
+    date: els.stkDate.value,
+    amount: d.amount,
+    commission: d.commission,
+    stampTax: d.stampTax,
+    transferFee: d.transferFee,
+    total: d.total,
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+
+  const snap = stockRecords.slice();
+  if (isEdit) {
+    const i = stockRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = stockRecords[i].createdBy || rec.createdBy; stockRecords[i] = rec; }
+    else stockRecords.push(rec);
+  } else {
+    stockRecords.push(rec);
+  }
+  els.stkAddBtn.disabled = true;
+  stkFillFilters();
+  stkRender();
+  try {
+    await stkPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    stkResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    stockRecords = snap; stkRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.stkAddBtn.disabled = false;
+  }
+}
+
+function stkStartEdit(id) {
+  const r = stockRecords.find((x) => x.id === id);
+  if (!r) return;
+  els.stkEditId.value = r.id;
+  stkRebuildSelects(r.code, r.account);
+  els.stkPrice.value = r.price;
+  els.stkShares.value = r.shares;
+  els.stkFx.value = r.fx || "";
+  els.stkDate.value = r.date;
+  stkUpdateFxVisibility();
+  stkRecalc();
+  els.stkFormTitle.textContent = "编辑交易";
+  els.stkAddBtn.textContent = "保存修改";
+  show(els.stkCancelBtn);
+  stkSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function stkDelete(id) {
+  const r = stockRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条交易记录吗？\n${r.date} ${r.code} ${r.account} ${fmtAmount(r.total)}`)) return;
+  const snap = stockRecords.slice();
+  stockRecords = stockRecords.filter((x) => x.id !== id);
+  stkRender();
+  try {
+    await stkPersist({ type: "delete", id });
+  } catch (err) {
+    stockRecords = snap; stkRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* ------------------------- Stock add/hide meta --------------------------- */
+async function stkAddCodeFn() {
+  const name = (prompt("新增股票代码（含名称，如 000001平安银行；H 股以 H 开头）：") || "").trim();
+  if (!name) return;
+  if (!stkMeta.codes.custom.includes(name) && !STOCK_BASE_CODES.includes(name))
+    stkMeta.codes.custom.push(name);
+  stkMeta.codes.hidden = stkMeta.codes.hidden.filter((x) => x !== name);
+  stkRebuildSelects(name, els.stkAccount.value);
+  stkUpdateFxVisibility(); stkRecalc();
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已新增股票：" + name, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
+async function stkAddAccountFn() {
+  const name = (prompt("新增交易账户名称：") || "").trim();
+  if (!name) return;
+  if (!stkMeta.accounts.custom.includes(name) && !STOCK_BASE_ACCOUNTS.includes(name))
+    stkMeta.accounts.custom.push(name);
+  stkMeta.accounts.hidden = stkMeta.accounts.hidden.filter((x) => x !== name);
+  stkRebuildSelects(els.stkCode.value, name);
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已新增账户：" + name, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
+async function stkHideCodeFn() {
+  const v = els.stkCode.value;
+  if (!v) { setStatus("请先选择要隐藏的股票代码。", "warn"); return; }
+  if (!confirm(`隐藏股票「${v}」？（已有记录仍会显示，可在设置中恢复）`)) return;
+  if (!stkMeta.codes.hidden.includes(v)) stkMeta.codes.hidden.push(v);
+  stkRebuildSelects(); stkResetForm(); stkRenderHidden();
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已隐藏：" + v, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
+async function stkHideAccountFn() {
+  const v = els.stkAccount.value;
+  if (!v) { setStatus("请先选择要隐藏的交易账户。", "warn"); return; }
+  if (!confirm(`隐藏账户「${v}」？（已有记录仍会显示，可在设置中恢复）`)) return;
+  if (!stkMeta.accounts.hidden.includes(v)) stkMeta.accounts.hidden.push(v);
+  stkRebuildSelects(); stkResetForm(); stkRenderHidden();
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已隐藏：" + v, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
+async function stkRestore(kind, name) {
+  if (kind === "code") stkMeta.codes.hidden = stkMeta.codes.hidden.filter((x) => x !== name);
+  else stkMeta.accounts.hidden = stkMeta.accounts.hidden.filter((x) => x !== name);
+  stkRebuildSelects(); stkRenderHidden();
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已恢复：" + name, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
+function stkRenderHidden() {
+  const build = (container, list, kind) => {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!list.length) { container.innerHTML = '<p class="muted">暂无隐藏项。</p>'; return; }
+    for (const name of list) {
+      const row = document.createElement("div");
+      row.className = "hidden-row";
+      const span = document.createElement("span"); span.textContent = name;
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "btn btn-mini"; btn.textContent = "恢复";
+      btn.onclick = () => stkRestore(kind, name);
+      row.appendChild(span); row.appendChild(btn); container.appendChild(row);
+    }
+  };
+  build(els.stkHiddenCodes, stkMeta.codes.hidden, "code");
+  build(els.stkHiddenAccounts, stkMeta.accounts.hidden, "account");
+}
+
+/* ---------------------------- Stock filters ------------------------------ */
+// Populate the 代码 / 账户 filter dropdowns from records + meta.
+function stkFillFilters() {
+  const codes = new Set(stkVisCodes());
+  const accounts = new Set(stkVisAccounts());
+  for (const r of stockRecords) { if (r.code) codes.add(r.code); if (r.account) accounts.add(r.account); }
+  const fill = (sel, values, placeholder, keep) => {
+    if (!sel) return;
+    sel.innerHTML = "";
+    const ph = document.createElement("option");
+    ph.value = ""; ph.textContent = placeholder; sel.appendChild(ph);
+    for (const v of [...values].sort()) {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v; if (v === keep) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.value = keep || "";
+  };
+  fill(els.stkFilterCode, codes, "全部股票", stkCodeFilter);
+  fill(els.stkFilterAccount, accounts, "全部账户", stkAccountFilter);
+}
+
+/* ---------------------------- Stock table -------------------------------- */
+function stkRender() {
+  const monthFilter = stkFilterOn && els.stkFilterDate ? els.stkFilterDate.value.slice(0, 7) : "";
+  const sorted = [...stockRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const q = stkSearchText.trim().toLowerCase();
+  let view = sorted;
+  if (stkCodeFilter) view = view.filter((r) => r.code === stkCodeFilter);
+  if (stkAccountFilter) view = view.filter((r) => r.account === stkAccountFilter);
+  if (q) view = view.filter((r) =>
+    (r.code || "").toLowerCase().includes(q) || (r.account || "").toLowerCase().includes(q));
+
+  const anyFilter = !!(monthFilter || stkCodeFilter || stkAccountFilter || q);
+  let limited = false;
+  if (monthFilter) view = view.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  if (!anyFilter && !stkShowAll) { limited = view.length > PAGE_LIMIT; view = view.slice(0, PAGE_LIMIT); }
+
+  els.stkBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    const sharesCls = (Number(r.shares) || 0) < 0 ? "num neg" : "num";
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.code)}</td>
+      <td>${escapeHtml(r.account)}</td>
+      <td class="num">${fmtAmount(r.price)}</td>
+      <td class="${sharesCls}">${fmtInt(r.shares)}</td>
+      <td class="num">${fmtAmount(r.amount)}</td>
+      <td class="num">${fmtAmount(r.commission)}</td>
+      <td class="num">${fmtAmount(r.stampTax)}</td>
+      <td class="num">${fmtAmount(r.transferFee)}</td>
+      <td class="num strong">${fmtAmount(r.total)}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => stkStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => stkDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.stkBody.appendChild(tr);
+  }
+
+  const total = stockRecords.length;
+  const sum = view.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  if (anyFilter) els.stkRecordCount.textContent = `${view.length} 条，总金额合计 ${fmtAmount(sum)}`;
+  else if (stkShowAll) els.stkRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.stkRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.stkClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.stkShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !stkShowAll));
+  els.stkShowAllBtn.textContent = stkShowAll ? "仅显示最近50条" : "显示全部";
+  els.stkEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+function stkScrollToDay(day) {
+  if (!day) return;
+  const rows = els.stkBody.querySelectorAll("tr[data-date]");
+  let target = null;
+  for (const tr of rows) {
+    const d = tr.dataset.date;
+    if (d === day) { target = tr; break; }
+    if (d <= day) { target = tr; break; }
+  }
+  if (!target) target = rows[rows.length - 1] || null;
+  if (!target) return;
+  const tabs = document.querySelector("#stockApp .tabs");
+  const controls = document.querySelector("#stkTabList .list-controls");
+  const offset = (tabs ? tabs.offsetHeight : 0) + (controls ? controls.offsetHeight : 0) + 6;
+  const y = target.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+}
+
+/* ---------------------------- Stock charts ------------------------------- */
+const STK_BAR_COLORS = [
+  "#118DFF", "#26890D", "#E23DA8", "#F2C80F", "#E66C37",
+  "#6B007B", "#3599B8", "#D64550", "#12239E", "#8AD4EB",
+];
+
+// Distinct years across all trades, ASCENDING (chronological x-axis).
+function stkYearsAsc() {
+  const s = new Set();
+  for (const r of stockRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort();
+}
+
+// Realized P&L per (buy-year, account). Cleared-cycle detection is done per
+// code+account independently. Returns byYearAcct: year -> (account -> pnl),
+// the sorted account list, and yearTotals: year -> net pnl.
+function stkRealizedByYearAccount() {
+  const groups = new Map();
+  for (const r of stockRecords) {
+    const key = (r.code || "") + "\u0000" + (r.account || "(未知)");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const byYearAcct = new Map();
+  const accounts = new Set();
+  for (const [key, trades] of groups) {
+    const acct = key.slice(key.indexOf("\u0000") + 1);
+    trades.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+    let net = 0, sum = 0, buyYear = null;
+    for (const r of trades) {
+      const sh = Number(r.shares) || 0;
+      net += sh;
+      sum += Number(r.total) || 0;
+      const y = (r.date || "").slice(0, 4);
+      if (sh < 0 && y && (!buyYear || y < buyYear)) buyYear = y;
+      if (Math.abs(net) < 0.5) { // cycle cleared
+        const year = buyYear || y || "";
+        if (!byYearAcct.has(year)) byYearAcct.set(year, new Map());
+        const am = byYearAcct.get(year);
+        am.set(acct, round2((am.get(acct) || 0) + sum));
+        accounts.add(acct);
+        net = 0; sum = 0; buyYear = null;
+      }
+    }
+  }
+  const yearTotals = new Map();
+  for (const [year, am] of byYearAcct) {
+    let t = 0; for (const v of am.values()) t += v;
+    yearTotals.set(year, round2(t));
+  }
+  return { byYearAcct, accounts: [...accounts].sort(), yearTotals };
+}
+
+// Total fees (佣金+印花税+过户费, shown as positive cost) per year across ALL trades.
+function stkFeesByYear() {
+  const m = new Map();
+  for (const r of stockRecords) {
+    const y = (r.date || "").slice(0, 4);
+    if (!y) continue;
+    const fee = (Number(r.commission) || 0) + (Number(r.stampTax) || 0) + (Number(r.transferFee) || 0);
+    m.set(y, round2((m.get(y) || 0) - fee)); // fees stored negative -> flip to positive cost
+  }
+  return m;
+}
+
+// Cumulative waterfall. `steps` = [{name, val, parts?}] chronological; a 合计 bar
+// is appended. When a step has `parts` (array of {account, val}) and opts.colorOf
+// is given, the year bar is split by account with positive contributions stacked
+// UPWARD from the running base and negative ones stacked DOWNWARD (net = val).
+// Otherwise a single fill is drawn (green/red by sign). Total bar is blue.
+// A specific highlightYear dims the other year bars.
+function stkBuildWaterfall(container, steps, opts) {
+  opts = opts || {};
+  const hl = opts.highlightYear;
+  const posColor = opts.posColor || "#26890D";
+  const negColor = opts.negColor || "#D64550";
+  const colorOf = opts.colorOf || null;
+  container.innerHTML = "";
+  const anyData = steps.some((s) => s.val || (s.parts && s.parts.some((p) => p.val)));
+  if (!steps.length || !anyData) {
+    container.innerHTML = '<p class="muted">暂无数据。</p>';
+    return;
+  }
+  let run = 0;
+  const rows = [];
+  for (const s of steps) {
+    const prev = run;
+    const val = round2(s.val || 0);
+    run = round2(prev + val);
+    let pos = 0, neg = 0;
+    if (s.parts) { for (const p of s.parts) { if (p.val > 0) pos += p.val; else neg += p.val; } }
+    else { if (val > 0) pos = val; else neg = val; }
+    const hi = prev + pos, lo = prev + neg;
+    rows.push({
+      name: s.name, val, prev, run, parts: s.parts || null,
+      low: Math.min(prev, run, lo), high: Math.max(prev, run, hi),
+    });
+  }
+  const grand = run;
+  let minD = 0, maxD = 0;
+  for (const r of rows) { minD = Math.min(minD, r.low); maxD = Math.max(maxD, r.high); }
+  minD = Math.min(minD, grand); maxD = Math.max(maxD, grand);
+  const range = (maxD - minD) || 1;
+  const pct = (v) => ((v - minD) / range) * 100;
+  const zeroPct = pct(0);
+  const showZero = minD < -0.005;
+
+  rows.forEach((r, i) => {
+    const dim = (hl && hl !== "ALL" && r.name !== hl) ? " dim" : "";
+    const connector = i > 0
+      ? `<div class="wf-connector" style="bottom:${pct(r.prev)}%"></div>` : "";
+    let fills = "";
+    if (r.parts && colorOf) {
+      // positive parts stacked upward from prev
+      let cum = r.prev;
+      for (const p of r.parts.filter((p) => p.val > 0).sort((a, b) => b.val - a.val)) {
+        const b = pct(cum), h = pct(cum + p.val) - pct(cum);
+        fills += `<div class="wf-fill" style="bottom:${b}%;height:${h}%;background:${colorOf.get(p.account) || posColor}" title="${escapeHtml(p.account)}：${fmtAmount(p.val)}"></div>`;
+        cum += p.val;
+      }
+      // negative parts stacked downward from prev
+      cum = r.prev;
+      for (const p of r.parts.filter((p) => p.val < 0).sort((a, b) => a.val - b.val)) {
+        const b = pct(cum + p.val), h = pct(cum) - pct(cum + p.val);
+        fills += `<div class="wf-fill" style="bottom:${b}%;height:${h}%;background:${colorOf.get(p.account) || negColor}" title="${escapeHtml(p.account)}：${fmtAmount(p.val)}"></div>`;
+        cum += p.val;
+      }
+    } else if (r.val) {
+      const color = r.val < 0 ? negColor : posColor;
+      const b = pct(Math.min(r.prev, r.run));
+      const h = pct(Math.max(r.prev, r.run)) - b;
+      fills += `<div class="wf-fill" style="bottom:${b}%;height:${h}%;background:${color}"></div>`;
+    }
+    const col = document.createElement("div");
+    col.className = "wf-col" + dim;
+    col.innerHTML =
+      `<div class="wf-track">` +
+        connector +
+        (showZero ? `<div class="stk-zero" style="bottom:${zeroPct}%"></div>` : "") +
+        fills +
+        (r.val ? `<div class="wf-val" style="bottom:${pct(r.high)}%">${fmtInt(r.val)}</div>` : "") +
+      `</div>` +
+      `<div class="wf-name">${r.name} 年</div>`;
+    container.appendChild(col);
+  });
+
+  // Grand total bar.
+  const tLow = Math.min(0, grand), tHigh = Math.max(0, grand);
+  const tot = document.createElement("div");
+  tot.className = "wf-col wf-total";
+  tot.innerHTML =
+    `<div class="wf-track">` +
+      (showZero ? `<div class="stk-zero" style="bottom:${zeroPct}%"></div>` : "") +
+      `<div class="wf-fill total" style="bottom:${pct(tLow)}%;height:${pct(tHigh) - pct(tLow)}%"></div>` +
+      `<div class="wf-val" style="bottom:${pct(tHigh)}%">${fmtInt(grand)}</div>` +
+    `</div>` +
+    `<div class="wf-name">合计</div>`;
+  container.appendChild(tot);
+}
+
+function stkRenderChart() {
+  // Year selector: 全部年度 + each year (ascending). Selection highlights that
+  // year across both charts and drives the 金额 total.
+  const yearsAsc = stkYearsAsc();
+  const cur = String(new Date().getFullYear());
+  if (!stkChartYearVal) stkChartYearVal = "ALL";
+  if (stkChartYearVal !== "ALL" && !yearsAsc.includes(stkChartYearVal)) {
+    stkChartYearVal = yearsAsc.includes(cur) ? cur : "ALL";
+  }
+  els.stkChartYear.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "ALL"; allOpt.textContent = "全部年度";
+  if (stkChartYearVal === "ALL") allOpt.selected = true;
+  els.stkChartYear.appendChild(allOpt);
+  for (const y of [...yearsAsc].reverse()) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === stkChartYearVal) o.selected = true;
+    els.stkChartYear.appendChild(o);
+  }
+
+  const hasData = stockRecords.length > 0;
+  els.stkChartEmpty.classList.toggle("hidden", hasData);
+  if (!hasData) {
+    els.stkPnlBars.innerHTML = ""; els.stkFeeBars.innerHTML = "";
+    els.stkPnlLegend.innerHTML = "";
+    els.stkChartTotal.textContent = "0.00";
+    els.stkChartTotalLabel.textContent = "已清仓盈亏合计";
+    return;
+  }
+
+  const yr = stkChartYearVal;
+  const { byYearAcct, accounts, yearTotals } = stkRealizedByYearAccount();
+
+  // Stable account color map.
+  const colorOf = new Map();
+  accounts.forEach((a, i) => colorOf.set(a, STK_BAR_COLORS[i % STK_BAR_COLORS.length]));
+
+  // Header total: selected year's realized P&L (or grand total when 全部年度).
+  let headTotal = 0;
+  if (yr === "ALL") { for (const v of yearTotals.values()) headTotal += v; }
+  else headTotal = yearTotals.get(yr) || 0;
+  els.stkChartTotal.textContent = fmtAmount(round2(headTotal));
+  els.stkChartTotal.classList.toggle("neg", headTotal < 0);
+  els.stkChartTotalLabel.textContent = (yr === "ALL" ? "全部年度" : yr + " 年") + "已清仓盈亏";
+
+  // Chart 1: realized P&L waterfall, each year bar split by account.
+  const pnlSteps = yearsAsc.map((y) => {
+    const am = byYearAcct.get(y) || new Map();
+    const parts = accounts.map((a) => ({ account: a, val: round2(am.get(a) || 0) })).filter((p) => p.val);
+    const val = round2(parts.reduce((s, p) => s + p.val, 0));
+    return { name: y, val, parts };
+  });
+  stkBuildWaterfall(els.stkPnlBars, pnlSteps, { highlightYear: yr, colorOf, posColor: "#26890D", negColor: "#D64550" });
+
+  // P&L account legend.
+  els.stkPnlLegend.innerHTML = "";
+  for (const a of accounts) {
+    const row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML =
+      `<span class="legend-dot" style="background:${colorOf.get(a)}"></span>` +
+      `<span class="legend-name">${escapeHtml(a)}</span>`;
+    els.stkPnlLegend.appendChild(row);
+  }
+
+  // Chart 2: fees waterfall by year (positive costs, single color).
+  const feeMap = stkFeesByYear();
+  const feeSteps = yearsAsc.map((y) => ({ name: y, val: round2(feeMap.get(y) || 0) }));
+  stkBuildWaterfall(els.stkFeeBars, feeSteps, { highlightYear: yr, posColor: "#E66C37", negColor: "#D64550" });
+}
+
+/* ---------------------------- Stock tabs --------------------------------- */
+function stkSwitchTab(name) {
+  stkTab = name;
+  const tabs = {
+    add: { panel: els.stkTabAdd, btn: els.stkTabAddBtn },
+    list: { panel: els.stkTabList, btn: els.stkTabListBtn },
+    chart: { panel: els.stkTabChart, btn: els.stkTabChartBtn },
+    settings: { panel: els.stkTabSettings, btn: els.stkTabSettingsBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") stkRenderChart();
+  if (name === "settings") stkRenderHidden();
+}
+
+function stkWireEvents() {
+  els.stkTabAddBtn.onclick = () => stkSwitchTab("add");
+  els.stkTabListBtn.onclick = () => stkSwitchTab("list");
+  els.stkTabChartBtn.onclick = () => stkSwitchTab("chart");
+  els.stkTabSettingsBtn.onclick = () => stkSwitchTab("settings");
+
+  els.stkForm.addEventListener("submit", stkOnSubmit);
+  els.stkCancelBtn.onclick = stkResetForm;
+  els.stkAddCode.onclick = stkAddCodeFn;
+  els.stkAddAccount.onclick = stkAddAccountFn;
+  els.stkHideCode.onclick = stkHideCodeFn;
+  els.stkHideAccount.onclick = stkHideAccountFn;
+
+  els.stkCode.addEventListener("change", () => { stkUpdateFxVisibility(); stkRecalc(); });
+  ["stkPrice", "stkShares", "stkFx"].forEach((k) => els[k].addEventListener("input", stkRecalc));
+
+  els.stkSearchInput.addEventListener("input", () => {
+    clearTimeout(stkSearchTimer);
+    stkSearchTimer = setTimeout(() => { stkSearchText = els.stkSearchInput.value; stkRender(); }, 300);
+  });
+  els.stkFilterCode.addEventListener("change", () => { stkCodeFilter = els.stkFilterCode.value; stkRender(); });
+  els.stkFilterAccount.addEventListener("change", () => { stkAccountFilter = els.stkFilterAccount.value; stkRender(); });
+
+  els.stkFilterDate.addEventListener("change", () => {
+    stkFilterOn = true; stkShowAll = false;
+    stkRender();
+    els.stkFilterDate.blur();
+    const day = els.stkFilterDate.value;
+    requestAnimationFrame(() => requestAnimationFrame(() => stkScrollToDay(day)));
+  });
+  els.stkClearFilterBtn.onclick = () => {
+    clearTimeout(stkSearchTimer);
+    stkFilterOn = false; els.stkFilterDate.value = todayStr();
+    stkSearchText = ""; els.stkSearchInput.value = "";
+    stkCodeFilter = ""; stkAccountFilter = "";
+    stkFillFilters();
+    stkRender();
+  };
+  els.stkShowAllBtn.onclick = () => { stkShowAll = !stkShowAll; stkRender(); };
+  els.stkChartYear.onchange = () => { stkChartYearVal = els.stkChartYear.value; stkRenderChart(); };
+}
+
 /* --------------------------- Boot ---------------------------------------- */
 (async function boot() {
   // Always wire up UI first so the page is usable and errors are visible.
@@ -2264,6 +3159,12 @@ function incWireEvents() {
   incWireEvents();
   incInitForm();
   els.incFilterDate.value = todayStr();
+
+  // Stock module UI (data loads lazily when switching to 股票 mode).
+  stkWireEvents();
+  stkInitForm();
+  stkFillFilters();
+  els.stkFilterDate.value = todayStr();
 
   // Surface any uncaught errors to the status bar instead of failing silently.
   window.addEventListener("error", (e) => {
@@ -2295,12 +3196,24 @@ function incWireEvents() {
     return;
   }
 
-  // Handle redirect (if any) and restore existing session.
-  await msalApp.handleRedirectPromise().catch(() => {});
-  const accounts = msalApp.getAllAccounts();
-  if (accounts.length > 0) {
-    account = accounts[0];
+  // Handle redirect response (login or token) then restore existing session.
+  let redirectResult = null;
+  try {
+    redirectResult = await msalApp.handleRedirectPromise();
+  } catch (e) {
+    setStatus("登录失败：" + (e.message || e), "error");
+  }
+  if (redirectResult && redirectResult.account) {
+    account = redirectResult.account;
     msalApp.setActiveAccount(account);
+  } else {
+    const accounts = msalApp.getAllAccounts();
+    if (accounts.length > 0) {
+      account = accounts[0];
+      msalApp.setActiveAccount(account);
+    }
+  }
+  if (account) {
     try {
       await onSignedIn();
     } catch (e) {

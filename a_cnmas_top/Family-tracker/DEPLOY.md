@@ -1,62 +1,70 @@
-# Deploy without any local tools (Cloudflare dashboard upload)
+# Deploy (Cloudflare Pages — static Direct Upload)
 
-No Node.js / npm / wrangler needed. You upload the static files through the
-Cloudflare dashboard (Cloudflare Pages, Direct Upload) and attach `a.cnmas.top`.
+The app is a **pure static SPA** — everything lives in `public/`
+(`index.html`, `app.js`, `style.css`, `categories.js`, `msal-browser.min.js`).
+There is no server-side code, so you can deploy by simply uploading a zip in the
+Cloudflare dashboard. No GitHub repo, no Node/npm/wrangler needed.
+
+---
 
 ## Step 0 — Set Client ID + folder share link FIRST
-1. Open `public/app.js` and set:
-   ```js
-   const CLIENT_ID = "YOUR-CLIENT-ID";
-   const FOLDER_SHARE_URL = "https://1drv.ms/f/...";  // EDIT share link of the
-                                                      // Apps/SpendingTracker folder
-   ```
-   To get the folder link: in OneDrive, right-click `Apps/SpendingTracker` →
-   **Share** → set **Can edit** → **Copy link**.
-2. Re-create the zip (PowerShell):
-   ```
-   Compress-Archive -Path 'spending-tracker/public/*' -DestinationPath 'spending-tracker/spending-tracker-public.zip' -Force
-   ```
-   (If you upload before setting CLIENT_ID, the app will show
-   "尚未配置 CLIENT_ID". If FOLDER_SHARE_URL is empty it runs in owner mode
-   against your own OneDrive.)
 
-## Step 1 — Create the Pages project
-1. Go to https://dash.cloudflare.com → **Workers & Pages**.
-2. Click **Create** → **Pages** tab → **Upload assets** (a.k.a. Direct Upload).
-3. Project name: e.g. `spending-tracker` → **Create project**.
-4. Drag **`spending-tracker-public.zip`** onto the upload area (or select the
-   files inside `public/`). Make sure `index.html` is at the TOP level of what
-   you upload (upload the *contents* of `public/`, not the `public` folder itself).
-5. Click **Deploy site**. You'll get a temp URL like
-   `https://spending-tracker.pages.dev` — test login there first if you added
-   that URL as an Azure redirect URI, otherwise go straight to custom domain.
+Open `public/app.js` and set:
+```js
+const CLIENT_ID = "YOUR-CLIENT-ID";
+const FOLDER_SHARE_URL = "https://1drv.ms/f/...";  // EDIT share link of the
+                                                   // Apps/SpendingTracker folder
+```
+To get the folder link: in OneDrive, right-click `Apps/SpendingTracker` →
+**Share** → set **Can edit** → **Copy link**.
 
-## Step 2 — Attach a.cnmas.top
-1. In the project → **Custom domains** → **Set up a custom domain**.
-2. Enter `a.cnmas.top` → **Continue** → **Activate domain**.
-   Because the zone is already in your Cloudflare account, the DNS record is
-   created automatically. Wait ~1 min for it to go active.
+## Step 1 — Build the zip
 
-## Step 3 — Azure redirect URI + permissions
-In your Azure app registration → **Authentication** → SPA redirect URIs, make
-sure `https://a.cnmas.top` is listed. (Add the `*.pages.dev` URL too only if you
-want to test there.) Under **API permissions** → **Microsoft Graph → Delegated**,
-ensure `User.Read`, `Files.ReadWrite`, and `Files.ReadWrite.All` are present
-(`Files.ReadWrite.All` is required to access the folder shared by the other user).
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File spending-tracker/tools/build_zip.ps1
+```
+This produces `spending-tracker/spending-tracker-public.zip` containing exactly
+the static files:
+```
+app.js  categories.js  index.html  msal-browser.min.js  style.css
+```
+(You can also just skip the zip and drag the raw files from `public/` in Step 2.)
 
-## Step 4 — Test
-Open https://a.cnmas.top → **使用 Microsoft 登录** → sign in with a personal
-Microsoft account → add a record (it auto-saves). Reload to confirm it persisted.
+## Step 2 — Direct Upload to Cloudflare Pages
 
-On the very first load, if only a legacy `records.json` exists in the folder, the
-app splits it automatically — you'll see `正在拆分历史数据…` then the record count.
-Afterwards the folder contains `records-current.json` and `records-archive.json`.
+1. https://dash.cloudflare.com → **Workers & Pages** → **Create** → **Pages**
+   → **Upload assets** (Direct Upload).
+2. Give the project a name, then upload `spending-tracker-public.zip`
+   (or drag the files from `public/`).
+3. **Deploy.** You get a URL like `https://<proj>.pages.dev`.
 
-## Updating later
-Any time you change files in `public/`: re-zip (Step 0.2) and in the Pages
-project click **Create deployment** → upload the new zip. The custom domain and
-Azure settings stay as-is.
+To update later: open the project → **Create deployment** → upload the new zip.
+
+## Step 3 — Attach a.cnmas.top
+
+1. If an OLD project still holds the domain, remove `a.cnmas.top` from it first
+   (its **Custom domains** / **Domains & Routes**).
+2. This project → **Custom domains** → **Set up a custom domain** →
+   `a.cnmas.top` → **Activate**. DNS is created automatically (zone is in your
+   account).
+
+## Step 4 — Azure redirect URI + permissions
+
+Azure app registration → **Authentication** → **SPA** redirect URIs: ensure
+`https://a.cnmas.top` is listed (add the `*.pages.dev` URL too only if testing
+there). **API permissions → Microsoft Graph → Delegated:** `User.Read`,
+`Files.ReadWrite`, `Files.ReadWrite.All`.
+
+## Step 5 — Verify
+
+Open https://a.cnmas.top → **使用 Microsoft 登录** → add / view records. On the
+very first load, if only a legacy `records.json` exists in the folder, the app
+splits it automatically (`正在拆分历史数据…`), then the folder holds
+`records-current.json` and `records-archive.json`.
+
+---
 
 ## Note on wrangler.toml
-`wrangler.toml` is only used for the CLI/wrangler path. With dashboard Direct
-Upload you can ignore it.
+
+`wrangler.toml` is left over from an earlier CLI/Worker layout and is IGNORED by
+Direct Upload. It can be deleted; it has no effect on this static deployment.

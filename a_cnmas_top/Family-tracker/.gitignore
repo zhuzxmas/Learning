@@ -1,0 +1,9 @@
+# Deploy artifact (rebuild locally when needed; not deployed via Git)
+spending-tracker-public.zip
+
+# Python caches from tools/
+__pycache__/
+*.pyc
+
+# Personal financial data (lives in OneDrive at runtime; must NOT be committed)
+stock-records.json

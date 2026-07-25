@@ -36,6 +36,7 @@
       <div class="mode-switch" role="tablist">
         <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
         <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
+        <button type="button" class="mode-btn" id="modeStockBtn">股票</button>
       </div>
 
 
@@ -194,6 +195,7 @@
         </div>
       </div>
       </div>
+
       </div><!-- /#spendingApp -->
 
       <!-- ============ INCOME APP ============ -->
@@ -366,6 +368,172 @@
       </div>
       </div>
       </div><!-- /#incomeApp -->
+
+      <!-- ============ STOCK APP ============ -->
+      <div id="stockApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="stkTabListBtn">交易明细</button>
+        <button type="button" class="tab-btn" id="stkTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="stkTabChartBtn">图表</button>
+        <button type="button" class="tab-btn" id="stkTabSettingsBtn">设置</button>
+      </div>
+
+      <!-- Stock tab: add / edit form -->
+      <div class="tab-panel hidden" id="stkTabAdd">
+      <div class="card">
+        <h2 id="stkFormTitle">添加交易</h2>
+        <form id="stkForm" class="record-form">
+          <input type="hidden" id="stkEditId" />
+          <div class="field">
+            <label for="stkCode">股票代码</label>
+            <div class="select-row">
+              <select id="stkCode" required></select>
+              <button type="button" class="btn-add-cat" id="stkAddCode" title="新增股票代码">＋</button>
+              <button type="button" class="btn-hide-cat" id="stkHideCode" title="隐藏该股票代码">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="stkAccount">交易账户</label>
+            <div class="select-row">
+              <select id="stkAccount" required></select>
+              <button type="button" class="btn-add-cat" id="stkAddAccount" title="新增交易账户">＋</button>
+              <button type="button" class="btn-hide-cat" id="stkHideAccount" title="隐藏该交易账户">－</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="stkPrice">交易价格</label>
+            <input type="number" id="stkPrice" step="0.0001" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="stkShares">交易股数<span class="muted mini">（买入负，卖出正）</span></label>
+            <input type="number" id="stkShares" step="1" inputmode="numeric" placeholder="0" required />
+          </div>
+          <div class="field" id="stkFxField">
+            <label for="stkFx">汇率<span class="muted mini">（仅 H 股）</span></label>
+            <input type="number" id="stkFx" step="0.00001" inputmode="decimal" placeholder="A股免填" />
+          </div>
+          <div class="field">
+            <label for="stkDate">交易时间</label>
+            <input type="date" id="stkDate" required />
+          </div>
+
+          <div class="money-group">
+            <div class="money-group-title">自动计算（只读）</div>
+            <div class="money-grid">
+              <div class="field"><label for="stkAmount">成交金额</label>
+                <input type="number" id="stkAmount" readonly tabindex="-1" placeholder="0" /></div>
+              <div class="field"><label for="stkCommission">佣金</label>
+                <input type="number" id="stkCommission" readonly tabindex="-1" placeholder="0" /></div>
+              <div class="field"><label for="stkStamp">印花税</label>
+                <input type="number" id="stkStamp" readonly tabindex="-1" placeholder="0" /></div>
+              <div class="field"><label for="stkTransfer">过户费</label>
+                <input type="number" id="stkTransfer" readonly tabindex="-1" placeholder="0" /></div>
+              <div class="field"><label for="stkTotal">总金额</label>
+                <input type="number" id="stkTotal" readonly tabindex="-1" placeholder="0" /></div>
+            </div>
+            <p class="muted mini">成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。</p>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="stkAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="stkCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Stock tab: records table -->
+      <div class="tab-panel" id="stkTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>交易明细</h2>
+          <span id="stkRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="stkFilterDate">按日期：</label>
+          <input type="date" id="stkFilterDate" />
+          <input type="text" id="stkSearchInput" placeholder="搜索代码/账户" />
+          <button type="button" id="stkClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="stkShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        <div class="filter-bar">
+          <label for="stkFilterCode">筛选：</label>
+          <select id="stkFilterCode"></select>
+          <select id="stkFilterAccount"></select>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="stkTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>股票代码</th>
+                <th>账户</th>
+                <th class="num">价格</th>
+                <th class="num">股数</th>
+                <th class="num">成交金额</th>
+                <th class="num">佣金</th>
+                <th class="num">印花税</th>
+                <th class="num">过户费</th>
+                <th class="num">总金额</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="stkBody"></tbody>
+          </table>
+        </div>
+        <p id="stkEmptyHint" class="muted center hidden">暂无交易记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Stock tab: charts -->
+      <div class="tab-panel hidden" id="stkTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year">已清仓盈亏</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="stkChartTotal">0.00</div>
+              <div class="chart-total-label" id="stkChartTotalLabel">全部年度已清仓盈亏</div>
+            </div>
+            <div class="chart-asof">
+              <div class="chart-asof-label">买入年度：</div>
+              <select id="stkChartYear"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">各年已清仓盈亏（按买入年度归属，含手续费；柱内按账户分色）</div>
+          <div id="stkPnlBars" class="waterfall"></div>
+          <div id="stkPnlLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">各年手续费合计（全部交易）</div>
+          <div id="stkFeeBars" class="waterfall"></div>
+        </div>
+        <p id="stkChartEmpty" class="muted center hidden">暂无交易数据。</p>
+      </div>
+      </div>
+
+      <!-- Stock tab: settings -->
+      <div class="tab-panel hidden" id="stkTabSettings">
+      <div class="card">
+        <h2>设置</h2>
+        <div class="cat-manager">
+          <h3>管理隐藏股票代码</h3>
+          <div id="stkHiddenCodes"></div>
+        </div>
+        <div class="cat-manager">
+          <h3>管理隐藏交易账户</h3>
+          <div id="stkHiddenAccounts"></div>
+        </div>
+      </div>
+      </div>
+      </div><!-- /#stockApp -->
     </section>
   </main>
 
