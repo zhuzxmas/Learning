@@ -26,6 +26,54 @@ const COLD_FILE = "records-archive.json";   // older records bucket (cold)
 const LEGACY_FILE = "records.json";         // single-file layout (auto-migrated)
 const CATS_FILE = "categories-custom.json"; // user-added categories (delta tree)
 
+/* ------------------------ IndexedDB record cache -------------------------- *
+ * Best-effort local cache of the (large) archive file keyed by its eTag, so a
+ * session whose archive is unchanged skips the ~1MB download entirely. All
+ * operations fail silently — the cache only accelerates, never affects data. */
+const IDB_NAME = "spending-cache";
+const IDB_STORE = "files";
+let _idbPromise = null;
+function idbOpen() {
+  if (_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch { resolve(null); }
+  });
+  return _idbPromise;
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch { resolve(null); }
+  });
+}
+async function idbSet(key, etag, records) {
+  const db = await idbOpen();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put({ etag, records }, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    } catch { resolve(); }
+  });
+}
+
 // Graph scopes. Files.ReadWrite.All is needed to read/write a file shared by
 // another user (the shared-file mode); User.Read = your display name.
 const SCOPES = ["User.Read", "Files.ReadWrite", "Files.ReadWrite.All"];
@@ -111,6 +159,7 @@ const els = {
   note: $("note"),
   addBtn: $("addBtn"),
   cancelEditBtn: $("cancelEditBtn"),
+  deleteEditBtn: $("deleteEditBtn"),
   formTitle: $("formTitle"),
   tabAddBtn: $("tabAddBtn"),
   tabListBtn: $("tabListBtn"),
@@ -120,7 +169,7 @@ const els = {
   tabChart: $("tabChart"),
   chartYearTitle: $("chartYearTitle"),
   chartTotal: $("chartTotal"),
-  chartAsOf: $("chartAsOf"),
+  chartYear: $("chartYear"),
   chartEmpty: $("chartEmpty"),
   pieTitle: $("pieTitle"),
   barChart: $("barChart"),
@@ -134,6 +183,10 @@ const els = {
   recordCount: $("recordCount"),
   emptyHint: $("emptyHint"),
   filterDate: $("filterDate"),
+  searchInput: $("searchInput"),
+  catFilterL1: $("catFilterL1"),
+  catFilterL2: $("catFilterL2"),
+  catFilterL3: $("catFilterL3"),
   clearFilterBtn: $("clearFilterBtn"),
   showAllBtn: $("showAllBtn"),
   // --- mode switch ---
@@ -367,7 +420,9 @@ async function readFile(token, name) {
     const d = await res.json();
     list = Array.isArray(d.records) ? d.records : [];
   } catch { list = []; }
-  const etag = await readETag(token, name);
+  // Prefer the ETag from the download response header (saves a round-trip);
+  // fall back to a metadata request only if CORS doesn't expose it.
+  const etag = res.headers.get("ETag") || (await readETag(token, name));
   return { list, etag, exists: true };
 }
 
@@ -384,11 +439,15 @@ async function writeFile(token, name, getList, etag, applyOnConflict) {
       "Content-Type": "application/json",
     };
     if (etag) headers["If-Match"] = etag;
-    const body = JSON.stringify({ records: getList() }, null, 2);
+    const list = getList();
+    const body = JSON.stringify({ records: list });
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
-      return item.eTag || (await readETag(token, name));
+      const newEtag = item.eTag || (await readETag(token, name));
+      // Keep the archive cache fresh so the next session hits it (no download).
+      if (name === COLD_FILE) idbSet(COLD_FILE, newEtag, list);
+      return newEtag;
     }
     if (res.status === 412 && applyOnConflict) {
       setStatus("有人同时更新了数据，正在合并…", "warn");
@@ -417,7 +476,7 @@ async function readJson(token, name) {
   if (!res.ok) throw new Error("载入失败(" + name + ")：" + res.status);
   let data = null;
   try { data = await res.json(); } catch { data = null; }
-  const etag = await readETag(token, name);
+  const etag = res.headers.get("ETag") || (await readETag(token, name));
   return { data, etag, exists: true };
 }
 
@@ -484,6 +543,7 @@ async function loadCustomCats(token) {
   parseCatsFile(r.data);
   etagCats = r.etag;
   applyCustomCats();
+  fillCatFilters();
 }
 
 // Persist custom + hidden categories with optimistic concurrency.
@@ -496,7 +556,7 @@ async function saveCustomCats() {
       "Content-Type": "application/json",
     };
     if (etagCats) headers["If-Match"] = etagCats;
-    const body = JSON.stringify({ custom: customCats, hidden: hiddenCats }, null, 2);
+    const body = JSON.stringify({ custom: customCats, hidden: hiddenCats });
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -590,7 +650,19 @@ async function ensureArchive() {
   setStatus("正在载入历史数据…");
   const token = await getToken();
   await resolveFolder(token);
-  const cold = await readFile(token, COLD_FILE);
+
+  // Fast path: if our IndexedDB cache matches the server's current eTag, use it
+  // and skip the (~1MB) content download entirely.
+  let cold;
+  const liveEtag = await readETag(token, COLD_FILE);
+  const cached = liveEtag ? await idbGet(COLD_FILE) : null;
+  if (cached && cached.etag === liveEtag && Array.isArray(cached.records)) {
+    cold = { list: cached.records, etag: liveEtag, exists: true };
+  } else {
+    cold = await readFile(token, COLD_FILE);
+    if (cold.exists && cold.etag) idbSet(COLD_FILE, cold.etag, cold.list);
+  }
+
   // Keep any records added since load that already live in archiveRecords.
   const pending = archiveRecords.slice();
   const have = new Set(cold.list.map((r) => r.id));
@@ -628,8 +700,7 @@ async function ensureArchive() {
 function finishLoad() {
   syncRecords();
   spendingLoaded = true;
-  const more = archiveLoaded ? "" : "（历史记录点“显示全部”再加载）";
-  setStatus("已载入 " + records.length + " 条记录。" + more, "ok", 5000);
+  setStatus("已载入 " + records.length + " 条记录。", "ok", 2000);
   render();
   renderHiddenList();
   setDirty(false);
@@ -751,13 +822,19 @@ function initCategoryDropdowns() {
   fillSelect(els.iiiCat, [], "请选择三级分类");
 
   els.iCat.addEventListener("change", () => {
-    fillSelect(els.iiCat, visL2(els.iCat.value), "请选择二级分类");
-    fillSelect(els.iiiCat, [], "请选择三级分类");
+    const l2 = visL2(els.iCat.value);
+    fillSelect(els.iiCat, l2, "请选择二级分类");
+    els.iiCat.value = l2[0] || "";           // default to first 二级
+    const l3 = els.iiCat.value ? visL3(els.iCat.value, els.iiCat.value) : [];
+    fillSelect(els.iiiCat, l3, "请选择三级分类");
+    els.iiiCat.value = l3[0] || "";           // default to first 三级
     applyNoteDefault();
   });
 
   els.iiCat.addEventListener("change", () => {
-    fillSelect(els.iiiCat, visL3(els.iCat.value, els.iiCat.value), "请选择三级分类");
+    const l3 = visL3(els.iCat.value, els.iiCat.value);
+    fillSelect(els.iiiCat, l3, "请选择三级分类");
+    els.iiiCat.value = l3[0] || "";           // default to first 三级
     applyNoteDefault();
   });
 
@@ -823,6 +900,7 @@ async function addCategory(level) {
   } catch (e) {
     setStatus("分类保存失败：" + (e.message || e), "error");
   }
+  fillCatFilters();
 }
 
 // Hide the currently-selected category at the given level (1/2/3). Hidden
@@ -859,6 +937,7 @@ async function hideCategory(level) {
   } catch (e) {
     setStatus("分类保存失败：" + (e.message || e), "error");
   }
+  fillCatFilters();
 }
 
 // Restore (un-hide) a category previously hidden. keys depend on level.
@@ -884,6 +963,7 @@ async function restoreCategory(level, i, ii, iii) {
   } catch (e) {
     setStatus("分类保存失败：" + (e.message || e), "error");
   }
+  fillCatFilters();
 }
 
 // Render the "管理隐藏分类" panel listing every hidden entry with a 恢复 button.
@@ -968,10 +1048,18 @@ function computeNoteDefault(i, ii, iii) {
   return "";
 }
 
+// Grow the 备注 textarea to fit its content (no inner scrollbar).
+function autoGrowNote() {
+  if (!els.note) return;
+  els.note.style.height = "auto";
+  els.note.style.height = els.note.scrollHeight + "px";
+}
+
 // Apply the smart default to the 备注 input — only when adding a new record.
 function applyNoteDefault() {
   if (els.editId.value) return; // editing: keep the record's own note
   els.note.value = computeNoteDefault(els.iCat.value, els.iiCat.value, els.iiiCat.value);
+  autoGrowNote();
 }
 
 function resetForm() {
@@ -985,6 +1073,7 @@ function resetForm() {
   els.formTitle.textContent = "添加记录";
   els.addBtn.textContent = "添加到列表";
   hide(els.cancelEditBtn);
+  hide(els.deleteEditBtn);
 }
 
 async function onSubmitForm(e) {
@@ -1064,15 +1153,17 @@ function startEdit(id) {
   els.formTitle.textContent = "编辑记录";
   els.addBtn.textContent = "保存修改";
   show(els.cancelEditBtn);
+  show(els.deleteEditBtn);
   switchTab("add");
+  autoGrowNote();   // measure after the panel is visible
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 async function deleteRecord(id) {
   const r = records.find((x) => x.id === id);
-  if (!r) return;
+  if (!r) return false;
   if (!confirm(`确定删除这条记录吗？\n${r.date} ${r.i_cat}/${r.ii_cat}/${r.iii_cat} ${fmtAmount(r.amount)}`))
-    return;
+    return false;
   const snapHot = currentRecords.slice();
   const snapCold = archiveRecords.slice();
   const wasHot = currentRecords.some((x) => x.id === id);
@@ -1087,22 +1178,77 @@ async function deleteRecord(id) {
     syncRecords();
     render();
   }
+  return ok;
 }
 
 /* --------------------------- Render table -------------------------------- */
 const PAGE_LIMIT = 50;   // default rows shown when no date filter
 let showAll = false;     // toggle to show all rows (no date filter)
 let dateFilterOn = false; // whether the date filter is active
+let catL1Val = "";        // selected 一级 filter ("" = 全部)
+let catL2Val = "";        // selected 二级 filter
+let catL3Val = "";        // selected 三级 filter
+let searchText = "";      // text search (分类 + 备注)
+let searchTimer = null;   // debounce timer for the search box
+
+// Fill a filter <select> with an "全部" (value="") option plus the given list,
+// keeping `keep` selected if still present.
+function fillFilterSelect(sel, options, keep) {
+  sel.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "全部";
+  sel.appendChild(all);
+  for (const opt of options) {
+    const o = document.createElement("option");
+    o.value = opt;
+    o.textContent = opt;
+    sel.appendChild(o);
+  }
+  sel.value = options.includes(keep) ? keep : "";
+}
+
+// Rebuild the three category filter dropdowns from the current selection.
+function fillCatFilters() {
+  fillFilterSelect(els.catFilterL1, visL1(), catL1Val);
+  catL1Val = els.catFilterL1.value;
+  fillFilterSelect(els.catFilterL2, catL1Val ? visL2(catL1Val) : [], catL2Val);
+  catL2Val = els.catFilterL2.value;
+  fillFilterSelect(
+    els.catFilterL3,
+    catL1Val && catL2Val ? visL3(catL1Val, catL2Val) : [],
+    catL3Val
+  );
+  catL3Val = els.catFilterL3.value;
+}
 
 function render() {
-  const filter = dateFilterOn && els.filterDate ? els.filterDate.value : "";
-  const sorted = [...records].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const monthFilter = dateFilterOn && els.filterDate ? els.filterDate.value.slice(0, 7) : "";
+  const anyFilter = dateFilterOn || catL1Val || searchText;
+  const search = searchText.toLowerCase();
+  const sorted = [...records].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    // Same day: newest-added (latest 修改时间) on top.
+    return (b.modified || "") < (a.modified || "") ? -1
+         : (b.modified || "") > (a.modified || "") ? 1 : 0;
+  });
 
-  // Apply date filter, else limit to the latest PAGE_LIMIT (unless showAll).
+  // Apply filters (AND-combined). When any filter is active, show all matches;
+  // otherwise limit to the latest PAGE_LIMIT (unless showAll).
   let view;
   let limited = false;
-  if (filter) {
-    view = sorted.filter((r) => r.date === filter);
+  if (anyFilter) {
+    view = sorted.filter((r) => {
+      if (monthFilter && (r.date || "").slice(0, 7) !== monthFilter) return false;
+      if (catL1Val && r.i_cat !== catL1Val) return false;
+      if (catL2Val && r.ii_cat !== catL2Val) return false;
+      if (catL3Val && r.iii_cat !== catL3Val) return false;
+      if (search) {
+        const hay = `${r.i_cat || ""}|${r.ii_cat || ""}|${r.iii_cat || ""}|${r.note || ""}`.toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
   } else if (showAll) {
     view = sorted;
   } else {
@@ -1111,10 +1257,15 @@ function render() {
   }
 
   els.recordsBody.innerHTML = "";
+  let prevDate = null;
+  let dateBand = 0;   // alternates 0/1 each time the date changes
   for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
     const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
     tr.innerHTML = `
-      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(fmtDateShort(r.date))}</td>
       <td>${escapeHtml(r.i_cat)}</td>
       <td>${escapeHtml(r.ii_cat)}</td>
       <td>${escapeHtml(r.iii_cat)}</td>
@@ -1126,22 +1277,17 @@ function render() {
     editB.className = "btn btn-mini";
     editB.textContent = "编辑";
     editB.onclick = () => startEdit(r.id);
-    const delB = document.createElement("button");
-    delB.className = "btn btn-mini btn-danger";
-    delB.textContent = "删除";
-    delB.onclick = () => deleteRecord(r.id);
     actions.appendChild(editB);
-    actions.appendChild(delB);
     els.recordsBody.appendChild(tr);
   }
 
   // Count / status text
   const total = records.length;
   const daySum = view.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  if (filter) {
-    els.recordCount.textContent = `${filter}：${view.length} 条，合计 ${fmtAmount(daySum)}（共 ${total} 条）`;
+  if (anyFilter) {
+    els.recordCount.textContent = `${view.length} 条，合计 ${fmtAmount(daySum)}`;
   } else if (!archiveLoaded) {
-    els.recordCount.textContent = `本月 ${total} 条（历史未加载，点“显示全部”查看）`;
+    els.recordCount.textContent = `本月 ${total} 条`;
   } else if (showAll) {
     els.recordCount.textContent = `显示全部 ${total} 条`;
   } else {
@@ -1151,16 +1297,44 @@ function render() {
   }
 
   // Button visibility
-  els.clearFilterBtn.classList.toggle("hidden", !filter);
+  els.clearFilterBtn.classList.toggle("hidden", !anyFilter);
   // Always offer 显示全部 while the archive is unloaded (that's what triggers
   // the history download); otherwise only when the recent view is truncated.
   els.showAllBtn.classList.toggle(
-    "hidden", !!filter || (archiveLoaded && !limited && !showAll)
+    "hidden", !!anyFilter || (archiveLoaded && !limited && !showAll)
   );
   els.showAllBtn.textContent =
-    (archiveLoaded && showAll) ? "仅显示最近50条" : "显示全部";
+    (archiveLoaded && showAll) ? "显示50条" : "显示全部";
 
   els.emptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+// Smooth-scroll the records table to the given YYYY-MM-DD: exact day if present,
+// else the nearest earlier day in view, else the top. Aligns the target just
+// below the sticky tabs + filter controls.
+function scrollToDay(day) {
+  if (!day) return;
+  const rows = els.recordsBody.querySelectorAll("tr[data-date]");
+  let target = null;
+  for (const tr of rows) {
+    const d = tr.dataset.date;
+    if (d === day) { target = tr; break; }
+    if (d <= day) { target = tr; break; } // rows are newest-first, so first <= day is nearest earlier
+  }
+  if (!target) target = rows[rows.length - 1] || null;
+  if (!target) return;
+  // Offset = height of everything stuck to the top (tabs + list controls).
+  const tabs = document.querySelector("#spendingApp .tabs");
+  const controls = document.querySelector("#tabList .list-controls");
+  const offset = (tabs ? tabs.offsetHeight : 0) + (controls ? controls.offsetHeight : 0) + 6;
+  const y = target.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+}
+
+// Format a YYYY-MM-DD date as YY/MM/DD (e.g. 2026-07-28 -> 26/07/28).
+function fmtDateShort(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || "");
+  return m ? `${m[1].slice(2)}/${m[2]}/${m[3]}` : (d || "");
 }
 
 function escapeHtml(s) {
@@ -1184,10 +1358,18 @@ const ACCENT_L1 = { "人情往来": CHART_MAGENTA };
 
 let chartAgg = null;     // cached { total, l1: [{name,val,l2:[{name,val}]}] }
 let selectedRank = 0;    // which top-N level-1 category the pie shows (0/1/2)
+let chartYearVal = null; // selected year for the spending chart
 
-// Aggregate the current calendar year's records by level-1 (and level-2).
+// Distinct years present in the records (descending).
+function spendYears() {
+  const s = new Set();
+  for (const r of records) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort().reverse();
+}
+
+// Aggregate the selected year's records by level-1 (and level-2).
 function yearAgg() {
-  const year = String(new Date().getFullYear());
+  const year = chartYearVal || String(new Date().getFullYear());
   const l1map = new Map();
   let total = 0;
   for (const r of records) {
@@ -1209,10 +1391,22 @@ function yearAgg() {
 }
 
 function renderChart() {
+  // Populate the year selector (defaults to the current year if present).
+  const years = spendYears();
+  const cur = String(new Date().getFullYear());
+  if (!chartYearVal || !years.includes(chartYearVal)) {
+    chartYearVal = years.includes(cur) ? cur : (years[0] || cur);
+  }
+  els.chartYear.innerHTML = "";
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === chartYearVal) o.selected = true;
+    els.chartYear.appendChild(o);
+  }
+
   chartAgg = yearAgg();
   els.chartYearTitle.textContent = chartAgg.year + " 年度家庭支出明细";
   els.chartTotal.textContent = fmtAmount(chartAgg.total);
-  els.chartAsOf.textContent = new Date().toLocaleString("zh-CN", { hour12: false });
 
   const has = chartAgg.l1.length > 0;
   els.chartEmpty.classList.toggle("hidden", has);
@@ -1321,12 +1515,19 @@ function wireEvents() {
   els.loginBtn2.onclick = login;
   els.logoutBtn.onclick = logout;
   els.form.addEventListener("submit", onSubmitForm);
+  els.note.addEventListener("input", autoGrowNote);
   els.cancelEditBtn.onclick = resetForm;
+  els.deleteEditBtn.onclick = async () => {
+    const id = els.editId.value;
+    if (!id) return;
+    if (await deleteRecord(id)) { resetForm(); switchTab("list"); }
+  };
 
   els.tabAddBtn.onclick = () => switchTab("add");
   els.tabListBtn.onclick = () => switchTab("list");
   if (els.tabChartBtn) els.tabChartBtn.onclick = () => switchTab("chart");
   if (els.tabSettingsBtn) els.tabSettingsBtn.onclick = () => switchTab("settings");
+  if (els.chartYear) els.chartYear.onchange = () => { chartYearVal = els.chartYear.value; renderChart(); };
   if (els.topSelect) els.topSelect.querySelectorAll(".top-btn").forEach((b) => {
     b.onclick = () => {
       const rank = Number(b.dataset.rank);
@@ -1346,8 +1547,51 @@ function wireEvents() {
   if (els.hideIICat) els.hideIICat.onclick = () => hideCategory(2);
   if (els.hideIIICat) els.hideIIICat.onclick = () => hideCategory(3);
 
-  els.filterDate.addEventListener("change", async () => { dateFilterOn = true; showAll = false; await ensureArchive(); render(); });
-  els.clearFilterBtn.onclick = () => { dateFilterOn = false; els.filterDate.value = todayStr(); render(); };
+  els.filterDate.addEventListener("change", async () => {
+    dateFilterOn = true; showAll = false;
+    await ensureArchive();
+    render();
+    els.filterDate.blur();               // release focus so the closing picker doesn't yank the page to the top input
+    const day = els.filterDate.value;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => scrollToDay(day)) // run after the picker's focus-scroll settles
+    );
+  });
+  els.searchInput.addEventListener("input", () => {
+    // Debounce: wait for a typing pause before loading the archive / re-rendering.
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      searchText = els.searchInput.value.trim();
+      if (searchText) { showAll = false; await ensureArchive(); }
+      render();
+    }, 300);
+  });
+  els.catFilterL1.addEventListener("change", async () => {
+    catL1Val = els.catFilterL1.value; catL2Val = ""; catL3Val = "";
+    fillCatFilters();
+    if (catL1Val) { showAll = false; await ensureArchive(); }
+    render();
+  });
+  els.catFilterL2.addEventListener("change", async () => {
+    catL2Val = els.catFilterL2.value; catL3Val = "";
+    fillCatFilters();
+    await ensureArchive();
+    render();
+  });
+  els.catFilterL3.addEventListener("change", async () => {
+    catL3Val = els.catFilterL3.value;
+    await ensureArchive();
+    render();
+  });
+  els.clearFilterBtn.onclick = () => {
+    clearTimeout(searchTimer);
+    dateFilterOn = false;
+    els.filterDate.value = todayStr();
+    searchText = ""; els.searchInput.value = "";
+    catL1Val = ""; catL2Val = ""; catL3Val = "";
+    fillCatFilters();
+    render();
+  };
   els.showAllBtn.onclick = async () => {
     if (!archiveLoaded) { await ensureArchive(); showAll = true; }
     else { showAll = !showAll; }
@@ -1438,7 +1682,7 @@ async function incReadJson(token, name) {
   if (!res.ok) throw new Error("载入失败(" + name + ")：" + res.status);
   let data = null;
   try { data = await res.json(); } catch { data = null; }
-  const etag = await incReadETag(token, name);
+  const etag = res.headers.get("ETag") || (await incReadETag(token, name));
   return { data, etag, exists: true };
 }
 // PUT with optimistic concurrency (If-Match + 412 merge-retry).
@@ -1447,11 +1691,17 @@ async function incWriteJson(token, name, getData, etag, applyOnConflict) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
-    const body = JSON.stringify(getData(), null, 2);
+    const data = getData();
+    const body = JSON.stringify(data);
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
-      return item.eTag || (await incReadETag(token, name));
+      const newEtag = item.eTag || (await incReadETag(token, name));
+      // Keep the income records cache fresh so the next session hits it.
+      if (name === INCOME_RECORDS_FILE) {
+        idbSet(INCOME_RECORDS_FILE, newEtag, (data && data.records) || []);
+      }
+      return newEtag;
     }
     if (res.status === 412 && applyOnConflict) {
       setStatus("有人同时更新了收入数据，正在合并…", "warn");
@@ -1475,14 +1725,25 @@ async function incLoad() {
   const m = await incReadJson(token, INCOME_META_FILE);
   incMeta = incNormMeta(m.data);
   incEtagMeta = m.etag;
-  const r = await incReadJson(token, INCOME_RECORDS_FILE);
-  incomeRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
-  incEtag = r.etag;
+
+  // Records: use the IndexedDB cache when the server eTag is unchanged (skips
+  // the records download entirely); otherwise download and refresh the cache.
+  const liveEtag = await incReadETag(token, INCOME_RECORDS_FILE);
+  const cached = liveEtag ? await idbGet(INCOME_RECORDS_FILE) : null;
+  if (cached && cached.etag === liveEtag && Array.isArray(cached.records)) {
+    incomeRecords = cached.records;
+    incEtag = liveEtag;
+  } else {
+    const r = await incReadJson(token, INCOME_RECORDS_FILE);
+    incomeRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+    incEtag = r.etag;
+    if (r.exists && r.etag) idbSet(INCOME_RECORDS_FILE, r.etag, incomeRecords);
+  }
   incomeLoaded = true;
   incInitForm();
   incRender();
   incRenderHidden();
-  setStatus("已载入 " + incomeRecords.length + " 条收入记录。", "ok", 5000);
+  setStatus("已载入 " + incomeRecords.length + " 条收入记录。", "ok", 2000);
 }
 
 async function incSaveMeta() {
@@ -1629,7 +1890,7 @@ function incStartEdit(id) {
   els.incFormTitle.textContent = "编辑收入";
   els.incAddBtn.textContent = "保存修改";
   show(els.incCancelBtn);
-  incSwitchTab("add");
+  incSwitchTab("list");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1715,16 +1976,21 @@ function incRenderHidden() {
 
 /* --------------------------- Income table -------------------------------- */
 function incRender() {
-  const filter = incFilterOn && els.incFilterDate ? els.incFilterDate.value : "";
+  const monthFilter = incFilterOn && els.incFilterDate ? els.incFilterDate.value.slice(0, 7) : "";
   const sorted = [...incomeRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   let view, limited = false;
-  if (filter) view = sorted.filter((r) => r.date === filter);
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
   else if (incShowAll) view = sorted;
   else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
 
   els.incBody.innerHTML = "";
+  let prevDate = null;
+  let dateBand = 0;   // alternates 0/1 each time the date changes
   for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
     const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
     tr.innerHTML = `
       <td>${escapeHtml(r.date)}</td>
       <td>${escapeHtml(r.title)}</td>
@@ -1749,14 +2015,34 @@ function incRender() {
 
   const total = incomeRecords.length;
   const sum = view.reduce((s, r) => s + (Number(r.netAmount) || 0), 0);
-  if (filter) els.incRecordCount.textContent = `${filter}：${view.length} 条，实际合计 ${fmtAmount(sum)}（共 ${total} 条）`;
+  if (monthFilter) els.incRecordCount.textContent = `${view.length} 条，实际合计 ${fmtAmount(sum)}`;
   else if (incShowAll) els.incRecordCount.textContent = `显示全部 ${total} 条`;
   else els.incRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
 
-  els.incClearFilterBtn.classList.toggle("hidden", !filter);
-  els.incShowAllBtn.classList.toggle("hidden", !!filter || (!limited && !incShowAll));
+  els.incClearFilterBtn.classList.toggle("hidden", !monthFilter);
+  els.incShowAllBtn.classList.toggle("hidden", !!monthFilter || (!limited && !incShowAll));
   els.incShowAllBtn.textContent = incShowAll ? "仅显示最近50条" : "显示全部";
   els.incEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+// Smooth-scroll the income table to the given YYYY-MM-DD (exact day, else nearest
+// earlier day, else top), aligned below the sticky tabs + filter controls.
+function incScrollToDay(day) {
+  if (!day) return;
+  const rows = els.incBody.querySelectorAll("tr[data-date]");
+  let target = null;
+  for (const tr of rows) {
+    const d = tr.dataset.date;
+    if (d === day) { target = tr; break; }
+    if (d <= day) { target = tr; break; } // rows newest-first: first <= day is nearest earlier
+  }
+  if (!target) target = rows[rows.length - 1] || null;
+  if (!target) return;
+  const tabs = document.querySelector("#incomeApp .tabs");
+  const controls = document.querySelector("#incTabList .list-controls");
+  const offset = (tabs ? tabs.offsetHeight : 0) + (controls ? controls.offsetHeight : 0) + 6;
+  const y = target.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
 }
 
 /* --------------------------- Income charts ------------------------------- */
@@ -1953,7 +2239,13 @@ function incWireEvents() {
   ["incBase", "incOvertime", "incBonus", "incOther", "incSocial", "incFund", "incTax"]
     .forEach((k) => els[k].addEventListener("input", incRecalc));
 
-  els.incFilterDate.addEventListener("change", () => { incFilterOn = true; incShowAll = false; incRender(); });
+  els.incFilterDate.addEventListener("change", () => {
+    incFilterOn = true; incShowAll = false;
+    incRender();
+    els.incFilterDate.blur();
+    const day = els.incFilterDate.value;
+    requestAnimationFrame(() => requestAnimationFrame(() => incScrollToDay(day)));
+  });
   els.incClearFilterBtn.onclick = () => { incFilterOn = false; els.incFilterDate.value = todayStr(); incRender(); };
   els.incShowAllBtn.onclick = () => { incShowAll = !incShowAll; incRender(); };
   els.incChartYear.onchange = () => { incChartYearVal = els.incChartYear.value; incRenderChart(); };
@@ -1966,6 +2258,7 @@ function incWireEvents() {
   resetForm();
   wireEvents();
   els.filterDate.value = todayStr(); // show today's date instead of a blank box
+  fillCatFilters();                  // populate 分类 filter dropdowns
 
   // Income module UI (data loads lazily when switching to 收入 mode).
   incWireEvents();

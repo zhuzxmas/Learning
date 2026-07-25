@@ -24,6 +24,12 @@
       <p id="bootStatus" class="status"></p>
     </section>
 
+    <!-- Status bar: fixed banner pinned to the very top so it never shifts the
+         page layout when it appears/disappears. -->
+    <div class="savebar hidden" id="savebar">
+      <span id="statusMsg" class="status"></span>
+    </div>
+
     <!-- App view -->
     <section id="appView" class="hidden">
       <!-- Mode switch: 支出 / 收入 -->
@@ -32,23 +38,19 @@
         <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
       </div>
 
-      <!-- Status bar: shows "已载入 … 条记录" etc. (below the mode switch) -->
-      <div class="savebar hidden" id="savebar">
-        <span id="statusMsg" class="status"></span>
-      </div>
 
       <!-- ============ SPENDING APP ============ -->
       <div id="spendingApp">
       <!-- Tabs -->
       <div class="tabs" role="tablist">
-        <button type="button" class="tab-btn active" id="tabAddBtn" data-tab="add">新建</button>
-        <button type="button" class="tab-btn" id="tabListBtn" data-tab="list">支出明细</button>
+        <button type="button" class="tab-btn active" id="tabListBtn" data-tab="list">支出明细</button>
+        <button type="button" class="tab-btn" id="tabAddBtn" data-tab="add">新建</button>
         <button type="button" class="tab-btn" id="tabChartBtn" data-tab="chart">图表</button>
         <button type="button" class="tab-btn" id="tabSettingsBtn" data-tab="settings">设置</button>
       </div>
 
       <!-- Tab: add / edit form -->
-      <div class="tab-panel" id="tabAdd">
+      <div class="tab-panel hidden" id="tabAdd">
       <div class="card">
         <h2 id="formTitle">添加记录</h2>
         <form id="recordForm" class="record-form">
@@ -87,28 +89,40 @@
           </div>
           <div class="field field-wide">
             <label for="note">备注</label>
-            <input type="text" id="note" placeholder="可选" />
+            <textarea id="note" rows="1" placeholder="可选" class="autogrow"></textarea>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="addBtn">添加到列表</button>
             <button type="button" class="btn btn-ghost hidden" id="cancelEditBtn">取消编辑</button>
+            <button type="button" class="btn btn-danger hidden" id="deleteEditBtn">删除</button>
           </div>
         </form>
       </div>
       </div>
 
       <!-- Tab: records table -->
-      <div class="tab-panel hidden" id="tabList">
+      <div class="tab-panel" id="tabList">
       <div class="card">
+        <div class="list-controls">
         <div class="table-head-row">
           <h2>支出明细</h2>
           <span id="recordCount" class="muted"></span>
         </div>
         <div class="filter-bar">
-          <label for="filterDate">按日期查看：</label>
+          <label for="filterDate">按日期：</label>
           <input type="date" id="filterDate" />
+          <input type="text" id="searchInput" placeholder="搜索分类/备注" />
           <button type="button" id="clearFilterBtn" class="btn btn-ghost hidden">清除</button>
           <button type="button" id="showAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        <div class="filter-bar">
+          <label for="catFilterL1">分类：</label>
+          <div class="cat-filter-row">
+            <select id="catFilterL1"></select>
+            <select id="catFilterL2"></select>
+            <select id="catFilterL3"></select>
+          </div>
+        </div>
         </div>
         <div class="table-wrap">
           <table id="recordsTable">
@@ -142,8 +156,8 @@
             <div class="chart-total-label">Sum of 金额</div>
           </div>
           <div class="chart-asof">
-            <div class="chart-asof-label">截至 As Of :</div>
-            <div id="chartAsOf"></div>
+            <div class="chart-asof-label">年度：</div>
+            <select id="chartYear"></select>
           </div>
         </div>
         <div class="chart-grid">
@@ -186,14 +200,14 @@
       <div id="incomeApp" class="hidden">
       <!-- Tabs -->
       <div class="tabs" role="tablist">
-        <button type="button" class="tab-btn active" id="incTabAddBtn">新建</button>
-        <button type="button" class="tab-btn" id="incTabListBtn">收入明细</button>
+        <button type="button" class="tab-btn active" id="incTabListBtn">收入明细</button>
+        <button type="button" class="tab-btn" id="incTabAddBtn">新建</button>
         <button type="button" class="tab-btn" id="incTabChartBtn">图表</button>
         <button type="button" class="tab-btn" id="incTabSettingsBtn">设置</button>
       </div>
 
       <!-- Income tab: add / edit form -->
-      <div class="tab-panel" id="incTabAdd">
+      <div class="tab-panel hidden" id="incTabAdd">
       <div class="card">
         <h2 id="incFormTitle">添加收入</h2>
         <form id="incForm" class="record-form">
@@ -269,17 +283,19 @@
       </div>
 
       <!-- Income tab: records table -->
-      <div class="tab-panel hidden" id="incTabList">
+      <div class="tab-panel" id="incTabList">
       <div class="card">
+        <div class="list-controls">
         <div class="table-head-row">
           <h2>收入明细</h2>
           <span id="incRecordCount" class="muted"></span>
         </div>
         <div class="filter-bar">
-          <label for="incFilterDate">按日期查看：</label>
+          <label for="incFilterDate">按日期：</label>
           <input type="date" id="incFilterDate" />
           <button type="button" id="incClearFilterBtn" class="btn btn-ghost hidden">清除</button>
           <button type="button" id="incShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
         </div>
         <div class="table-wrap">
           <table id="incTable">

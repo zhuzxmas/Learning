@@ -31,7 +31,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--card);
+  background: var(--bg);
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -46,7 +46,7 @@ main {
   max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
-  overflow-x: hidden;
+  overflow-x: clip;   /* clip (not hidden) so it doesn't break sticky tabs */
 }
 
 /* Cards */
@@ -70,7 +70,7 @@ main {
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-wide { grid-column: span 2; }
 .field label { font-size: 13px; color: var(--gray); }
-.field input, .field select {
+.field input, .field select, .field textarea {
   padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -79,7 +79,15 @@ main {
   width: 100%;
   min-width: 0;
 }
-.field input:focus, .field select:focus {
+.field textarea.autogrow {
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  font-family: inherit;
+  display: block;
+  min-height: 38px;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
@@ -156,19 +164,21 @@ main {
 .btn-mini { padding: 4px 10px; font-size: 13px; margin-right: 6px; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Save bar */
+/* Save bar — fixed banner pinned to the very top so showing/hiding it never
+   shifts the page layout. */
 .savebar {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  position: sticky;
-  top: 61px;
-  z-index: 5;
+  background: transparent;
+  padding: 10px 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  pointer-events: none;
 }
 .savebar .spacer { flex: 1; }
 .status { font-size: 14px; color: var(--gray); }
@@ -189,6 +199,11 @@ main {
   gap: 6px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg, #fff);
+  padding-top: 8px;
 }
 .tab-btn {
   appearance: none;
@@ -217,6 +232,24 @@ main {
   align-items: baseline;
   justify-content: space-between;
 }
+/* Keep 支出明细 header + date/search/category filters pinned below the sticky
+   tabs so they stay reachable while scrolling the records list. */
+.list-controls {
+  position: sticky;
+  top: 44px;                 /* just below the sticky .tabs bar */
+  z-index: 10;
+  background: var(--bg);     /* match the tabs bar above so it blends when pinned */
+  padding-top: 18px;
+  margin-top: -18px;         /* absorb the card's full 18px top padding so no white strip shows above */
+  margin-left: -20px;        /* bleed into the card's horizontal padding so no white edges show */
+  margin-right: -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.list-controls .filter-bar:last-child { margin-bottom: 6px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td {
@@ -229,6 +262,13 @@ th, td {
 th { color: var(--gray); font-weight: 600; background: #fafafa; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tbody tr:hover { background: #f9fafb; }
+/* Alternating light background per date group in 支出/收入明细 */
+#recordsTable tbody tr.date-band-a,
+#incTable tbody tr.date-band-a { background: #ffffff; }
+#recordsTable tbody tr.date-band-b,
+#incTable tbody tr.date-band-b { background: #f3f7fc; }
+#recordsTable tbody tr:hover,
+#incTable tbody tr:hover { background: #eef4fb; }
 .actions { white-space: nowrap; }
 /* 备注 column (6th): unify font, wrap long text so 操作 stays reachable */
 td:nth-child(6) {
@@ -249,6 +289,62 @@ td:nth-child(6) {
   .field-wide { grid-column: span 1; }
 }
 
+/* Narrow screens: stack each spending record onto two lines (line 1 = 日期/
+   分类/操作, line 2 = 金额/备注) so no horizontal scrolling is needed. */
+@media (max-width: 640px) {
+  /* Use >=16px font on all form controls so iOS Safari doesn't auto-zoom the
+     page when a field is focused. */
+  .field input, .field select, .field textarea,
+  .filter-bar input[type="date"],
+  .filter-bar input[type="text"],
+  .filter-bar select {
+    font-size: 16px;
+  }
+  #tabList .table-wrap { overflow-x: hidden; }
+  #recordsTable thead { display: none; }
+  #recordsTable, #recordsTable tbody { display: block; }
+  #recordsTable tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      "date c1   c2   c3   act"
+      "amt  note note note .";
+    column-gap: 8px;
+    row-gap: 2px;
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+  #recordsTable td {
+    border: none;
+    padding: 2px 2px;
+    white-space: normal;
+    font-size: 13px;
+  }
+  #recordsTable td:nth-child(1) { grid-area: date; font-weight: 600; }
+  #recordsTable td:nth-child(2) {
+    grid-area: c1; white-space: nowrap; overflow: hidden; min-width: 0;
+  }
+  #recordsTable td:nth-child(3) {
+    grid-area: c2; white-space: nowrap; overflow: hidden; min-width: 0;
+  }
+  #recordsTable td:nth-child(4) {
+    grid-area: c3; white-space: nowrap; overflow: hidden; min-width: 0;
+  }
+  #recordsTable td:nth-child(5) {
+    grid-area: amt; text-align: left; min-width: 0; max-width: none;
+  }
+  #recordsTable td:nth-child(6) {
+    grid-area: note; min-width: 0; max-width: none; color: var(--gray);
+  }
+  #recordsTable td:nth-child(7) {
+    grid-area: act; text-align: right; white-space: nowrap;
+  }
+  #recordsTable td:nth-child(6):not(:empty)::before {
+    content: "备注："; color: var(--gray);
+  }
+}
+
 .filter-bar {
   display: flex;
   align-items: center;
@@ -258,12 +354,27 @@ td:nth-child(6) {
   font-size: 14px;
   color: var(--gray);
 }
-.filter-bar input[type="date"] {
+.filter-bar input[type="date"],
+.filter-bar input[type="text"],
+.filter-bar select {
   padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
 }
+.filter-bar input[type="text"] { min-width: 0; }
+/* The three cascading category selects sit horizontally in one row, and
+   wrap onto a second line only on very narrow phones. */
+.cat-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+.cat-filter-row select { flex: 1 1 30%; min-width: 90px; }
+/* Align scroll-to-day target just below the sticky tabs. */
+#recordsTable tr { scroll-margin-top: 64px; }
 
 /* --------------------------- Analytics chart --------------------------- */
 .chart-header {
