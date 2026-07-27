@@ -514,7 +514,8 @@ td:nth-child(6) {
 #incTable td:nth-child(9) {
   white-space: normal; min-width: 150px; max-width: 220px; word-break: break-word; font-size: 14px;
 }
-#incTable td.strong { font-weight: 700; color: #118DFF; }
+#incTable td.strong,
+#stkTable td.strong { font-weight: 700; color: #118DFF; }
 
 /* Waterfall chart */
 .waterfall, .month-bars {
@@ -686,4 +687,25 @@ td:nth-child(6) {
   z-index: 0;
 }
 .wf-col.dim { opacity: 0.28; }
+
+/* Per-account realized P&L row under the header total (year-linked). */
+.stk-acct-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 2px 0 16px;
+}
+.stk-acct-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.stk-acct-name { color: #555; }
+.stk-acct-val { font-weight: 700; color: #26890D; font-variant-numeric: tabular-nums; }
+.stk-acct-val.neg { color: #D64550; }
+
+/* Stock fee-rate settings block */
+.fee-block { margin: 10px 0 4px; }
+.fee-group-title { font-size: 13px; font-weight: 700; color: #555; margin: 6px 0; }
 

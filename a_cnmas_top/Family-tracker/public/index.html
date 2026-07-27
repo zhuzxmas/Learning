@@ -473,11 +473,11 @@
                 <th>账户</th>
                 <th class="num">价格</th>
                 <th class="num">股数</th>
+                <th class="num">总金额</th>
                 <th class="num">成交金额</th>
                 <th class="num">佣金</th>
                 <th class="num">印花税</th>
                 <th class="num">过户费</th>
-                <th class="num">总金额</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -506,6 +506,7 @@
             </div>
           </div>
         </div>
+        <div id="stkAcctBreakdown" class="stk-acct-breakdown"></div>
         <div class="chart-cell">
           <div class="chart-cell-title">各年已清仓盈亏（按买入年度归属，含手续费；柱内按账户分色）</div>
           <div id="stkPnlBars" class="waterfall"></div>
@@ -530,6 +531,40 @@
         <div class="cat-manager">
           <h3>管理隐藏交易账户</h3>
           <div id="stkHiddenAccounts"></div>
+        </div>
+        <div class="cat-manager">
+          <h3>佣金 / 费率设置</h3>
+          <p class="muted mini">费率为小数（0.0001 = 万一）；最低佣金为元。修改后只影响之后新增的交易，历史记录不变。</p>
+          <div class="fee-block">
+            <div class="fee-group-title">A股（非 H 开头）</div>
+            <div class="money-grid">
+              <div class="field"><label for="feeAComm">佣金费率</label>
+                <input type="number" id="feeAComm" step="0.00001" min="0" placeholder="0.0001" /></div>
+              <div class="field"><label for="feeACommMin">最低佣金（元）</label>
+                <input type="number" id="feeACommMin" step="0.01" min="0" placeholder="5" /></div>
+              <div class="field"><label for="feeAStamp">印花税率</label>
+                <input type="number" id="feeAStamp" step="0.00001" min="0" placeholder="0.0005" /></div>
+              <div class="field"><label for="feeATransfer">过户费率</label>
+                <input type="number" id="feeATransfer" step="0.000001" min="0" placeholder="0.00001" /></div>
+            </div>
+          </div>
+          <div class="fee-block">
+            <div class="fee-group-title">H股（H 开头）</div>
+            <div class="money-grid">
+              <div class="field"><label for="feeHComm">佣金费率</label>
+                <input type="number" id="feeHComm" step="0.00001" min="0" placeholder="0.0002" /></div>
+              <div class="field"><label for="feeHCommMin">最低佣金（元）</label>
+                <input type="number" id="feeHCommMin" step="0.01" min="0" placeholder="5" /></div>
+              <div class="field"><label for="feeHStamp">印花税率</label>
+                <input type="number" id="feeHStamp" step="0.000001" min="0" placeholder="0.001127" /></div>
+              <div class="field"><label for="feeHTransfer">过户费率</label>
+                <input type="number" id="feeHTransfer" step="0.000001" min="0" placeholder="0" /></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="feeSaveBtn">保存费率</button>
+            <button type="button" class="btn btn-ghost" id="feeResetBtn">恢复默认</button>
+          </div>
         </div>
       </div>
       </div>

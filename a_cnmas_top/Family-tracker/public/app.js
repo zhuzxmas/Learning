@@ -106,7 +106,14 @@ const INCOME_BASE_PAYEES = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 // Replace with a dedicated folder's 1drv.ms share URL if you want them apart.
 const STOCK_FOLDER_SHARE_URL = INCOME_FOLDER_SHARE_URL;
 const STOCK_RECORDS_FILE = "stock-records.json";
-const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{custom,hidden}}
+const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{custom,hidden}, fees}
+
+// Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
+// Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
+const STK_FEE_DEFAULTS = {
+  a: { comm: 0.0001, commMin: 5, stamp: 0.0005,   transfer: 0.00001 }, // A股(非H)
+  h: { comm: 0.0002, commMin: 5, stamp: 0.001127, transfer: 0 },       // H股(H开头)
+};
 
 // Base (seed) stock codes + accounts, from the migrated data.
 const STOCK_BASE_CODES = [
@@ -308,6 +315,7 @@ const els = {
   stkChartTotal: $("stkChartTotal"),
   stkChartTotalLabel: $("stkChartTotalLabel"),
   stkChartYear: $("stkChartYear"),
+  stkAcctBreakdown: $("stkAcctBreakdown"),
   stkPnlBars: $("stkPnlBars"),
   stkPnlLegend: $("stkPnlLegend"),
   stkFeeBars: $("stkFeeBars"),
@@ -315,6 +323,17 @@ const els = {
   // --- stock settings ---
   stkHiddenCodes: $("stkHiddenCodes"),
   stkHiddenAccounts: $("stkHiddenAccounts"),
+  // --- stock fee settings ---
+  feeAComm: $("feeAComm"),
+  feeACommMin: $("feeACommMin"),
+  feeAStamp: $("feeAStamp"),
+  feeATransfer: $("feeATransfer"),
+  feeHComm: $("feeHComm"),
+  feeHCommMin: $("feeHCommMin"),
+  feeHStamp: $("feeHStamp"),
+  feeHTransfer: $("feeHTransfer"),
+  feeSaveBtn: $("feeSaveBtn"),
+  feeResetBtn: $("feeResetBtn"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -2342,7 +2361,7 @@ let stockRecords = [];
 let stkEtag = null;
 let stockLoaded = false;
 let stkDriveBase = null;
-let stkMeta = { codes: { custom: [], hidden: [] }, accounts: { custom: [], hidden: [] } };
+let stkMeta = { codes: { custom: [], hidden: [] }, accounts: { custom: [], hidden: [] }, fees: stkCloneFees(STK_FEE_DEFAULTS) };
 let stkEtagMeta = null;
 let stkShowAll = false;
 let stkFilterOn = false;
@@ -2361,7 +2380,26 @@ function stkNormMeta(d) {
   return {
     codes: { custom: arr(codes.custom), hidden: arr(codes.hidden) },
     accounts: { custom: arr(accts.custom), hidden: arr(accts.hidden) },
+    fees: stkNormFees(d.fees),
   };
+}
+// Fill missing/invalid fee fields with defaults; keep numbers only.
+function stkNormFees(f) {
+  f = (f && typeof f === "object") ? f : {};
+  const grp = (g, def) => {
+    g = (g && typeof g === "object") ? g : {};
+    const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d);
+    return {
+      comm: num(g.comm, def.comm),
+      commMin: num(g.commMin, def.commMin),
+      stamp: num(g.stamp, def.stamp),
+      transfer: num(g.transfer, def.transfer),
+    };
+  };
+  return { a: grp(f.a, STK_FEE_DEFAULTS.a), h: grp(f.h, STK_FEE_DEFAULTS.h) };
+}
+function stkCloneFees(f) {
+  return { a: Object.assign({}, f.a), h: Object.assign({}, f.h) };
 }
 function stkMergeMeta(target, src) {
   src = stkNormMeta(src);
@@ -2370,6 +2408,8 @@ function stkMergeMeta(target, src) {
   uni(target.codes.hidden, src.codes.hidden);
   uni(target.accounts.custom, src.accounts.custom);
   uni(target.accounts.hidden, src.accounts.hidden);
+  // Fees: keep local (they represent the current, just-edited rates).
+  if (!target.fees) target.fees = stkNormFees(src.fees);
 }
 function stkVisCodes() {
   const all = STOCK_BASE_CODES.concat(stkMeta.codes.custom.filter((x) => !STOCK_BASE_CODES.includes(x)));
@@ -2389,17 +2429,19 @@ function stkComputeDerived(code, price, shares, fx) {
   const rate = isH ? (fx || 1) : 1;
   const amt = isH ? price * shares * rate : price * shares;
 
-  let comm;
-  if (isH) comm = amt < -25000 ? amt * 0.0002 : (amt < 25000 ? -5 : -amt * 0.0002);
-  else comm = amt < -50000 ? amt * 0.0001 : (amt < 50000 ? -5 : -amt * 0.0001);
+  const fees = (stkMeta && stkMeta.fees) ? stkMeta.fees : STK_FEE_DEFAULTS;
+  const fee = isH ? fees.h : fees.a;
+
+  // Commission: magnitude = max(最低佣金, |金额|×费率), always a cost (negative).
+  const comm = -Math.max(fee.commMin, Math.abs(amt) * fee.comm);
 
   let stamp;
-  if (isH) stamp = shares <= 0 ? amt * 0.001127 : -amt * 0.001127;
-  else stamp = shares <= 0 ? 0 : -amt * 0.0005;
+  if (isH) stamp = shares <= 0 ? amt * fee.stamp : -amt * fee.stamp;
+  else stamp = shares <= 0 ? 0 : -amt * fee.stamp;
 
   let transfer;
   if (isH) transfer = 0;
-  else transfer = shares <= 0 ? amt * 0.00001 : -amt * 0.00001;
+  else transfer = shares <= 0 ? amt * fee.transfer : -amt * fee.transfer;
 
   const total = amt + comm + stamp + transfer;
   return {
@@ -2756,6 +2798,63 @@ function stkRenderHidden() {
   build(els.stkHiddenAccounts, stkMeta.accounts.hidden, "account");
 }
 
+/* ------------------------- Stock fee settings ---------------------------- */
+// Fill the fee inputs from stkMeta.fees (decimals as stored).
+function stkRenderFees() {
+  const f = (stkMeta && stkMeta.fees) ? stkMeta.fees : STK_FEE_DEFAULTS;
+  const set = (el, v) => { if (el) el.value = (v != null ? v : ""); };
+  set(els.feeAComm, f.a.comm);      set(els.feeACommMin, f.a.commMin);
+  set(els.feeAStamp, f.a.stamp);    set(els.feeATransfer, f.a.transfer);
+  set(els.feeHComm, f.h.comm);      set(els.feeHCommMin, f.h.commMin);
+  set(els.feeHStamp, f.h.stamp);    set(els.feeHTransfer, f.h.transfer);
+}
+
+// Read a fee input; fall back to the given default when blank/invalid.
+function stkReadFee(el, def) {
+  const v = parseFloat(el && el.value);
+  return (isFinite(v) && v >= 0) ? v : def;
+}
+
+async function stkSaveFees() {
+  const d = STK_FEE_DEFAULTS;
+  stkMeta.fees = {
+    a: {
+      comm: stkReadFee(els.feeAComm, d.a.comm),
+      commMin: stkReadFee(els.feeACommMin, d.a.commMin),
+      stamp: stkReadFee(els.feeAStamp, d.a.stamp),
+      transfer: stkReadFee(els.feeATransfer, d.a.transfer),
+    },
+    h: {
+      comm: stkReadFee(els.feeHComm, d.h.comm),
+      commMin: stkReadFee(els.feeHCommMin, d.h.commMin),
+      stamp: stkReadFee(els.feeHStamp, d.h.stamp),
+      transfer: stkReadFee(els.feeHTransfer, d.h.transfer),
+    },
+  };
+  stkRenderFees();   // reflect normalized values back
+  stkRecalc();       // update the add-form's auto-computed fees immediately
+  try {
+    setStatus("正在保存费率…");
+    await stkSaveMeta();
+    setStatus("已保存费率设置。", "ok", 3000);
+  } catch (e) {
+    setStatus("保存费率失败：" + (e.message || e), "error");
+  }
+}
+
+async function stkResetFees() {
+  stkMeta.fees = stkCloneFees(STK_FEE_DEFAULTS);
+  stkRenderFees();
+  stkRecalc();
+  try {
+    setStatus("正在恢复默认费率…");
+    await stkSaveMeta();
+    setStatus("已恢复默认费率。", "ok", 3000);
+  } catch (e) {
+    setStatus("保存费率失败：" + (e.message || e), "error");
+  }
+}
+
 /* ---------------------------- Stock filters ------------------------------ */
 // Populate the 代码 / 账户 filter dropdowns from records + meta.
 function stkFillFilters() {
@@ -2808,11 +2907,11 @@ function stkRender() {
       <td>${escapeHtml(r.account)}</td>
       <td class="num">${fmtAmount(r.price)}</td>
       <td class="${sharesCls}">${fmtInt(r.shares)}</td>
+      <td class="num strong">${fmtAmount(r.total)}</td>
       <td class="num">${fmtAmount(r.amount)}</td>
       <td class="num">${fmtAmount(r.commission)}</td>
       <td class="num">${fmtAmount(r.stampTax)}</td>
       <td class="num">${fmtAmount(r.transferFee)}</td>
-      <td class="num strong">${fmtAmount(r.total)}</td>
       <td class="actions"></td>`;
     const actions = tr.querySelector(".actions");
     const editB = document.createElement("button");
@@ -3040,6 +3139,7 @@ function stkRenderChart() {
   if (!hasData) {
     els.stkPnlBars.innerHTML = ""; els.stkFeeBars.innerHTML = "";
     els.stkPnlLegend.innerHTML = "";
+    els.stkAcctBreakdown.innerHTML = "";
     els.stkChartTotal.textContent = "0.00";
     els.stkChartTotalLabel.textContent = "已清仓盈亏合计";
     return;
@@ -3059,6 +3159,26 @@ function stkRenderChart() {
   els.stkChartTotal.textContent = fmtAmount(round2(headTotal));
   els.stkChartTotal.classList.toggle("neg", headTotal < 0);
   els.stkChartTotalLabel.textContent = (yr === "ALL" ? "全部年度" : yr + " 年") + "已清仓盈亏";
+
+  // Per-account realized P&L for the selected year (grand total when 全部年度),
+  // driven by the same year selector. Lists ALL accounts (0.00 when none).
+  const acctPnl = new Map(accounts.map((a) => [a, 0]));
+  if (yr === "ALL") {
+    for (const [, am] of byYearAcct) for (const [a, v] of am) acctPnl.set(a, round2((acctPnl.get(a) || 0) + v));
+  } else {
+    for (const [a, v] of (byYearAcct.get(yr) || new Map())) acctPnl.set(a, round2(v));
+  }
+  els.stkAcctBreakdown.innerHTML = "";
+  for (const a of accounts) {
+    const v = round2(acctPnl.get(a) || 0);
+    const item = document.createElement("div");
+    item.className = "stk-acct-item";
+    item.innerHTML =
+      `<span class="legend-dot" style="background:${colorOf.get(a)}"></span>` +
+      `<span class="stk-acct-name">${escapeHtml(a)}</span>` +
+      `<span class="stk-acct-val${v < 0 ? " neg" : ""}">${fmtAmount(v)}</span>`;
+    els.stkAcctBreakdown.appendChild(item);
+  }
 
   // Chart 1: realized P&L waterfall, each year bar split by account.
   const pnlSteps = yearsAsc.map((y) => {
@@ -3101,7 +3221,7 @@ function stkSwitchTab(name) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chart") stkRenderChart();
-  if (name === "settings") stkRenderHidden();
+  if (name === "settings") { stkRenderHidden(); stkRenderFees(); }
 }
 
 function stkWireEvents() {
@@ -3116,6 +3236,8 @@ function stkWireEvents() {
   els.stkAddAccount.onclick = stkAddAccountFn;
   els.stkHideCode.onclick = stkHideCodeFn;
   els.stkHideAccount.onclick = stkHideAccountFn;
+  els.feeSaveBtn.onclick = stkSaveFees;
+  els.feeResetBtn.onclick = stkResetFees;
 
   els.stkCode.addEventListener("change", () => { stkUpdateFxVisibility(); stkRecalc(); });
   ["stkPrice", "stkShares", "stkFx"].forEach((k) => els[k].addEventListener("input", stkRecalc));
