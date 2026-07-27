@@ -132,6 +132,20 @@ const HEALTH_BP_FILE = "health-bp.json";
 const BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM";
 const BLOG_INDEX_FILE = "blog-index.json";
 
+/* --------------------------- AI 对话 (chat) CONFIG ---------------------- */
+// DeepSeek is reached through our own Cloudflare Worker (keeps the API key
+// secret + restricts use to the allowed Microsoft accounts). Set this to the
+// Worker's custom domain.
+const CHAT_API_URL = "https://api.cnmas.top";
+// Conversations are stored in their OWN dedicated OneDrive shared folder.
+// Structure inside it:  chat-index.json  +  chats/<id>.json
+// PASTE the 1drv.ms share link of that folder here (create a folder named e.g.
+// "Chats" in OneDrive, share it, and drop the link below):
+const CHAT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgB5autcGzJOSKCznhJ1X0n3AVgMO_Xx2FjWRhpgk4vP1ag?email=celine_mas%40outlook.com&e=Lsf6a0";
+const CHAT_INDEX_FILE = "chat-index.json";
+// Model choices shown in the dropdown. Default is the first.
+const CHAT_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"];
+
 // Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
 // Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
 const STK_FEE_DEFAULTS = {
@@ -296,6 +310,18 @@ const els = {
   modeStockBtn: $("modeStockBtn"),
   modeBlogBtn: $("modeBlogBtn"),
   stockApp: $("stockApp"),
+  // --- AI 对话 (chat) mode ---
+  aiApp: $("aiApp"),
+  aiConvList: $("aiConvList"),
+  aiNewChatBtn: $("aiNewChatBtn"),
+  aiMessages: $("aiMessages"),
+  aiInput: $("aiInput"),
+  aiSendBtn: $("aiSendBtn"),
+  aiModel: $("aiModel"),
+  aiThinking: $("aiThinking"),
+  aiTitle: $("aiTitle"),
+  aiSidebar: $("aiSidebar"),
+  aiToggleSidebar: $("aiToggleSidebar"),
   // --- stock tabs ---
   stkTabAddBtn: $("stkTabAddBtn"),
   stkTabListBtn: $("stkTabListBtn"),
@@ -2687,7 +2713,7 @@ async function setMode(next) {
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeStockBtn.classList.toggle("active", isStk);
   els.modeBlogBtn.classList.toggle("active", next === "blog");
-  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical");
+  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || next === "ai");
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
@@ -2701,6 +2727,7 @@ async function setMode(next) {
   els.vehicleApp.classList.toggle("hidden", next !== "vehicle");
   els.healthApp.classList.toggle("hidden", next !== "health");
   els.blogApp.classList.toggle("hidden", next !== "blog");
+  els.aiApp.classList.toggle("hidden", next !== "ai");
   els.modeMoreMenu.classList.add("hidden");
   if (!account) return;
   if (isInc) {
@@ -2734,6 +2761,9 @@ async function setMode(next) {
   } else if (next === "blog") {
     try { await blogLoad(); }
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "ai") {
+    try { await chatLoad(); }
+    catch (e) { setStatus("AI 对话载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -3810,6 +3840,12 @@ function stkWireEvents() {
   // 生活博客 module UI (data loads lazily when switching to that mode).
   blogWireEvents();
   blogResetForm();
+
+
+  // AI 对话 module UI (data loads lazily when switching to that mode).
+  // Wrapped so a failure here can never abort boot() before MSAL init/login.
+  try { chatWireEvents(); }
+  catch (e) { console.warn("chatWireEvents failed:", e); }
 
 
   // Surface any uncaught errors to the status bar instead of failing silently.
@@ -7853,4 +7889,441 @@ function blogWireEvents() {
   els.blogCancelBtn.onclick = () => { blogViewId ? blogSwitchTab("view") : blogSwitchTab("list"); };
   els.blogImageInput.addEventListener("change", () => blogOnPickImages(els.blogImageInput.files));
 }
+
+/* ========================================================================= *
+ *                       AI 对话 (chat*)  —  DeepSeek                          *
+ *   Multi-conversation, streaming chat. History is stored in its own          *
+ *   OneDrive folder:  chat-index.json  +  chats/<id>.json                      *
+ *   DeepSeek is reached through the Cloudflare Worker at CHAT_API_URL, which   *
+ *   injects the secret API key and only serves the allowed accounts.          *
+ * ========================================================================= */
+let chatDriveBase = "";
+let chatConvs = [];          // index entries [{id,title,updated}]
+let chatIndexEtag = null;
+let chatLoaded = false;
+let chatCurId = null;        // id of the open conversation
+let chatMessages = [];       // messages of the open conversation [{role,content,reasoning}]
+let chatCurEtag = null;      // eTag of chats/<id>.json (optimistic concurrency)
+let chatSending = false;     // guard against concurrent sends
+let chatLastModel = "";      // last valid model selection (for revert on cancel)
+
+// ---- folder + file addressing (own driveBase from CHAT_FOLDER_SHARE_URL) --
+async function chatResolveFolder(token) {
+  if (chatDriveBase) return;
+  const sid = encodeShareUrl(CHAT_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问对话文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  chatDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function chatEncPath(p) { return p.split("/").map(encodeURIComponent).join("/"); }
+function chatContentUrl(path) { return `${chatDriveBase}:/${chatEncPath(path)}:/content`; }
+
+// ---- index JSON read/write (eTag optimistic concurrency) -----------------
+async function chatReadIndex(token) {
+  const res = await fetch(chatContentUrl(CHAT_INDEX_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { convs: [], etag: null };
+  if (!res.ok) throw new Error("载入对话索引失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const convs = (data && Array.isArray(data.convs)) ? data.convs : [];
+  return { convs, etag: res.headers.get("ETag") };
+}
+async function chatWriteIndex(token) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (chatIndexEtag) headers["If-Match"] = chatIndexEtag;
+    const res = await fetch(chatContentUrl(CHAT_INDEX_FILE), {
+      method: "PUT", headers, body: JSON.stringify({ convs: chatConvs }),
+    });
+    if (res.ok) { const it = await res.json(); chatIndexEtag = it.eTag; return; }
+    if (res.status === 412) { // merge by id, keep our edits
+      const fresh = await chatReadIndex(token);
+      const byId = {}; fresh.convs.forEach((c) => { byId[c.id] = c; });
+      chatConvs.forEach((c) => { byId[c.id] = c; });
+      chatConvs = Object.values(byId).sort(chatCmp);
+      chatIndexEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存对话索引失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存对话索引冲突，重试多次仍失败。");
+}
+function chatCmp(a, b) {
+  const ua = a.updated || "", ub = b.updated || "";
+  if (ua !== ub) return ub < ua ? -1 : 1;   // updated desc
+  return (b.id || "") < (a.id || "") ? -1 : 1;
+}
+
+// ---- single conversation read/write --------------------------------------
+async function chatReadConv(token, id) {
+  const res = await fetch(chatContentUrl("chats/" + id + ".json"), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { messages: [], etag: null };
+  if (!res.ok) throw new Error("载入对话失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const messages = (data && Array.isArray(data.messages)) ? data.messages : [];
+  return { messages, etag: res.headers.get("ETag") };
+}
+async function chatWriteConv(token, id) {
+  const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+  if (chatCurEtag) headers["If-Match"] = chatCurEtag;
+  const res = await fetch(chatContentUrl("chats/" + id + ".json"), {
+    method: "PUT", headers, body: JSON.stringify({ messages: chatMessages }),
+  });
+  if (res.status === 412) { // conflict: overwrite without If-Match (last write wins for a single chat)
+    delete headers["If-Match"];
+    const res2 = await fetch(chatContentUrl("chats/" + id + ".json"), {
+      method: "PUT", headers, body: JSON.stringify({ messages: chatMessages }),
+    });
+    if (!res2.ok) throw new Error("保存对话失败：" + res2.status);
+    const it2 = await res2.json(); chatCurEtag = it2.eTag; return;
+  }
+  if (!res.ok) throw new Error("保存对话失败：" + res.status + " " + (await res.text()));
+  const it = await res.json(); chatCurEtag = it.eTag;
+}
+async function chatDeleteConv(token, id) {
+  await fetch(`${chatDriveBase}:/${chatEncPath("chats/" + id + ".json")}`, {
+    method: "DELETE", headers: { Authorization: "Bearer " + token },
+  });
+}
+
+// ---- load ----------------------------------------------------------------
+async function chatLoad() {
+  if (chatLoaded) return;
+  // Guarantee the UI is wired (idempotent) even if the boot-time call didn't
+  // complete for any reason — this runs the moment the user opens the tab.
+  try { chatWireEvents(); } catch (e) { console.warn("chatWireEvents (load) failed:", e); }
+  if (CHAT_FOLDER_SHARE_URL.startsWith("PASTE-")) {
+    setStatus("请先在 app.js 里填入 CHAT_FOLDER_SHARE_URL（对话文件夹分享链接）。", "error");
+    return;
+  }
+  setStatus("正在载入对话…");
+  const token = await getToken();
+  await chatResolveFolder(token);
+  const idx = await chatReadIndex(token);
+  chatConvs = idx.convs.slice().sort(chatCmp);
+  chatIndexEtag = idx.etag;
+  chatLoaded = true;
+  chatRenderList();
+  // Open the most recent conversation, or start a fresh one.
+  if (chatConvs.length) await chatOpen(chatConvs[0].id);
+  else chatNew();
+  setStatus("已载入 " + chatConvs.length + " 个对话。", "ok", 1500);
+}
+
+// ---- conversation list rendering -----------------------------------------
+function chatRenderList() {
+  const box = els.aiConvList;
+  box.innerHTML = "";
+  if (!chatConvs.length) {
+    box.innerHTML = '<p class="muted" style="padding:8px;">还没有对话，点“新对话”开始。</p>';
+    return;
+  }
+  chatConvs.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "ai-conv-item" + (c.id === chatCurId ? " active" : "");
+    const t = document.createElement("span");
+    t.className = "ai-conv-title";
+    t.textContent = c.title || "新对话";
+    t.onclick = () => chatOpen(c.id);
+    const del = document.createElement("button");
+    del.className = "ai-conv-del";
+    del.textContent = "×";
+    del.title = "删除对话";
+    del.onclick = (e) => { e.stopPropagation(); chatDelete(c.id); };
+    item.appendChild(t);
+    item.appendChild(del);
+    box.appendChild(item);
+  });
+}
+
+// ---- open / new / delete -------------------------------------------------
+async function chatOpen(id) {
+  const token = await getToken();
+  const conv = await chatReadConv(token, id);
+  chatCurId = id;
+  chatMessages = conv.messages;
+  chatCurEtag = conv.etag;
+  const meta = chatConvs.find((c) => c.id === id);
+  els.aiTitle.textContent = (meta && meta.title) || "对话";
+  chatRenderList();
+  chatRenderMessages();
+  chatCloseSidebarMobile();
+}
+function chatNew() {
+  chatCurId = null;
+  chatMessages = [];
+  chatCurEtag = null;
+  els.aiTitle.textContent = "新对话";
+  chatRenderList();
+  chatRenderMessages();
+  els.aiInput.focus();
+  chatCloseSidebarMobile();
+}
+async function chatDelete(id) {
+  if (!confirm("删除这个对话？此操作无法撤销。")) return;
+  const token = await getToken();
+  await chatDeleteConv(token, id);
+  chatConvs = chatConvs.filter((c) => c.id !== id);
+  await chatWriteIndex(token);
+  if (chatCurId === id) {
+    if (chatConvs.length) await chatOpen(chatConvs[0].id);
+    else chatNew();
+  } else {
+    chatRenderList();
+  }
+  setStatus("对话已删除。", "ok", 1500);
+}
+
+// ---- message rendering ---------------------------------------------------
+function chatRenderMessages() {
+  const box = els.aiMessages;
+  box.innerHTML = "";
+  if (!chatMessages.length) {
+    box.innerHTML = '<div class="ai-empty">向 DeepSeek 提问吧 👋</div>';
+    return;
+  }
+  chatMessages.forEach((m) => box.appendChild(chatBubble(m)));
+  chatScrollBottom();
+}
+function chatBubble(m) {
+  const wrap = document.createElement("div");
+  wrap.className = "ai-msg ai-" + (m.role === "user" ? "user" : "assistant");
+  if (m.role === "assistant" && m.reasoning) {
+    const det = document.createElement("details");
+    det.className = "ai-reasoning";
+    const sum = document.createElement("summary");
+    sum.textContent = "💭 思考过程";
+    const rc = document.createElement("div");
+    rc.className = "ai-reasoning-body";
+    rc.textContent = m.reasoning;
+    det.appendChild(sum);
+    det.appendChild(rc);
+    wrap.appendChild(det);
+  }
+  const body = document.createElement("div");
+  body.className = "ai-msg-body";
+  if (m.role === "assistant") body.innerHTML = blogRenderMarkdown(m.content || "");
+  else body.textContent = m.content || "";
+  wrap.appendChild(body);
+  return wrap;
+}
+function chatScrollBottom() {
+  const box = els.aiMessages;
+  box.scrollTop = box.scrollHeight;
+}
+
+// ---- send (streaming) ----------------------------------------------------
+async function chatSend() {
+  if (chatSending) return;
+  if (!els.aiInput || !els.aiMessages) return;
+  const text = els.aiInput.value.trim();
+  if (!text) return;
+  chatSending = true;
+  if (els.aiSendBtn) els.aiSendBtn.disabled = true;
+
+  let acc = "";      // assistant content
+  let reasoning = "";// reasoning content
+  let liveBody = null;
+  try {
+    els.aiInput.value = "";
+
+    // Append the user message, render it.
+    chatMessages.push({ role: "user", content: text });
+    els.aiMessages.querySelector(".ai-empty")?.remove();
+    els.aiMessages.appendChild(chatBubble({ role: "user", content: text }));
+    chatScrollBottom();
+
+    // Create a live assistant bubble to stream into.
+    const liveWrap = document.createElement("div");
+    liveWrap.className = "ai-msg ai-assistant";
+    const reDet = document.createElement("details");
+    reDet.className = "ai-reasoning hidden";
+    reDet.open = true;
+    const reSum = document.createElement("summary"); reSum.textContent = "💭 思考过程";
+    const reBody = document.createElement("div"); reBody.className = "ai-reasoning-body";
+    reDet.appendChild(reSum); reDet.appendChild(reBody);
+    liveBody = document.createElement("div"); liveBody.className = "ai-msg-body";
+    liveBody.innerHTML = '<span class="ai-cursor">▋</span>';
+    liveWrap.appendChild(reDet); liveWrap.appendChild(liveBody);
+    els.aiMessages.appendChild(liveWrap);
+    chatScrollBottom();
+
+    const token = await getToken();
+    const body = {
+      model: els.aiModel.value || CHAT_MODELS[0],
+      messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
+      stream: true,
+    };
+    if (els.aiThinking.checked) {
+      body.thinking = { type: "enabled" };
+      body.reasoning_effort = "high";
+    } else {
+      body.thinking = { type: "disabled" };
+    }
+    const res = await fetch(CHAT_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok || !res.body) {
+      const errTxt = await res.text().catch(() => "");
+      throw new Error("请求失败 " + res.status + " " + errTxt);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      // Parse SSE lines: "data: {...}\n"
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") continue;
+        let obj;
+        try { obj = JSON.parse(data); } catch { continue; }
+        if (obj.error) { throw new Error(typeof obj.error === "string" ? obj.error : (obj.error.message || JSON.stringify(obj.error))); }
+        const delta = obj.choices && obj.choices[0] && obj.choices[0].delta;
+        if (!delta) continue;
+        if (delta.reasoning_content) {
+          reasoning += delta.reasoning_content;
+          reDet.classList.remove("hidden");
+          reBody.textContent = reasoning;
+        }
+        if (delta.content) {
+          acc += delta.content;
+          liveBody.innerHTML = blogRenderMarkdown(acc) + '<span class="ai-cursor">▋</span>';
+        }
+        chatScrollBottom();
+      }
+    }
+    liveBody.innerHTML = blogRenderMarkdown(acc);
+
+    // Persist the assistant message.
+    const msg = { role: "assistant", content: acc };
+    if (reasoning) msg.reasoning = reasoning;
+    chatMessages.push(msg);
+    await chatPersistAfterTurn(text);
+  } catch (e) {
+    const errHtml = '<span class="ai-error">出错了：' + escapeHtml(e.message || String(e)) + "</span>";
+    if (liveBody) liveBody.innerHTML = errHtml;
+    else setStatus("发送失败：" + (e.message || e), "error");
+    // Roll back the user message we optimistically added so a retry is clean.
+    if (chatMessages.length && chatMessages[chatMessages.length - 1].role === "user") chatMessages.pop();
+  } finally {
+    chatSending = false;
+    if (els.aiSendBtn) els.aiSendBtn.disabled = false;
+    chatScrollBottom();
+  }
+}
+
+// After a successful turn: ensure a conversation id/title exist, save the
+// conversation file, and update the index.
+async function chatPersistAfterTurn(firstUserText) {
+  const token = await getToken();
+  const now = new Date().toISOString();
+  if (!chatCurId) {
+    chatCurId = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const title = firstUserText.slice(0, 24) || "新对话";
+    chatConvs.unshift({ id: chatCurId, title, updated: now });
+    els.aiTitle.textContent = title;
+  } else {
+    const meta = chatConvs.find((c) => c.id === chatCurId);
+    if (meta) meta.updated = now;
+  }
+  chatConvs.sort(chatCmp);
+  await chatWriteConv(token, chatCurId);
+  await chatWriteIndex(token);
+  chatRenderList();
+}
+
+// ---- mobile sidebar toggle -----------------------------------------------
+function chatCloseSidebarMobile() {
+  if (window.innerWidth <= 700) els.aiSidebar.classList.remove("open");
+}
+
+// ---- wiring --------------------------------------------------------------
+// ---- model dropdown (built-in + user-defined custom models) --------------
+function chatGetCustomModels() {
+  try {
+    const arr = JSON.parse(localStorage.getItem("chatCustomModels") || "[]");
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function chatSaveCustomModels(arr) {
+  try { localStorage.setItem("chatCustomModels", JSON.stringify(arr)); } catch {}
+}
+function chatRenderModels(selected) {
+  const sel = els.aiModel;
+  if (!sel) return;
+  sel.innerHTML = "";
+  const list = CHAT_MODELS.slice();
+  chatGetCustomModels().forEach((m) => { if (!list.includes(m)) list.push(m); });
+  list.forEach((m) => {
+    const o = document.createElement("option");
+    o.value = m; o.textContent = m;
+    sel.appendChild(o);
+  });
+  const cust = document.createElement("option");
+  cust.value = "__custom__"; cust.textContent = "＋ 自定义…";
+  sel.appendChild(cust);
+  const want = selected && list.includes(selected) ? selected : list[0];
+  sel.value = want;
+  chatLastModel = want;
+}
+
+let chatWired = false;
+function chatWireEvents() {
+  // Defensive: if the AI UI isn't present (e.g. an old cached index.html is
+  // being served alongside a new app.js), skip wiring entirely so we never
+  // throw and brick the rest of boot() (MSAL init, login, etc.).
+  if (!els.aiApp || !els.aiModel) return;
+  if (chatWired) return;   // idempotent: safe to call from boot() and chatLoad()
+  chatWired = true;
+
+  // ---- Wire the CRITICAL handlers FIRST, before anything that could throw
+  // (model dropdown / localStorage), so the 发送 button is always usable. ----
+  if (els.aiSendBtn) els.aiSendBtn.onclick = () => chatSend();
+  if (els.aiNewChatBtn) els.aiNewChatBtn.onclick = () => chatNew();
+  if (els.aiInput) {
+    els.aiInput.addEventListener("keydown", (e) => {
+      // Enter sends; Shift+Enter makes a newline.
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatSend(); }
+    });
+  }
+  if (els.aiToggleSidebar) {
+    els.aiToggleSidebar.onclick = () => els.aiSidebar.classList.toggle("open");
+  }
+
+  // ---- Non-critical: model dropdown (built-in + saved custom + "自定义…") ----
+  let savedModel = CHAT_MODELS[0];
+  try { savedModel = localStorage.getItem("chatModel") || CHAT_MODELS[0]; } catch {}
+  chatRenderModels(savedModel);
+  els.aiModel.onchange = () => {
+    if (els.aiModel.value === "__custom__") {
+      const name = (prompt("输入模型名称，例如 deepseek-v5-pro：") || "").trim();
+      if (name) {
+        const arr = chatGetCustomModels();
+        if (!CHAT_MODELS.includes(name) && !arr.includes(name)) { arr.push(name); chatSaveCustomModels(arr); }
+        chatRenderModels(name);
+      } else {
+        chatRenderModels(chatLastModel);   // cancelled: revert
+      }
+    }
+    chatLastModel = els.aiModel.value;
+    try { localStorage.setItem("chatModel", chatLastModel); } catch {}
+  };
+}
+
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <header class="topbar">
@@ -50,6 +50,7 @@
             <button type="button" class="mode-more-item" data-mode="vehicle">车辆保养</button>
             <button type="button" class="mode-more-item" data-mode="health">健康</button>
             <button type="button" class="mode-more-item" data-mode="medical">看病</button>
+            <button type="button" class="mode-more-item" data-mode="ai">AI 对话</button>
           </div>
         </div>
       </div>
@@ -1641,12 +1642,39 @@
       </div>
       </div><!-- /#blogApp -->
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
+
+      <!-- ============ AI 对话 (chat) APP ============ -->
+      <div id="aiApp" class="hidden">
+        <div class="ai-layout">
+          <aside id="aiSidebar" class="ai-sidebar">
+            <button type="button" class="btn btn-primary ai-new-btn" id="aiNewChatBtn">＋ 新对话</button>
+            <div id="aiConvList" class="ai-conv-list"></div>
+          </aside>
+          <div class="ai-main">
+            <div class="ai-header">
+              <button type="button" class="btn btn-ghost ai-sidebar-toggle" id="aiToggleSidebar" title="对话列表">☰</button>
+              <span class="ai-title" id="aiTitle">新对话</span>
+              <div class="ai-controls">
+                <select id="aiModel" class="ai-model" title="模型"></select>
+                <label class="ai-think" title="开启思考(推理)模式">
+                  <input type="checkbox" id="aiThinking" /> 思考
+                </label>
+              </div>
+            </div>
+            <div id="aiMessages" class="ai-messages"></div>
+            <div class="ai-composer">
+              <textarea id="aiInput" rows="2" placeholder="输入消息，回车发送，Shift+回车换行…"></textarea>
+              <button type="button" class="btn btn-primary" id="aiSendBtn">发送</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /#aiApp -->
     </section>
   </main>
 
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
