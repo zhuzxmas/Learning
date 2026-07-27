@@ -114,6 +114,12 @@ const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{
 const MEDICAL_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgBiVoPS0SYBSbfbXr-vtMdnAUqsXIOMJFgfPigTUBFY4Ok?email=celine_mas%40outlook.com&e=KniYbc";
 const MEDICAL_RECORDS_FILE = "medical-records.json";
 
+/* --------------------------- EXTRA MODULES CONFIG ------------------------ */
+// A single shared folder holds the data files for all the extra modules
+// (Celine 收入, 借还款, 理财, 储值卡, 车辆保养, 健康). One JSON per module.
+const EXTRA_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgCbS1q24rUkSajMLkNxkDtLAcWbFicegxxe-3yOfzGATqc?email=celine_mas%40outlook.com&e=76QT2n";
+const CELINE_INCOME_FILE = "celine-income.json";
+
 // Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
 // Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
 const STK_FEE_DEFAULTS = {
@@ -386,6 +392,44 @@ const els = {
    medPersonBars: $("medPersonBars"),
    medPersonLegend: $("medPersonLegend"),
    medChartEmpty: $("medChartEmpty"),
+  // --- more dropdown + celine mode ---
+  modeMoreWrap: $("modeMoreWrap"),
+  modeMoreBtn: $("modeMoreBtn"),
+  modeMoreMenu: $("modeMoreMenu"),
+  celineApp: $("celineApp"),
+  // --- celine tabs ---
+  celTabAddBtn: $("celTabAddBtn"),
+  celTabListBtn: $("celTabListBtn"),
+  celTabChartBtn: $("celTabChartBtn"),
+  celTabAdd: $("celTabAdd"),
+  celTabList: $("celTabList"),
+  celTabChart: $("celTabChart"),
+  // --- celine form ---
+  celForm: $("celForm"),
+  celEditId: $("celEditId"),
+  celDate: $("celDate"),
+  celType: $("celType"),
+  celAmount: $("celAmount"),
+  celNote: $("celNote"),
+  celAddBtn: $("celAddBtn"),
+  celCancelBtn: $("celCancelBtn"),
+  celFormTitle: $("celFormTitle"),
+  // --- celine list ---
+  celBody: $("celBody"),
+  celRecordCount: $("celRecordCount"),
+  celEmptyHint: $("celEmptyHint"),
+  celFilterDate: $("celFilterDate"),
+  celSearchInput: $("celSearchInput"),
+  celClearFilterBtn: $("celClearFilterBtn"),
+  celShowAllBtn: $("celShowAllBtn"),
+  // --- celine charts ---
+  celChartTitle: $("celChartTitle"),
+  celChartTotal: $("celChartTotal"),
+  celChartYear: $("celChartYear"),
+  celWaterfall: $("celWaterfall"),
+  celMonthBars: $("celMonthBars"),
+  celCatLegend: $("celCatLegend"),
+  celChartEmpty: $("celChartEmpty"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -2376,14 +2420,18 @@ async function setMode(next) {
   const isStk = next === "stock";
   const isMed = next === "medical";
   const isSpend = next === "spending";
+  const isCel = next === "celine";
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeStockBtn.classList.toggle("active", isStk);
   els.modeMedicalBtn.classList.toggle("active", isMed);
+  els.modeMoreBtn.classList.toggle("active", isCel);
   els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
   els.stockApp.classList.toggle("hidden", !isStk);
   els.medicalApp.classList.toggle("hidden", !isMed);
+  els.celineApp.classList.toggle("hidden", !isCel);
+  els.modeMoreMenu.classList.add("hidden");
   if (!account) return;
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
@@ -2395,6 +2443,9 @@ async function setMode(next) {
   } else if (isMed) {
     try { await medLoad(); }
     catch (e) { setStatus("看病数据载入失败：" + (e.message || e), "error"); }
+  } else if (isCel) {
+    try { await celLoad(); }
+    catch (e) { setStatus("Celine 收入数据载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -2407,6 +2458,19 @@ function incWireEvents() {
   els.modeIncomeBtn.onclick = () => setMode("income");
   els.modeStockBtn.onclick = () => setMode("stock");
   els.modeMedicalBtn.onclick = () => setMode("medical");
+
+  // 更多 ▾ dropdown: toggle menu, pick a mode, close on outside-click.
+  els.modeMoreBtn.onclick = (e) => {
+    e.stopPropagation();
+    els.modeMoreMenu.classList.toggle("hidden");
+  };
+  els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) => {
+    it.onclick = () => { els.modeMoreMenu.classList.add("hidden"); setMode(it.dataset.mode); };
+  });
+  document.addEventListener("click", (e) => {
+    if (!els.modeMoreWrap.contains(e.target)) els.modeMoreMenu.classList.add("hidden");
+  });
+
 
   els.incTabAddBtn.onclick = () => incSwitchTab("add");
   els.incTabListBtn.onclick = () => incSwitchTab("list");
@@ -3423,6 +3487,12 @@ function stkWireEvents() {
   medResetForm();
   els.medFilterDate.value = todayStr();
 
+  // Celine 收入 module UI (data loads lazily when switching to that mode).
+  celWireEvents();
+  celResetForm();
+  els.celFilterDate.value = todayStr();
+
+
   // Surface any uncaught errors to the status bar instead of failing silently.
   window.addEventListener("error", (e) => {
     setStatus("脚本错误：" + (e.message || e.error || e), "error");
@@ -4094,4 +4164,457 @@ function medWireEvents() {
   };
   els.medShowAllBtn.onclick = () => { medShowAll = !medShowAll; medRender(); };
   els.medChartYear.onchange = () => { medChartYearVal = els.medChartYear.value; medRenderChart(); };
+}
+
+/* ========================================================================= *
+ *              GENERIC EXTRA-FOLDER GRAPH I/O (xt*)                          *
+ *   Reusable Graph read/write helpers keyed by filename, backed by the      *
+ *   single shared "extra modules" folder. Reused by all new modules.        *
+ * ========================================================================= */
+let xtDriveBase = "";
+
+async function xtResolveFolder(token) {
+  if (xtDriveBase) return;
+  const sid = encodeShareUrl(EXTRA_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问数据文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  xtDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function xtFileUrls(name) {
+  return {
+    content: `${xtDriveBase}:/${name}:/content`,
+    meta: `${xtDriveBase}:/${name}?$select=id,eTag`,
+  };
+}
+async function xtReadETag(token, name) {
+  const { meta } = xtFileUrls(name);
+  const res = await fetch(meta, { headers: { Authorization: "Bearer " + token } });
+  if (!res.ok) return null;
+  const item = await res.json();
+  return item.eTag || null;
+}
+async function xtReadJson(token, name) {
+  const { content } = xtFileUrls(name);
+  const res = await fetch(content, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { data: null, etag: null, exists: false };
+  if (!res.ok) throw new Error("载入失败(" + name + ")：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const etag = res.headers.get("ETag") || (await xtReadETag(token, name));
+  return { data, etag, exists: true };
+}
+async function xtWriteJson(token, name, getData, etag, applyOnConflict, onMerge) {
+  const { content } = xtFileUrls(name);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (etag) headers["If-Match"] = etag;
+    const body = JSON.stringify(getData());
+    const res = await fetch(content, { method: "PUT", headers, body });
+    if (res.ok) {
+      const item = await res.json();
+      return item.eTag || (await xtReadETag(token, name));
+    }
+    if (res.status === 412 && applyOnConflict) {
+      setStatus("有人同时更新了数据，正在合并…", "warn");
+      const fresh = await xtReadJson(token, name);
+      applyOnConflict(fresh.data);
+      etag = fresh.etag;
+      if (onMerge) onMerge();
+      continue;
+    }
+    throw new Error("保存失败(" + name + ")：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存冲突，重试多次仍失败(" + name + ")。");
+}
+
+/* ========================================================================= *
+ *                       CELINE 收入 MODULE (cel*)                            *
+ *   Simple signed CRUD+chart. Record: {id,date,amount,note,createdBy,       *
+ *   modified}. amount>0 = 收入, amount<0 = 支出. celine-income.json.         *
+ * ========================================================================= */
+let celineRecords = [];
+let celEtag = null;
+let celineLoaded = false;
+let celShowAll = false;
+let celFilterOn = false;
+let celTab = "list";
+let celSearchText = "";
+let celChartYearVal = null;
+
+async function celLoad() {
+  if (celineLoaded) return;
+  setStatus("正在载入 Celine 收入数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const r = await xtReadJson(token, CELINE_INCOME_FILE);
+  celineRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  celEtag = r.etag;
+  celineLoaded = true;
+  celRender();
+  setStatus("已载入 " + celineRecords.length + " 条记录。", "ok", 2000);
+}
+
+function celApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function celPersist(op) {
+  setStatus("正在保存记录…");
+  const token = await getToken();
+  celEtag = await xtWriteJson(
+    token, CELINE_INCOME_FILE, () => ({ records: celineRecords }), celEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      celineRecords = celApplyOp(list, op);
+    },
+    () => celRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* --------------------------- Celine form --------------------------------- */
+function celResetForm() {
+  els.celForm.reset();
+  els.celEditId.value = "";
+  els.celType.value = "income";
+  els.celDate.value = todayStr();
+  els.celFormTitle.textContent = "添加记录";
+  els.celAddBtn.textContent = "添加并保存";
+  hide(els.celCancelBtn);
+}
+
+async function celOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.celEditId.value;
+  const mag = Math.abs(parseFloat(els.celAmount.value));
+  if (isNaN(mag) || mag === 0) { setStatus("请输入金额。", "warn"); return; }
+  const signed = els.celType.value === "spend" ? -mag : mag;
+  const rec = {
+    id: els.celEditId.value || uuid(),
+    date: els.celDate.value,
+    amount: round2(signed),
+    note: els.celNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = celineRecords.slice();
+  if (isEdit) {
+    const i = celineRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = celineRecords[i].createdBy || rec.createdBy; celineRecords[i] = rec; }
+    else celineRecords.push(rec);
+  } else {
+    celineRecords.push(rec);
+  }
+  els.celAddBtn.disabled = true;
+  celRender();
+  try {
+    await celPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    celResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    celineRecords = snap; celRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.celAddBtn.disabled = false;
+  }
+}
+
+function celStartEdit(id) {
+  const r = celineRecords.find((x) => x.id === id);
+  if (!r) return;
+  const amt = Number(r.amount) || 0;
+  els.celEditId.value = r.id;
+  els.celDate.value = r.date;
+  els.celType.value = amt < 0 ? "spend" : "income";
+  els.celAmount.value = Math.abs(amt);
+  els.celNote.value = r.note || "";
+  els.celFormTitle.textContent = "编辑记录";
+  els.celAddBtn.textContent = "保存修改";
+  show(els.celCancelBtn);
+  celSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function celDelete(id) {
+  const r = celineRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条记录吗？\n${r.date} ${fmtAmount(r.amount)}`)) return;
+  const snap = celineRecords.slice();
+  celineRecords = celineRecords.filter((x) => x.id !== id);
+  celRender();
+  try {
+    await celPersist({ type: "delete", id });
+  } catch (err) {
+    celineRecords = snap; celRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* --------------------------- Celine table -------------------------------- */
+function celRender() {
+  const monthFilter = celFilterOn && els.celFilterDate ? els.celFilterDate.value.slice(0, 7) : "";
+  const q = celSearchText.trim().toLowerCase();
+  let sorted = [...celineRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) sorted = sorted.filter((r) => (r.note || "").toLowerCase().includes(q));
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (celShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.celBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const amt = Number(r.amount) || 0;
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td class="num strong${amt < 0 ? " neg" : " pos"}">${fmtAmount(amt)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => celStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => celDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.celBody.appendChild(tr);
+  }
+
+  const total = celineRecords.length;
+  const sum = view.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.celRecordCount.textContent = `${view.length} 条，净额 ${fmtAmount(sum)}`;
+  else if (celShowAll) els.celRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.celRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.celClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.celShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !celShowAll));
+  els.celShowAllBtn.textContent = celShowAll ? "显示50条" : "显示全部";
+  els.celEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- Celine charts ------------------------------- */
+const CEL_SERIES = [
+  { key: "income", name: "收入", color: "#12B76A" },
+  { key: "spend", name: "支出", color: "#D64550" },
+];
+function celYears() {
+  const s = new Set();
+  for (const r of celineRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort().reverse();
+}
+
+function celRenderChart() {
+  const years = celYears();
+  if (!celChartYearVal) celChartYearVal = "all";
+  els.celChartYear.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "all"; optAll.textContent = "全部年度";
+  if (celChartYearVal === "all") optAll.selected = true;
+  els.celChartYear.appendChild(optAll);
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === celChartYearVal) o.selected = true;
+    els.celChartYear.appendChild(o);
+  }
+
+  const year = celChartYearVal;
+  // Build ordered buckets. Single year => 12 months (1..12). "all" => one
+  // bucket per (year, month) across the full span of the data, so different
+  // years' months are shown side by side (NOT summed into 12 months).
+  let buckets; // [{label, net, income, spend}]
+  const index = new Map(); // key -> bucket
+  if (year === "all") {
+    const keys = new Set();
+    for (const r of celineRecords) if (r.date && r.date.length >= 7) keys.add(r.date.slice(0, 7));
+    const ordered = [...keys].sort();
+    if (ordered.length) {
+      // Fill the continuous span so the cumulative waterfall stays contiguous.
+      const [y0, m0] = ordered[0].split("-").map(Number);
+      const [y1, m1] = ordered[ordered.length - 1].split("-").map(Number);
+      buckets = [];
+      let yy = y0, mm = m0;
+      while (yy < y1 || (yy === y1 && mm <= m1)) {
+        const key = `${yy}-${String(mm).padStart(2, "0")}`;
+        const b = { label: `${String(yy).slice(2)}/${mm}`, net: 0, income: 0, spend: 0 };
+        index.set(key, b); buckets.push(b);
+        mm++; if (mm > 12) { mm = 1; yy++; }
+      }
+    } else {
+      buckets = [];
+    }
+  } else {
+    buckets = [];
+    for (let m = 1; m <= 12; m++) {
+      const b = { label: MONTH_LABELS[m - 1], net: 0, income: 0, spend: 0 };
+      index.set(`${year}-${String(m).padStart(2, "0")}`, b);
+      buckets.push(b);
+    }
+  }
+
+  const seriesTotals = { income: 0, spend: 0 };
+  for (const r of celineRecords) {
+    if (!r.date || r.date.length < 7) continue;
+    if (year !== "all" && r.date.slice(0, 4) !== year) continue;
+    const b = index.get(r.date.slice(0, 7));
+    if (!b) continue;
+    const a = Number(r.amount) || 0;
+    b.net += a;
+    if (a >= 0) { b.income += a; seriesTotals.income += a; }
+    else { b.spend += -a; seriesTotals.spend += -a; }
+  }
+  const grand = buckets.reduce((s, b) => s + b.net, 0);
+  els.celChartTitle.textContent = (year === "all" ? "全部年度" : year + " 年度") + "收支";
+  els.celChartTotal.textContent = fmtAmount(grand);
+  els.celChartTotal.classList.toggle("neg", grand < 0);
+
+  const has = seriesTotals.income + seriesTotals.spend > 0;
+  els.celChartEmpty.classList.toggle("hidden", has);
+  if (!has) {
+    els.celWaterfall.innerHTML = ""; els.celMonthBars.innerHTML = ""; els.celCatLegend.innerHTML = "";
+    return;
+  }
+
+  celBuildWaterfall(buckets, grand);
+  celBuildMonthBars(buckets);
+  celBuildLegend(seriesTotals);
+}
+
+// Signed cumulative-net waterfall over arbitrary buckets (handles negatives).
+function celBuildWaterfall(buckets, grand) {
+  const runs = [];
+  let run = 0;
+  for (const b of buckets) { run += b.net; runs.push(run); }
+  const lo = Math.min(0, grand, ...runs);
+  const hi = Math.max(0, grand, ...runs);
+  const range = (hi - lo) || 1;
+  const y = (v) => ((v - lo) / range) * 100; // % from bottom for value v
+  els.celWaterfall.innerHTML = "";
+  let prev = 0;
+  buckets.forEach((b, i) => {
+    const v = b.net;
+    const cur = runs[i];
+    const lowY = y(Math.min(prev, cur));
+    const highY = y(Math.max(prev, cur));
+    const col = document.createElement("div");
+    col.className = "wf-col";
+    const cls = v < 0 ? "wf-fill neg" : "wf-fill";
+    col.innerHTML =
+      `<div class="wf-track">` +
+        `<div class="wf-zero" style="bottom:${y(0)}%"></div>` +
+        (v ? `<div class="${cls}" style="bottom:${lowY}%;height:${highY - lowY}%"></div>` : "") +
+        (v ? `<div class="wf-val" style="bottom:${highY}%">${fmtInt(v)}</div>` : "") +
+      `</div>` +
+      `<div class="wf-name">${b.label}</div>`;
+    prev = cur;
+    els.celWaterfall.appendChild(col);
+  });
+  const tot = document.createElement("div");
+  tot.className = "wf-col wf-total";
+  const tlo = y(Math.min(0, grand)), thi = y(Math.max(0, grand));
+  tot.innerHTML =
+    `<div class="wf-track">` +
+      `<div class="wf-zero" style="bottom:${y(0)}%"></div>` +
+      `<div class="wf-fill total${grand < 0 ? " neg" : ""}" style="bottom:${tlo}%;height:${thi - tlo}%"></div>` +
+      `<div class="wf-val" style="bottom:${thi}%">${fmtInt(grand)}</div>` +
+    `</div>` +
+    `<div class="wf-name">合计</div>`;
+  els.celWaterfall.appendChild(tot);
+}
+
+function celBuildMonthBars(buckets) {
+  let max = 1;
+  for (const b of buckets) max = Math.max(max, b.income, b.spend);
+  const TRACK_PX = 190;
+  els.celMonthBars.innerHTML = "";
+  for (const b of buckets) {
+    const col = document.createElement("div");
+    col.className = "mb-col";
+    let inner = "";
+    for (const s of CEL_SERIES) {
+      const val = b[s.key];
+      if (!val) continue;
+      const h = (val / max) * 100;
+      const px = (val / max) * TRACK_PX;
+      const label = px >= 16 ? `<span class="mb-seg-label">${fmtInt(val)}</span>` : "";
+      inner += `<div class="mb-seg" style="height:${h}%;background:${s.color}" title="${escapeHtml(s.name)}：${fmtInt(val)}">${label}</div>`;
+    }
+    const net = b.income - b.spend;
+    col.innerHTML =
+      `<div class="mb-val">${net ? fmtInt(net) : ""}</div>` +
+      `<div class="mb-track">${inner}</div>` +
+      `<div class="mb-name">${b.label}</div>`;
+    els.celMonthBars.appendChild(col);
+  }
+}
+
+function celBuildLegend(seriesTotals) {
+  els.celCatLegend.innerHTML = "";
+  for (const s of CEL_SERIES) {
+    const row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML =
+      `<span class="legend-dot" style="background:${s.color}"></span>` +
+      `<span class="legend-name">${escapeHtml(s.name)}</span>` +
+      `<span class="legend-val">${fmtInt(seriesTotals[s.key])}</span>`;
+    els.celCatLegend.appendChild(row);
+  }
+}
+
+/* --------------------------- Celine tabs --------------------------------- */
+function celSwitchTab(name) {
+  celTab = name;
+  const tabs = {
+    add: { panel: els.celTabAdd, btn: els.celTabAddBtn },
+    list: { panel: els.celTabList, btn: els.celTabListBtn },
+    chart: { panel: els.celTabChart, btn: els.celTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") celRenderChart();
+}
+
+function celWireEvents() {
+  els.celTabAddBtn.onclick = () => celSwitchTab("add");
+  els.celTabListBtn.onclick = () => celSwitchTab("list");
+  els.celTabChartBtn.onclick = () => celSwitchTab("chart");
+
+  els.celForm.addEventListener("submit", celOnSubmit);
+  els.celCancelBtn.onclick = celResetForm;
+
+  els.celFilterDate.addEventListener("change", () => {
+    celFilterOn = true; celShowAll = false;
+    celRender();
+    els.celFilterDate.blur();
+  });
+  els.celSearchInput.addEventListener("input", () => { celSearchText = els.celSearchInput.value; celRender(); });
+  els.celClearFilterBtn.onclick = () => {
+    celFilterOn = false; celSearchText = ""; els.celSearchInput.value = "";
+    els.celFilterDate.value = todayStr(); celRender();
+  };
+  els.celShowAllBtn.onclick = () => { celShowAll = !celShowAll; celRender(); };
+  els.celChartYear.onchange = () => { celChartYearVal = els.celChartYear.value; celRenderChart(); };
 }

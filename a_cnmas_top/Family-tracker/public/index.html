@@ -33,11 +33,19 @@
     <!-- App view -->
     <section id="appView" class="hidden">
       <!-- Mode switch: 支出 / 收入 -->
-      <div class="mode-switch" role="tablist">
-        <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
-        <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
-        <button type="button" class="mode-btn" id="modeStockBtn">股票</button>
-        <button type="button" class="mode-btn" id="modeMedicalBtn">看病</button>
+      <div class="mode-bar">
+        <div class="mode-switch" role="tablist">
+          <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
+          <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
+          <button type="button" class="mode-btn" id="modeStockBtn">股票</button>
+          <button type="button" class="mode-btn" id="modeMedicalBtn">看病</button>
+        </div>
+        <div class="mode-more" id="modeMoreWrap">
+          <button type="button" class="mode-btn mode-more-btn" id="modeMoreBtn">更多 ▾</button>
+          <div class="mode-more-menu hidden" id="modeMoreMenu">
+            <button type="button" class="mode-more-item" data-mode="celine">Celine 收入</button>
+          </div>
+        </div>
       </div>
 
 
@@ -706,6 +714,115 @@
       </div>
       </div>
       </div><!-- /#medicalApp -->
+
+      <!-- ============ CELINE INCOME APP ============ -->
+      <div id="celineApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="celTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="celTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="celTabChartBtn">图表</button>
+      </div>
+
+      <!-- Celine tab: add / edit form -->
+      <div class="tab-panel hidden" id="celTabAdd">
+      <div class="card">
+        <h2 id="celFormTitle">添加记录</h2>
+        <form id="celForm" class="record-form">
+          <input type="hidden" id="celEditId" />
+          <div class="field">
+            <label for="celDate">日期</label>
+            <input type="date" id="celDate" required />
+          </div>
+          <div class="field">
+            <label for="celType">类型</label>
+            <select id="celType">
+              <option value="income">收入</option>
+              <option value="spend">支出</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="celAmount">金额</label>
+            <input type="number" id="celAmount" step="0.01" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field field-wide">
+            <label for="celNote">备注</label>
+            <input type="text" id="celNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="celAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="celCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Celine tab: records table -->
+      <div class="tab-panel" id="celTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>Celine 收入明细</h2>
+          <span id="celRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="celFilterDate">按日期：</label>
+          <input type="date" id="celFilterDate" />
+          <input type="text" id="celSearchInput" placeholder="搜索备注" />
+          <button type="button" id="celClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="celShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="celTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th class="num">金额</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="celBody"></tbody>
+          </table>
+        </div>
+        <p id="celEmptyHint" class="muted center hidden">暂无记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Celine tab: charts -->
+      <div class="tab-panel hidden" id="celTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="celChartTitle">年度收支</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="celChartTotal">0.00</div>
+              <div class="chart-total-label">年度净额</div>
+            </div>
+            <div class="chart-asof">
+              <div class="chart-asof-label">年度：</div>
+              <select id="celChartYear"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">各月累计净额瀑布图（累计至年度净额）</div>
+          <div id="celWaterfall" class="waterfall"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各月收支（收入 / 支出 分色）</div>
+          </div>
+          <div id="celMonthBars" class="month-bars"></div>
+          <div id="celCatLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <p id="celChartEmpty" class="muted center hidden">该年度暂无数据。</p>
+      </div>
+      </div>
+      </div><!-- /#celineApp -->
     </section>
   </main>
 

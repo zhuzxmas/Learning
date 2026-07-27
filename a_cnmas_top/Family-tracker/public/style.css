@@ -496,6 +496,56 @@ td:nth-child(6) {
 .mode-btn + .mode-btn { border-left: 1px solid var(--border); }
 .mode-btn.active { background: #118DFF; color: #fff; }
 
+/* 更多 ▾ dropdown (extra modules) */
+.mode-bar { display: flex; align-items: stretch; gap: 0; margin-bottom: 16px; }
+.mode-bar .mode-switch { margin-bottom: 0; border-radius: 10px 0 0 10px; }
+.mode-more { position: relative; display: flex; }
+.mode-more-btn {
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+}
+.mode-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 150px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mode-more-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #222);
+  padding: 8px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.mode-more-item:hover { background: rgba(17,141,255,.12); }
+
+/* Signed amounts (收入 green / 支出 red) */
+.num.pos { color: #12B76A; }
+.wf-fill.neg { background: #D64550; }
+.wf-fill.total.neg { background: #D64550; }
+.wf-zero {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-top: 1px solid #c8c8c8;
+  height: 0;
+}
+
 /* Grouped money inputs */
 .money-group {
   grid-column: 1 / -1;
@@ -522,6 +572,11 @@ td:nth-child(6) {
 #medTable td:nth-child(6) { white-space: nowrap; min-width: 0; max-width: none; }
 #medTable td:nth-child(7) {
   white-space: normal; min-width: 150px; max-width: 220px; word-break: break-word; font-size: 14px;
+}
+
+/* Celine table: 备注 is 3rd col — controlled (smaller) font size */
+#celTable td:nth-child(3) {
+  white-space: normal; min-width: 120px; max-width: 260px; word-break: break-word; font-size: 13px;
 }
 
 /* Waterfall chart */
@@ -626,7 +681,7 @@ td:nth-child(6) {
 }
 @media (max-width: 480px) {
   .money-grid { grid-template-columns: 1fr 1fr; }
-  .mode-btn { padding: 9px 20px; }
+  .mode-btn { padding: 8px 12px; font-size: 14px; }
 }
 
 /* =========================== STOCK MODULE =============================== */
