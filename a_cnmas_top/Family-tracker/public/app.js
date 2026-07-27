@@ -108,6 +108,12 @@ const STOCK_FOLDER_SHARE_URL = INCOME_FOLDER_SHARE_URL;
 const STOCK_RECORDS_FILE = "stock-records.json";
 const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{custom,hidden}, fees}
 
+/* --------------------------- MEDICAL CONFIG ------------------------------ */
+// Medical records live in their own dedicated shared folder (both accounts
+// must have access). File sits at the folder root.
+const MEDICAL_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgBiVoPS0SYBSbfbXr-vtMdnAUqsXIOMJFgfPigTUBFY4Ok?email=celine_mas%40outlook.com&e=KniYbc";
+const MEDICAL_RECORDS_FILE = "medical-records.json";
+
 // Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
 // Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
 const STK_FEE_DEFAULTS = {
@@ -180,8 +186,9 @@ const els = {
   amount: $("amount"),
   date: $("date"),
   note: $("note"),
-  addBtn: $("addBtn"),
-  cancelEditBtn: $("cancelEditBtn"),
+   addBtn: $("addBtn"),
+   medCatHint: $("medCatHint"),
+   cancelEditBtn: $("cancelEditBtn"),
   deleteEditBtn: $("deleteEditBtn"),
   formTitle: $("formTitle"),
   tabAddBtn: $("tabAddBtn"),
@@ -298,6 +305,8 @@ const els = {
   stkStamp: $("stkStamp"),
   stkTransfer: $("stkTransfer"),
   stkTotal: $("stkTotal"),
+  stkDerivedTitle: $("stkDerivedTitle"),
+  stkDerivedNote: $("stkDerivedNote"),
   stkAddBtn: $("stkAddBtn"),
   stkCancelBtn: $("stkCancelBtn"),
   stkFormTitle: $("stkFormTitle"),
@@ -334,6 +343,49 @@ const els = {
   feeHTransfer: $("feeHTransfer"),
   feeSaveBtn: $("feeSaveBtn"),
   feeResetBtn: $("feeResetBtn"),
+  // --- medical mode ---
+  modeMedicalBtn: $("modeMedicalBtn"),
+  medicalApp: $("medicalApp"),
+  // --- medical tabs ---
+  medTabAddBtn: $("medTabAddBtn"),
+  medTabListBtn: $("medTabListBtn"),
+  medTabChartBtn: $("medTabChartBtn"),
+  medTabAdd: $("medTabAdd"),
+  medTabList: $("medTabList"),
+  medTabChart: $("medTabChart"),
+  // --- medical form ---
+   medForm: $("medForm"),
+   medEditId: $("medEditId"),
+   medPerson: $("medPerson"),
+   medPersonCustom: $("medPersonCustom"),
+   medTitle: $("medTitle"),
+  medTitleList: $("medTitleList"),
+  medDate: $("medDate"),
+  medPersonal: $("medPersonal"),
+  medInsurance: $("medInsurance"),
+  medTotal: $("medTotal"),
+  medNote: $("medNote"),
+  medAddBtn: $("medAddBtn"),
+  medCancelBtn: $("medCancelBtn"),
+  medFormTitle: $("medFormTitle"),
+  // --- medical list ---
+  medBody: $("medBody"),
+  medRecordCount: $("medRecordCount"),
+  medEmptyHint: $("medEmptyHint"),
+  medFilterDate: $("medFilterDate"),
+  medSearchInput: $("medSearchInput"),
+  medClearFilterBtn: $("medClearFilterBtn"),
+  medShowAllBtn: $("medShowAllBtn"),
+  // --- medical charts ---
+  medChartTitle: $("medChartTitle"),
+  medChartTotal: $("medChartTotal"),
+  medChartYear: $("medChartYear"),
+  medWaterfall: $("medWaterfall"),
+   medMonthBars: $("medMonthBars"),
+   medCatLegend: $("medCatLegend"),
+   medPersonBars: $("medPersonBars"),
+   medPersonLegend: $("medPersonLegend"),
+   medChartEmpty: $("medChartEmpty"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -934,6 +986,23 @@ function initCategoryDropdowns() {
   });
 
   els.iiiCat.addEventListener("change", applyNoteDefault);
+
+  // Block manual creation of 日常生活/看病/看病 — those come from 看病.
+  els.iCat.addEventListener("change", updateMedCatLock);
+  els.iiCat.addEventListener("change", updateMedCatLock);
+  els.iiiCat.addEventListener("change", updateMedCatLock);
+}
+
+// Disable "添加到列表" when a NEW record targets 日常生活/看病/看病
+// (those are auto-recorded via the 看病 feature). Editing is unaffected.
+function updateMedCatLock() {
+  const locked =
+    !els.editId.value &&
+    els.iCat.value === "日常生活" &&
+    els.iiCat.value === "看病" &&
+    els.iiiCat.value === "看病";
+  els.addBtn.disabled = locked;
+  els.medCatHint.classList.toggle("hidden", !locked);
 }
 
 // Set the three dropdowns to specific values (used when editing).
@@ -1169,6 +1238,7 @@ function resetForm() {
   els.addBtn.textContent = "添加到列表";
   hide(els.cancelEditBtn);
   hide(els.deleteEditBtn);
+  updateMedCatLock();
 }
 
 async function onSubmitForm(e) {
@@ -1187,6 +1257,10 @@ async function onSubmitForm(e) {
   };
   if (!rec.i_cat || !rec.ii_cat || !rec.iii_cat) {
     setStatus("请完整选择三级分类。", "warn");
+    return;
+  }
+  if (!isEdit && rec.i_cat === "日常生活" && rec.ii_cat === "看病" && rec.iii_cat === "看病") {
+    setStatus("该分类由「看病」功能记录，请通过「看病」提交。", "warn");
     return;
   }
 
@@ -1246,10 +1320,11 @@ function startEdit(id) {
   els.date.value = r.date;
   els.note.value = r.note || "";
   els.formTitle.textContent = "编辑记录";
-  els.addBtn.textContent = "保存修改";
-  show(els.cancelEditBtn);
-  show(els.deleteEditBtn);
-  switchTab("add");
+   els.addBtn.textContent = "保存修改";
+   show(els.cancelEditBtn);
+   show(els.deleteEditBtn);
+   updateMedCatLock();
+   switchTab("add");
   autoGrowNote();   // measure after the panel is visible
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -2116,7 +2191,7 @@ function incRender() {
 
   els.incClearFilterBtn.classList.toggle("hidden", !monthFilter);
   els.incShowAllBtn.classList.toggle("hidden", !!monthFilter || (!limited && !incShowAll));
-  els.incShowAllBtn.textContent = incShowAll ? "仅显示最近50条" : "显示全部";
+  els.incShowAllBtn.textContent = incShowAll ? "显示50条" : "显示全部";
   els.incEmptyHint.classList.toggle("hidden", view.length !== 0);
 }
 
@@ -2299,13 +2374,16 @@ async function setMode(next) {
   mode = next;
   const isInc = next === "income";
   const isStk = next === "stock";
+  const isMed = next === "medical";
   const isSpend = next === "spending";
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeStockBtn.classList.toggle("active", isStk);
+  els.modeMedicalBtn.classList.toggle("active", isMed);
   els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
   els.stockApp.classList.toggle("hidden", !isStk);
+  els.medicalApp.classList.toggle("hidden", !isMed);
   if (!account) return;
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
@@ -2314,6 +2392,9 @@ async function setMode(next) {
   } else if (isStk) {
     try { await stkLoad(); }
     catch (e) { setStatus("股票数据载入失败：" + (e.message || e), "error"); }
+  } else if (isMed) {
+    try { await medLoad(); }
+    catch (e) { setStatus("看病数据载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -2325,6 +2406,7 @@ function incWireEvents() {
   els.modeSpendingBtn.onclick = () => setMode("spending");
   els.modeIncomeBtn.onclick = () => setMode("income");
   els.modeStockBtn.onclick = () => setMode("stock");
+  els.modeMedicalBtn.onclick = () => setMode("medical");
 
   els.incTabAddBtn.onclick = () => incSwitchTab("add");
   els.incTabListBtn.onclick = () => incSwitchTab("list");
@@ -2608,8 +2690,37 @@ function stkUpdateFxVisibility() {
   if (els.stkFxField) els.stkFxField.style.display = isH ? "" : "none";
 }
 
+// Dividend/bonus mode: shares field is non-empty AND exactly 0. Such a record
+// represents a cash event (股息/红利/现金调整) with manually-entered amounts.
+function stkIsDividend() {
+  const raw = els.stkShares.value.trim();
+  return raw !== "" && stkNum(els.stkShares) === 0;
+}
+
+// Toggle the 5 derived fields between read-only (auto-computed) and editable
+// (manual, dividend mode), and update the section title/note accordingly.
+const STK_DERIVED_FIELDS = ["stkAmount", "stkCommission", "stkStamp", "stkTransfer", "stkTotal"];
+function stkSetDerivedEditable(editable) {
+  for (const k of STK_DERIVED_FIELDS) {
+    const el = els[k];
+    el.readOnly = !editable;
+    if (editable) el.removeAttribute("tabindex"); else el.setAttribute("tabindex", "-1");
+    el.classList.toggle("editable", editable);
+  }
+  if (editable) {
+    els.stkDerivedTitle.textContent = "手动填写（股息/红利）";
+    els.stkDerivedNote.textContent = "股数为 0 视作股息/红利/现金调整，请手动填写以下金额。";
+  } else {
+    els.stkDerivedTitle.textContent = "自动计算（只读）";
+    els.stkDerivedNote.textContent = "成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。";
+  }
+}
+
 // Live-preview the derived (read-only) fields from the current inputs.
 function stkRecalc() {
+  // Dividend mode: fields are user-editable; never overwrite/clear them.
+  if (stkIsDividend()) { stkSetDerivedEditable(true); return; }
+  stkSetDerivedEditable(false);
   const code = els.stkCode.value || "";
   const price = stkNum(els.stkPrice);
   const shares = stkNum(els.stkShares);
@@ -2634,6 +2745,7 @@ function stkInitForm() {
 function stkResetForm() {
   els.stkForm.reset();
   els.stkEditId.value = "";
+  els.stkShares.value = "-1";   // default: buy 1 share (买入为负)
   els.stkDate.value = todayStr();
   stkRebuildSelects();
   stkUpdateFxVisibility();
@@ -2648,17 +2760,28 @@ async function stkOnSubmit(e) {
   const isEdit = !!els.stkEditId.value;
   const code = els.stkCode.value;
   const price = stkNum(els.stkPrice);
+  const sharesRaw = els.stkShares.value.trim();
   const shares = stkNum(els.stkShares);
+  const isDividend = sharesRaw !== "" && shares === 0;
   const isH = !!code && code[0] === "H";
   const fx = isH ? stkNum(els.stkFx) : 0;
   if (!code) { setStatus("请选择股票代码。", "warn"); return; }
   if (!els.stkAccount.value) { setStatus("请选择交易账户。", "warn"); return; }
-  if (!price) { setStatus("请填写交易价格。", "warn"); return; }
-  if (!shares) { setStatus("请填写交易股数（买入负、卖出正）。", "warn"); return; }
-  if (isH && !fx) { setStatus("H 股请填写汇率。", "warn"); return; }
+  if (sharesRaw === "") { setStatus("请填写交易股数（买入负、卖出正；股息填 0）。", "warn"); return; }
+  if (!isDividend && !price) { setStatus("请填写交易价格。", "warn"); return; }
+  if (isH && !isDividend && !fx) { setStatus("H 股请填写汇率。", "warn"); return; }
   if (!els.stkDate.value) { setStatus("请选择交易时间。", "warn"); return; }
 
-  const d = stkComputeDerived(code, price, shares, fx);
+  // Dividend mode: take the manually-entered amounts as-is; otherwise compute.
+  const d = isDividend
+    ? {
+        amount: round2(stkNum(els.stkAmount)),
+        commission: round2(stkNum(els.stkCommission)),
+        stampTax: round2(stkNum(els.stkStamp)),
+        transferFee: round2(stkNum(els.stkTransfer)),
+        total: round2(stkNum(els.stkTotal)),
+      }
+    : stkComputeDerived(code, price, shares, fx);
   const rec = {
     id: els.stkEditId.value || uuid(),
     code: code,
@@ -2708,6 +2831,13 @@ function stkStartEdit(id) {
   els.stkShares.value = r.shares;
   els.stkFx.value = r.fx || "";
   els.stkDate.value = r.date;
+  // Pre-fill derived fields from the record; stkRecalc recomputes for normal
+  // trades (overwriting) but keeps these values for dividend (shares==0) rows.
+  els.stkAmount.value = r.amount;
+  els.stkCommission.value = r.commission;
+  els.stkStamp.value = r.stampTax;
+  els.stkTransfer.value = r.transferFee;
+  els.stkTotal.value = r.total;
   stkUpdateFxVisibility();
   stkRecalc();
   els.stkFormTitle.textContent = "编辑交易";
@@ -2932,7 +3062,7 @@ function stkRender() {
 
   els.stkClearFilterBtn.classList.toggle("hidden", !anyFilter);
   els.stkShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !stkShowAll));
-  els.stkShowAllBtn.textContent = stkShowAll ? "仅显示最近50条" : "显示全部";
+  els.stkShowAllBtn.textContent = stkShowAll ? "显示50条" : "显示全部";
   els.stkEmptyHint.classList.toggle("hidden", view.length !== 0);
 }
 
@@ -3288,6 +3418,11 @@ function stkWireEvents() {
   stkFillFilters();
   els.stkFilterDate.value = todayStr();
 
+  // Medical module UI (data loads lazily when switching to 看病 mode).
+  medWireEvents();
+  medResetForm();
+  els.medFilterDate.value = todayStr();
+
   // Surface any uncaught errors to the status bar instead of failing silently.
   window.addEventListener("error", (e) => {
     setStatus("脚本错误：" + (e.message || e.error || e), "error");
@@ -3343,3 +3478,620 @@ function stkWireEvents() {
     }
   }
 })();
+
+/* ========================================================================= *
+ *                            MEDICAL  MODULE                                *
+ *   看病 tracker. Records: {id,title,date,personal,insurance,total,note,     *
+ *   createdBy,modified}. Title is free-text with a <datalist> autocomplete   *
+ *   built from existing records. Stored in medical-records.json (same        *
+ *   shared OneDrive folder). No meta file / no hidden-category management.    *
+ * ========================================================================= */
+let medicalRecords = [];
+let medEtag = null;
+let medicalLoaded = false;
+let medDriveBase = null;
+let medShowAll = false;
+let medFilterOn = false;
+let medTab = "list";
+let medSearchText = "";
+let medChartYearVal = null;
+
+/* ------------------------- Medical Graph I/O ----------------------------- */
+async function medResolveFolder(token) {
+  if (medDriveBase) return;
+  const sid = encodeShareUrl(MEDICAL_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问看病文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  medDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function medFileUrls(name) {
+  return {
+    content: `${medDriveBase}:/${name}:/content`,
+    meta: `${medDriveBase}:/${name}?$select=id,eTag`,
+  };
+}
+async function medReadETag(token, name) {
+  const { meta } = medFileUrls(name);
+  const res = await fetch(meta, { headers: { Authorization: "Bearer " + token } });
+  if (!res.ok) return null;
+  const item = await res.json();
+  return item.eTag || null;
+}
+async function medReadJson(token, name) {
+  const { content } = medFileUrls(name);
+  const res = await fetch(content, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { data: null, etag: null, exists: false };
+  if (!res.ok) throw new Error("载入失败(" + name + ")：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const etag = res.headers.get("ETag") || (await medReadETag(token, name));
+  return { data, etag, exists: true };
+}
+async function medWriteJson(token, name, getData, etag, applyOnConflict) {
+  const { content } = medFileUrls(name);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (etag) headers["If-Match"] = etag;
+    const data = getData();
+    const body = JSON.stringify(data);
+    const res = await fetch(content, { method: "PUT", headers, body });
+    if (res.ok) {
+      const item = await res.json();
+      return item.eTag || (await medReadETag(token, name));
+    }
+    if (res.status === 412 && applyOnConflict) {
+      setStatus("有人同时更新了看病数据，正在合并…", "warn");
+      const fresh = await medReadJson(token, name);
+      applyOnConflict(fresh.data);
+      etag = fresh.etag;
+      medRender();
+      continue;
+    }
+    throw new Error("保存失败(" + name + ")：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存冲突，重试多次仍失败(" + name + ")。");
+}
+
+/* --------------------------- Medical load -------------------------------- */
+async function medLoad() {
+  if (medicalLoaded) return;
+  setStatus("正在载入看病数据…");
+  const token = await getToken();
+  await medResolveFolder(token);
+  const r = await medReadJson(token, MEDICAL_RECORDS_FILE);
+  medicalRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  medEtag = r.etag;
+  medicalLoaded = true;
+  medRebuildDatalist();
+  medRender();
+  setStatus("已载入 " + medicalRecords.length + " 条看病记录。", "ok", 2000);
+}
+
+function medApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function medPersist(op) {
+  setStatus("正在保存看病记录…");
+  const token = await getToken();
+  medEtag = await medWriteJson(
+    token, MEDICAL_RECORDS_FILE, () => ({ records: medicalRecords }), medEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      medicalRecords = medApplyOp(list, op);
+    }
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* --------------------------- Medical form -------------------------------- */
+function medNum(el) { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+
+// 总计 = 个人支付 + 医保统筹支付 (read-only).
+function medRecalc() {
+  const t = medNum(els.medPersonal) + medNum(els.medInsurance);
+  els.medTotal.value = t ? round2(t) : "";
+}
+
+// Distinct existing titles -> datalist autocomplete options.
+function medRebuildDatalist() {
+  const seen = new Set();
+  const titles = [];
+  for (const r of medicalRecords) {
+    const t = (r.title || "").trim();
+    if (t && !seen.has(t)) { seen.add(t); titles.push(t); }
+  }
+  titles.sort((a, b) => a.localeCompare(b, "zh"));
+  els.medTitleList.innerHTML = "";
+  for (const t of titles) {
+    const o = document.createElement("option");
+    o.value = t;
+    els.medTitleList.appendChild(o);
+  }
+  // Distinct 看病人 -> rebuild the <select> (preserving current selection).
+  medRebuildPersonOptions();
+}
+
+const MED_PERSON_CUSTOM = "__custom__";
+
+// Rebuild the 看病人 dropdown: placeholder + distinct names + 自定义…
+// Pass a value to force-select it (e.g. when editing).
+function medRebuildPersonOptions(selected) {
+  const cur = selected != null ? selected : els.medPerson.value;
+  const pseen = new Set();
+  const persons = [];
+  for (const r of medicalRecords) {
+    const p = (r.person || "").trim();
+    if (p && !pseen.has(p)) { pseen.add(p); persons.push(p); }
+  }
+  persons.sort((a, b) => a.localeCompare(b, "zh"));
+
+  els.medPerson.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择看病人"; ph.disabled = true;
+  els.medPerson.appendChild(ph);
+  for (const p of persons) {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p;
+    els.medPerson.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = MED_PERSON_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.medPerson.appendChild(custom);
+
+  // Restore selection when possible.
+  if (cur && persons.includes(cur)) els.medPerson.value = cur;
+  else if (cur === MED_PERSON_CUSTOM) els.medPerson.value = MED_PERSON_CUSTOM;
+  else els.medPerson.value = "";
+  medPersonOnChange();
+}
+
+// Effective 看病人 value (custom text when 自定义… is picked).
+function medPersonValue() {
+  return els.medPerson.value === MED_PERSON_CUSTOM
+    ? els.medPersonCustom.value.trim()
+    : els.medPerson.value.trim();
+}
+
+// Toggle the custom-name text box based on the dropdown selection.
+function medPersonOnChange() {
+  const on = els.medPerson.value === MED_PERSON_CUSTOM;
+  els.medPersonCustom.classList.toggle("hidden", !on);
+  if (on) els.medPersonCustom.focus();
+  else els.medPersonCustom.value = "";
+}
+
+function medResetForm() {
+  els.medForm.reset();
+  els.medEditId.value = "";
+  els.medPerson.value = "";
+  els.medPersonCustom.value = "";
+  els.medPersonCustom.classList.add("hidden");
+  els.medDate.value = todayStr();
+  els.medFormTitle.textContent = "添加看病记录";
+  els.medAddBtn.textContent = "添加并保存";
+  hide(els.medCancelBtn);
+}
+
+async function medOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.medEditId.value;
+  const personal = round2(medNum(els.medPersonal));
+  const insurance = round2(medNum(els.medInsurance));
+  const rec = {
+     id: els.medEditId.value || uuid(),
+      person: medPersonValue(),
+     title: els.medTitle.value.trim(),
+     date: els.medDate.value,
+     personal: personal,
+     insurance: insurance,
+     total: round2(personal + insurance),
+     note: els.medNote.value.trim(),
+     createdBy: (account && (account.name || account.username)) || "",
+     modified: new Date().toISOString(),
+   };
+   if (!rec.person) { setStatus("请填写看病人。", "warn"); return; }
+   if (!rec.title) { setStatus("请填写事项。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = medicalRecords.slice();
+  if (isEdit) {
+    const i = medicalRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = medicalRecords[i].createdBy || rec.createdBy; medicalRecords[i] = rec; }
+    else medicalRecords.push(rec);
+  } else {
+    medicalRecords.push(rec);
+  }
+  els.medAddBtn.disabled = true;
+  medRebuildDatalist();
+  medRender();
+  try {
+    await medPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    const synced = await medSyncSpending(rec, isEdit ? "edit" : "add");
+    medResetForm();
+    if (synced) setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+    else setStatus("看病已保存，但同步支出记录失败，请检查支出数据。", "warn", 6000);
+  } catch (err) {
+    medicalRecords = snap; medRebuildDatalist(); medRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.medAddBtn.disabled = false;
+  }
+}
+
+function medStartEdit(id) {
+  const r = medicalRecords.find((x) => x.id === id);
+  if (!r) return;
+   els.medEditId.value = r.id;
+   medRebuildPersonOptions(r.person || "");
+   els.medTitle.value = r.title || "";
+  els.medDate.value = r.date;
+  els.medPersonal.value = r.personal || "";
+  els.medInsurance.value = r.insurance || "";
+  els.medTotal.value = r.total || "";
+  els.medNote.value = r.note || "";
+  els.medFormTitle.textContent = "编辑看病记录";
+  els.medAddBtn.textContent = "保存修改";
+  show(els.medCancelBtn);
+  medSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function medDelete(id) {
+  const r = medicalRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条看病记录吗？\n${r.date} ${r.title} ${fmtAmount(r.total)}`)) return;
+  const snap = medicalRecords.slice();
+  medicalRecords = medicalRecords.filter((x) => x.id !== id);
+  medRebuildDatalist();
+  medRender();
+  try {
+    await medPersist({ type: "delete", id });
+    await medSyncSpending(r, "delete");
+  } catch (err) {
+    medicalRecords = snap; medRebuildDatalist(); medRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* ------------- Medical -> Spending linkage (日常生活/看病/看病) ------------- */
+// Each medical record mirrors ONE spending record: note = 看病人：事项,
+// amount = 个人支付. Kept in sync on add/edit/delete. personal<=0 => no spend.
+const MED_SPEND_CAT = { i: "日常生活", ii: "看病", iii: "看病" };
+const medSpendId = (medId) => "med-" + medId;
+const medSpendNote = (r) =>
+  ((r.person || "").trim() ? (r.person || "").trim() + "：" : "") + (r.title || "").trim();
+
+// Locate the linked spending record across both buckets.
+function findSpendRecord(id) {
+  let i = currentRecords.findIndex((x) => x.id === id);
+  if (i >= 0) return { rec: currentRecords[i], hot: true };
+  i = archiveRecords.findIndex((x) => x.id === id);
+  if (i >= 0) return { rec: archiveRecords[i], hot: false };
+  return null;
+}
+
+// Upsert / delete the spending record mirroring a medical record.
+// Returns true on success (or no-op), false if the OneDrive save failed.
+async function medSyncSpending(medRec, mode) {
+  const id = medSpendId(medRec.id);
+  const personal = Number(medRec.personal) || 0;
+  const found = findSpendRecord(id);
+  const cutoff = monthCutoff();
+
+  const snapHot = currentRecords.slice();
+  const snapCold = archiveRecords.slice();
+
+  const rollback = () => { currentRecords = snapHot; archiveRecords = snapCold; syncRecords(); render(); };
+
+  // Delete branch: explicit delete, or an edit that dropped 个人支付 to 0.
+  if (mode === "delete" || personal <= 0) {
+    if (!found) return true;
+    if (found.hot) currentRecords = currentRecords.filter((x) => x.id !== id);
+    else archiveRecords = archiveRecords.filter((x) => x.id !== id);
+    syncRecords(); render();
+    const ok = await persist({ type: "delete", id, wasHot: found.hot });
+    if (!ok) rollback();
+    return ok;
+  }
+
+  // Upsert branch (add / edit with 个人支付 > 0).
+  const spendRec = {
+    id: id,
+    i_cat: MED_SPEND_CAT.i,
+    ii_cat: MED_SPEND_CAT.ii,
+    iii_cat: MED_SPEND_CAT.iii,
+    amount: round2(personal),
+    date: medRec.date,
+    note: medSpendNote(medRec),
+    createdBy: (found && found.rec.createdBy) || medRec.createdBy ||
+               (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+
+  let op;
+  if (found) {
+    if (found.hot) currentRecords = currentRecords.filter((x) => x.id !== id);
+    else archiveRecords = archiveRecords.filter((x) => x.id !== id);
+    op = { type: "edit", rec: spendRec, wasHot: found.hot };
+  } else {
+    op = { type: "add", rec: spendRec };
+  }
+  (isHotDate(spendRec.date, cutoff) ? currentRecords : archiveRecords).push(spendRec);
+  syncRecords(); render();
+  const ok = await persist(op);
+  if (!ok) rollback();
+  return ok;
+}
+
+/* --------------------------- Medical table ------------------------------- */
+function medRender() {
+  const monthFilter = medFilterOn && els.medFilterDate ? els.medFilterDate.value.slice(0, 7) : "";
+  const q = medSearchText.trim().toLowerCase();
+  let sorted = [...medicalRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.person || "").toLowerCase().includes(q) ||
+      (r.title || "").toLowerCase().includes(q) || (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (medShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.medBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.person || "")}</td>
+      <td>${escapeHtml(r.title)}</td>
+      <td class="num">${fmtAmount(r.personal)}</td>
+      <td class="num">${fmtAmount(r.insurance)}</td>
+      <td class="num strong">${fmtAmount(r.total)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => medStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => medDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.medBody.appendChild(tr);
+  }
+
+  const total = medicalRecords.length;
+  const sum = view.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.medRecordCount.textContent = `${view.length} 条，总计合计 ${fmtAmount(sum)}`;
+  else if (medShowAll) els.medRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.medRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.medClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.medShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !medShowAll));
+  els.medShowAllBtn.textContent = medShowAll ? "显示50条" : "显示全部";
+  els.medEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- Medical charts ------------------------------ */
+// Fixed two-series stacked chart: 个人支付 / 医保统筹.
+const MED_SERIES = [
+  { key: "personal", name: "个人支付", color: "#E66C37" },
+  { key: "insurance", name: "医保统筹", color: "#118DFF" },
+];
+// Palette for per-person bars (cycled by descending total).
+const MED_PERSON_COLORS = [
+  "#118DFF", "#E66C37", "#12B76A", "#9B51E0", "#F2994A",
+  "#EB5757", "#2D9CDB", "#6FCF97", "#BB6BD9", "#F2C94C",
+];
+function medYears() {
+  const s = new Set();
+  for (const r of medicalRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort().reverse();
+}
+
+function medRenderChart() {
+  const years = medYears();
+  const cur = String(new Date().getFullYear());
+  if (!medChartYearVal) medChartYearVal = years.includes(cur) ? cur : (years[0] || cur);
+  els.medChartYear.innerHTML = "";
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === medChartYearVal) o.selected = true;
+    els.medChartYear.appendChild(o);
+  }
+
+  const year = medChartYearVal;
+  const rows = medicalRecords.filter((r) => r.date && r.date.slice(0, 4) === year);
+  const monthTotals = new Array(12).fill(0);
+  const seriesTotals = { personal: 0, insurance: 0 };
+  const monthSeries = Array.from({ length: 12 }, () => ({ personal: 0, insurance: 0 }));
+  const personTotals = new Map();
+  for (const r of rows) {
+    const mi = parseInt(r.date.slice(5, 7), 10) - 1;
+    if (mi < 0 || mi > 11) continue;
+    const p = Number(r.personal) || 0;
+    const ins = Number(r.insurance) || 0;
+    monthTotals[mi] += p + ins;
+    seriesTotals.personal += p;
+    seriesTotals.insurance += ins;
+    monthSeries[mi].personal += p;
+    monthSeries[mi].insurance += ins;
+    const who = (r.person || "").trim() || "未填写";
+    personTotals.set(who, (personTotals.get(who) || 0) + p + ins);
+  }
+  const grand = monthTotals.reduce((a, b) => a + b, 0);
+  els.medChartTitle.textContent = year + " 年度看病支出";
+  els.medChartTotal.textContent = fmtAmount(grand);
+
+  const has = grand > 0;
+  els.medChartEmpty.classList.toggle("hidden", has);
+  if (!has) {
+    els.medWaterfall.innerHTML = ""; els.medMonthBars.innerHTML = "";
+    els.medCatLegend.innerHTML = ""; els.medPersonBars.innerHTML = ""; els.medPersonLegend.innerHTML = "";
+    return;
+  }
+
+  medBuildWaterfall(monthTotals, grand);
+  medBuildMonthBars(monthTotals, monthSeries);
+  medBuildLegend(seriesTotals);
+  medBuildPersonBars(personTotals, grand);
+}
+
+function medBuildWaterfall(monthTotals, grand) {
+  const max = grand || 1;
+  els.medWaterfall.innerHTML = "";
+  let run = 0;
+  for (let m = 0; m < 12; m++) {
+    const v = monthTotals[m];
+    const basePct = (run / max) * 100;
+    const fillPct = (v / max) * 100;
+    const topPct = basePct + fillPct;
+    const col = document.createElement("div");
+    col.className = "wf-col";
+    const connector = (m > 0 && v)
+      ? `<div class="wf-connector" style="bottom:${basePct}%"></div>` : "";
+    col.innerHTML =
+      `<div class="wf-track">` +
+        connector +
+        (v ? `<div class="wf-fill" style="bottom:${basePct}%;height:${fillPct}%"></div>` : "") +
+        (v ? `<div class="wf-val" style="bottom:${topPct}%">${fmtInt(v)}</div>` : "") +
+      `</div>` +
+      `<div class="wf-name">${MONTH_LABELS[m]}</div>`;
+    run += v;
+    els.medWaterfall.appendChild(col);
+  }
+  const tot = document.createElement("div");
+  tot.className = "wf-col wf-total";
+  tot.innerHTML =
+    `<div class="wf-track">` +
+      `<div class="wf-fill total" style="bottom:0;height:100%"></div>` +
+      `<div class="wf-val" style="bottom:100%">${fmtInt(grand)}</div>` +
+    `</div>` +
+    `<div class="wf-name">合计</div>`;
+  els.medWaterfall.appendChild(tot);
+}
+
+function medBuildMonthBars(monthTotals, monthSeries) {
+  const max = Math.max(...monthTotals, 1);
+  const TRACK_PX = 190;
+  els.medMonthBars.innerHTML = "";
+  for (let m = 0; m < 12; m++) {
+    const total = monthTotals[m];
+    const col = document.createElement("div");
+    col.className = "mb-col";
+    let inner = "";
+    for (const s of MED_SERIES) {
+      const val = monthSeries[m][s.key];
+      if (!val) continue;
+      const h = (val / max) * 100;
+      const px = (val / max) * TRACK_PX;
+      const label = px >= 16 ? `<span class="mb-seg-label">${fmtInt(val)}</span>` : "";
+      inner += `<div class="mb-seg" style="height:${h}%;background:${s.color}" title="${escapeHtml(s.name)}：${fmtInt(val)}">${label}</div>`;
+    }
+    col.innerHTML =
+      `<div class="mb-val">${total ? fmtInt(total) : ""}</div>` +
+      `<div class="mb-track">${inner}</div>` +
+      `<div class="mb-name">${MONTH_LABELS[m]}</div>`;
+    els.medMonthBars.appendChild(col);
+  }
+}
+
+function medBuildLegend(seriesTotals) {
+  els.medCatLegend.innerHTML = "";
+  for (const s of MED_SERIES) {
+    const row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML =
+      `<span class="legend-dot" style="background:${s.color}"></span>` +
+      `<span class="legend-name">${escapeHtml(s.name)}</span>` +
+      `<span class="legend-val">${fmtInt(seriesTotals[s.key])}</span>`;
+    els.medCatLegend.appendChild(row);
+  }
+}
+
+function medBuildPersonBars(personTotals, grand) {
+  const list = [...personTotals.entries()].sort((a, b) => b[1] - a[1]);
+  const max = list.length ? list[0][1] : 1;
+  els.medPersonBars.innerHTML = "";
+  els.medPersonLegend.innerHTML = "";
+  list.forEach(([name, val], i) => {
+    const color = MED_PERSON_COLORS[i % MED_PERSON_COLORS.length];
+    const pct = grand > 0 ? (val / grand) * 100 : 0;
+    const w = max > 0 ? (val / max) * 100 : 0;
+    const row = document.createElement("div");
+    row.className = "pb-row";
+    row.innerHTML =
+      `<div class="pb-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>` +
+      `<div class="pb-track"><div class="pb-fill" style="width:${w}%;background:${color}"></div></div>` +
+      `<div class="pb-val">${fmtInt(val)}<span class="pb-pct">${pct.toFixed(1)}%</span></div>`;
+    els.medPersonBars.appendChild(row);
+    const lg = document.createElement("div");
+    lg.className = "legend-row";
+    lg.innerHTML =
+      `<span class="legend-dot" style="background:${color}"></span>` +
+      `<span class="legend-name">${escapeHtml(name)}</span>` +
+      `<span class="legend-val">${fmtInt(val)}</span>`;
+    els.medPersonLegend.appendChild(lg);
+  });
+}
+
+/* --------------------------- Medical tabs -------------------------------- */
+function medSwitchTab(name) {
+  medTab = name;
+  const tabs = {
+    add: { panel: els.medTabAdd, btn: els.medTabAddBtn },
+    list: { panel: els.medTabList, btn: els.medTabListBtn },
+    chart: { panel: els.medTabChart, btn: els.medTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") medRenderChart();
+}
+
+function medWireEvents() {
+  els.medTabAddBtn.onclick = () => medSwitchTab("add");
+  els.medTabListBtn.onclick = () => medSwitchTab("list");
+  els.medTabChartBtn.onclick = () => medSwitchTab("chart");
+
+  els.medForm.addEventListener("submit", medOnSubmit);
+  els.medCancelBtn.onclick = medResetForm;
+
+   ["medPersonal", "medInsurance"].forEach((k) => els[k].addEventListener("input", medRecalc));
+   els.medPerson.addEventListener("change", medPersonOnChange);
+
+  els.medFilterDate.addEventListener("change", () => {
+    medFilterOn = true; medShowAll = false;
+    medRender();
+    els.medFilterDate.blur();
+  });
+  els.medSearchInput.addEventListener("input", () => { medSearchText = els.medSearchInput.value; medRender(); });
+  els.medClearFilterBtn.onclick = () => {
+    medFilterOn = false; medSearchText = ""; els.medSearchInput.value = "";
+    els.medFilterDate.value = todayStr(); medRender();
+  };
+  els.medShowAllBtn.onclick = () => { medShowAll = !medShowAll; medRender(); };
+  els.medChartYear.onchange = () => { medChartYearVal = els.medChartYear.value; medRenderChart(); };
+}

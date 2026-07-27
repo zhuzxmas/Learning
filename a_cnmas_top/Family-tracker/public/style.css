@@ -515,7 +515,14 @@ td:nth-child(6) {
   white-space: normal; min-width: 150px; max-width: 220px; word-break: break-word; font-size: 14px;
 }
 #incTable td.strong,
-#stkTable td.strong { font-weight: 700; color: #118DFF; }
+#stkTable td.strong,
+#medTable td.strong { font-weight: 700; color: #118DFF; }
+
+/* Medical table: 备注 is 7th col; 6th (总计) must not inherit the generic wrap */
+#medTable td:nth-child(6) { white-space: nowrap; min-width: 0; max-width: none; }
+#medTable td:nth-child(7) {
+  white-space: normal; min-width: 150px; max-width: 220px; word-break: break-word; font-size: 14px;
+}
 
 /* Waterfall chart */
 .waterfall, .month-bars {
@@ -603,6 +610,15 @@ td:nth-child(6) {
 }
 .cat-legend .legend-row { flex: 0 0 auto; }
 .cat-legend .legend-name { max-width: 140px; }
+
+/* Horizontal per-person bars */
+.person-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.pb-row { display: grid; grid-template-columns: 72px 1fr auto; align-items: center; gap: 10px; }
+.pb-name { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-track { position: relative; height: 20px; background: #f0f2f5; border-radius: 5px; overflow: hidden; }
+.pb-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px; min-width: 2px; }
+.pb-val { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: #333; }
+.pb-val .pb-pct { color: #999; margin-left: 6px; }
 
 @media (max-width: 720px) {
   .money-grid { grid-template-columns: repeat(2, 1fr); }

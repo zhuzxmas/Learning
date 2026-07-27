@@ -37,6 +37,7 @@
         <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
         <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
         <button type="button" class="mode-btn" id="modeStockBtn">股票</button>
+        <button type="button" class="mode-btn" id="modeMedicalBtn">看病</button>
       </div>
 
 
@@ -97,6 +98,7 @@
             <button type="button" class="btn btn-ghost hidden" id="cancelEditBtn">取消编辑</button>
             <button type="button" class="btn btn-danger hidden" id="deleteEditBtn">删除</button>
           </div>
+          <p id="medCatHint" class="muted mini hidden">该分类由「看病」功能自动记录，请前往「看病」提交。</p>
         </form>
       </div>
       </div>
@@ -403,7 +405,7 @@
           </div>
           <div class="field">
             <label for="stkPrice">交易价格</label>
-            <input type="number" id="stkPrice" step="0.0001" inputmode="decimal" placeholder="0" required />
+            <input type="number" id="stkPrice" step="0.0001" inputmode="decimal" placeholder="0" />
           </div>
           <div class="field">
             <label for="stkShares">交易股数<span class="muted mini">（买入负，卖出正）</span></label>
@@ -419,20 +421,20 @@
           </div>
 
           <div class="money-group">
-            <div class="money-group-title">自动计算（只读）</div>
+            <div class="money-group-title" id="stkDerivedTitle">自动计算（只读）</div>
             <div class="money-grid">
               <div class="field"><label for="stkAmount">成交金额</label>
-                <input type="number" id="stkAmount" readonly tabindex="-1" placeholder="0" /></div>
+                <input type="number" id="stkAmount" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
               <div class="field"><label for="stkCommission">佣金</label>
-                <input type="number" id="stkCommission" readonly tabindex="-1" placeholder="0" /></div>
+                <input type="number" id="stkCommission" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
               <div class="field"><label for="stkStamp">印花税</label>
-                <input type="number" id="stkStamp" readonly tabindex="-1" placeholder="0" /></div>
+                <input type="number" id="stkStamp" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
               <div class="field"><label for="stkTransfer">过户费</label>
-                <input type="number" id="stkTransfer" readonly tabindex="-1" placeholder="0" /></div>
+                <input type="number" id="stkTransfer" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
               <div class="field"><label for="stkTotal">总金额</label>
-                <input type="number" id="stkTotal" readonly tabindex="-1" placeholder="0" /></div>
+                <input type="number" id="stkTotal" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
             </div>
-            <p class="muted mini">成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。</p>
+            <p class="muted mini" id="stkDerivedNote">成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。</p>
           </div>
 
           <div class="form-actions">
@@ -569,6 +571,141 @@
       </div>
       </div>
       </div><!-- /#stockApp -->
+
+      <!-- ============ MEDICAL APP ============ -->
+      <div id="medicalApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="medTabListBtn">看病明细</button>
+        <button type="button" class="tab-btn" id="medTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="medTabChartBtn">图表</button>
+      </div>
+
+      <!-- Medical tab: add / edit form -->
+      <div class="tab-panel hidden" id="medTabAdd">
+      <div class="card">
+        <h2 id="medFormTitle">添加看病记录</h2>
+        <form id="medForm" class="record-form">
+          <input type="hidden" id="medEditId" />
+          <div class="field">
+            <label for="medPerson">看病人</label>
+            <select id="medPerson" required></select>
+            <input type="text" id="medPersonCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新看病人姓名" />
+          </div>
+          <div class="field field-wide">
+            <label for="medTitle">事项</label>
+            <input type="text" id="medTitle" list="medTitleList" autocomplete="off"
+                   placeholder="如：云朵发烧、小饶产检" required />
+            <datalist id="medTitleList"></datalist>
+          </div>
+          <div class="field">
+            <label for="medDate">日期</label>
+            <input type="date" id="medDate" required />
+          </div>
+
+          <div class="money-group">
+            <div class="money-group-title">费用</div>
+            <div class="money-grid">
+              <div class="field"><label for="medPersonal">个人支付</label>
+                <input type="number" id="medPersonal" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="medInsurance">医保统筹支付</label>
+                <input type="number" id="medInsurance" step="0.01" inputmode="decimal" placeholder="0" /></div>
+              <div class="field"><label for="medTotal">总计</label>
+                <input type="number" id="medTotal" readonly tabindex="-1" placeholder="0" /></div>
+            </div>
+            <p class="muted mini">总计 = 个人支付 + 医保统筹支付，自动计算。</p>
+          </div>
+
+          <div class="field field-wide">
+            <label for="medNote">备注</label>
+            <input type="text" id="medNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="medAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="medCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Medical tab: records table -->
+      <div class="tab-panel" id="medTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>看病明细</h2>
+          <span id="medRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="medFilterDate">按日期：</label>
+          <input type="date" id="medFilterDate" />
+          <input type="text" id="medSearchInput" placeholder="搜索看病人/事项/备注" />
+          <button type="button" id="medClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="medShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="medTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>看病人</th>
+                <th>事项</th>
+                <th class="num">个人支付</th>
+                <th class="num">医保统筹</th>
+                <th class="num">总计</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="medBody"></tbody>
+          </table>
+        </div>
+        <p id="medEmptyHint" class="muted center hidden">暂无看病记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Medical tab: charts -->
+      <div class="tab-panel hidden" id="medTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="medChartTitle">年度看病支出</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="medChartTotal">0.00</div>
+              <div class="chart-total-label">看病总额合计</div>
+            </div>
+            <div class="chart-asof">
+              <div class="chart-asof-label">年度：</div>
+              <select id="medChartYear"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">各月累计瀑布图（累计至年度合计）</div>
+          <div id="medWaterfall" class="waterfall"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各月看病支出（个人支付 / 医保统筹 分色堆叠）</div>
+          </div>
+          <div id="medMonthBars" class="month-bars"></div>
+          <div id="medCatLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各看病人支出占比（年度）</div>
+          </div>
+          <div id="medPersonBars" class="person-bars"></div>
+          <div id="medPersonLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <p id="medChartEmpty" class="muted center hidden">该年度暂无看病数据。</p>
+      </div>
+      </div>
+      </div><!-- /#medicalApp -->
     </section>
   </main>
 
