@@ -37,13 +37,19 @@
         <div class="mode-switch" role="tablist">
           <button type="button" class="mode-btn active" id="modeSpendingBtn">支出</button>
           <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
+          <button type="button" class="mode-btn" id="modeBlogBtn">博客</button>
           <button type="button" class="mode-btn" id="modeStockBtn">股票</button>
-          <button type="button" class="mode-btn" id="modeMedicalBtn">看病</button>
         </div>
         <div class="mode-more" id="modeMoreWrap">
           <button type="button" class="mode-btn mode-more-btn" id="modeMoreBtn">更多 ▾</button>
           <div class="mode-more-menu hidden" id="modeMoreMenu">
-            <button type="button" class="mode-more-item" data-mode="celine">Celine 收入</button>
+            <button type="button" class="mode-more-item" data-mode="celine">Celine 存钱罐</button>
+            <button type="button" class="mode-more-item" data-mode="borrow">借还款</button>
+            <button type="button" class="mode-more-item" data-mode="invest">理财</button>
+            <button type="button" class="mode-more-item" data-mode="cards">储值卡</button>
+            <button type="button" class="mode-more-item" data-mode="vehicle">车辆保养</button>
+            <button type="button" class="mode-more-item" data-mode="health">健康</button>
+            <button type="button" class="mode-more-item" data-mode="medical">看病</button>
           </div>
         </div>
       </div>
@@ -762,7 +768,7 @@
       <div class="card">
         <div class="list-controls">
         <div class="table-head-row">
-          <h2>Celine 收入明细</h2>
+          <h2>Celine 存钱罐明细</h2>
           <span id="celRecordCount" class="muted"></span>
         </div>
         <div class="filter-bar">
@@ -823,6 +829,818 @@
       </div>
       </div>
       </div><!-- /#celineApp -->
+
+      <!-- ============ BORROW-REPAY APP ============ -->
+      <div id="borrowApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="brwTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="brwTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="brwTabChartBtn">图表</button>
+      </div>
+
+      <!-- Borrow tab: add / edit form -->
+      <div class="tab-panel hidden" id="brwTabAdd">
+      <div class="card">
+        <h2 id="brwFormTitle">添加借还款记录</h2>
+        <form id="brwForm" class="record-form">
+          <input type="hidden" id="brwEditId" />
+          <div class="field">
+            <label for="brwPerson">对方</label>
+            <select id="brwPerson" required></select>
+            <input type="text" id="brwPersonCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的人名" />
+          </div>
+          <div class="field">
+            <label for="brwDate">日期</label>
+            <input type="date" id="brwDate" required />
+          </div>
+          <div class="field">
+            <label for="brwType">类型</label>
+            <select id="brwType">
+              <option value="lend">借出</option>
+              <option value="repay">还款</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="brwAmount">金额</label>
+            <input type="number" id="brwAmount" step="0.01" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field field-wide">
+            <label for="brwNote">备注</label>
+            <input type="text" id="brwNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="brwAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="brwCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Borrow tab: records table -->
+      <div class="tab-panel" id="brwTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>借还款明细</h2>
+          <span id="brwRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="brwFilterDate">按日期：</label>
+          <input type="date" id="brwFilterDate" />
+          <input type="text" id="brwSearchInput" placeholder="搜索对方/备注" />
+          <button type="button" id="brwClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="brwShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="brwTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>对方</th>
+                <th class="num">金额</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="brwBody"></tbody>
+          </table>
+        </div>
+        <p id="brwEmptyHint" class="muted center hidden">暂无借还款记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Borrow tab: charts -->
+      <div class="tab-panel hidden" id="brwTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="brwChartTitle">各人净欠款</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="brwChartTotal">0.00</div>
+              <div class="chart-total-label">净欠款合计</div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各人净欠款（负=对方欠你，正=你欠对方）</div>
+          </div>
+          <div id="brwPersonBars" class="person-bars"></div>
+          <div id="brwPersonLegend" class="pie-legend cat-legend"></div>
+        </div>
+        <p id="brwChartEmpty" class="muted center hidden">暂无借还款数据。</p>
+      </div>
+      </div>
+      </div><!-- /#borrowApp -->
+
+      <!-- ============ INVEST APP ============ -->
+      <div id="investApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="invTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="invTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="invTabChartBtn">图表</button>
+      </div>
+
+      <!-- Invest tab: add / edit form -->
+      <div class="tab-panel hidden" id="invTabAdd">
+      <div class="card">
+        <h2 id="invFormTitle">添加理财记录</h2>
+        <form id="invForm" class="record-form">
+          <input type="hidden" id="invEditId" />
+          <div class="field field-wide">
+            <label for="invName">产品名称</label>
+            <input type="text" id="invName" list="invNameList" autocomplete="off"
+                   placeholder="如：周周鑫稳健款" required />
+            <datalist id="invNameList"></datalist>
+          </div>
+          <div class="field">
+            <label for="invDate">购买日期</label>
+            <input type="date" id="invDate" required />
+          </div>
+          <div class="field">
+            <label for="invAmount">交易金额</label>
+            <input type="number" id="invAmount" step="0.01" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="invRate">利率(%)</label>
+            <input type="number" id="invRate" step="0.01" inputmode="decimal" placeholder="可选" />
+          </div>
+          <div class="field">
+            <label for="invTerm">合约期限(天)</label>
+            <input type="number" id="invTerm" step="1" inputmode="numeric" placeholder="可选" />
+          </div>
+          <div class="field">
+            <label for="invEarn">到期收益</label>
+            <input type="number" id="invEarn" step="0.01" inputmode="decimal" placeholder="0" />
+          </div>
+          <div class="field field-wide">
+            <label for="invNote">备注</label>
+            <input type="text" id="invNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="invAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="invCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Invest tab: records table -->
+      <div class="tab-panel" id="invTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>理财明细</h2>
+          <span id="invRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="invFilterDate">按日期：</label>
+          <input type="date" id="invFilterDate" />
+          <input type="text" id="invSearchInput" placeholder="搜索产品/备注" />
+          <button type="button" id="invClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="invShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="invTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>产品名称</th>
+                <th class="num">交易金额</th>
+                <th class="num">利率</th>
+                <th class="num">期限</th>
+                <th class="num">到期收益</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="invBody"></tbody>
+          </table>
+        </div>
+        <p id="invEmptyHint" class="muted center hidden">暂无理财记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Invest tab: charts -->
+      <div class="tab-panel hidden" id="invTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="invChartTitle">到期收益走势</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="invChartTotal">0.00</div>
+              <div class="chart-total-label">到期收益合计</div>
+            </div>
+            <div class="chart-asof">
+              <div class="chart-asof-label">年度：</div>
+              <select id="invChartYear"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">累计到期收益瀑布图（按购买时间）</div>
+          <div id="invWaterfall" class="waterfall"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各月到期收益</div>
+          </div>
+          <div id="invMonthBars" class="month-bars"></div>
+        </div>
+        <p id="invChartEmpty" class="muted center hidden">该年度暂无数据。</p>
+      </div>
+      </div>
+      </div><!-- /#investApp -->
+
+      <div id="cardsApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="svcTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="svcTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="svcTabChartBtn">卡片余额</button>
+      </div>
+
+      <!-- Cards tab: add / edit form -->
+      <div class="tab-panel hidden" id="svcTabAdd">
+      <div class="card">
+        <h2 id="svcFormTitle">添加储值卡记录</h2>
+        <form id="svcForm" class="record-form">
+          <input type="hidden" id="svcEditId" />
+          <div class="field">
+            <label for="svcCard">卡名</label>
+            <select id="svcCard" required></select>
+            <input type="text" id="svcCardCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的卡名" />
+          </div>
+          <div class="field">
+            <label for="svcType">类型</label>
+            <select id="svcType">
+              <option value="topup">充值</option>
+              <option value="use">使用</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="svcAmount">金额变动</label>
+            <input type="number" id="svcAmount" step="0.01" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="svcDate">日期</label>
+            <input type="date" id="svcDate" />
+          </div>
+          <div class="field">
+            <label for="svcAccount">储值账户</label>
+            <input type="text" id="svcAccount" placeholder="可选" />
+          </div>
+          <div class="field">
+            <label for="svcExpiry">有效期</label>
+            <input type="text" id="svcExpiry" placeholder="可选" />
+          </div>
+          <div class="field field-wide">
+            <label for="svcNote">备注</label>
+            <input type="text" id="svcNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="svcAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="svcCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Cards tab: records table -->
+      <div class="tab-panel" id="svcTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>储值卡明细</h2>
+          <span id="svcRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="svcFilterDate">按日期：</label>
+          <input type="date" id="svcFilterDate" />
+          <input type="text" id="svcSearchInput" placeholder="搜索卡名/账户/备注" />
+          <button type="button" id="svcClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="svcShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="svcTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>卡名</th>
+                <th class="num">金额变动</th>
+                <th>储值账户</th>
+                <th>有效期</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="svcBody"></tbody>
+          </table>
+        </div>
+        <p id="svcEmptyHint" class="muted center hidden">暂无储值卡记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Cards tab: balances summary -->
+      <div class="tab-panel hidden" id="svcTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year">各卡余额</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="svcChartTotal">0.00</div>
+              <div class="chart-total-label">余额合计</div>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="svcSummaryTable">
+            <thead>
+              <tr>
+                <th>卡名</th>
+                <th>储值账户</th>
+                <th class="num">余额</th>
+                <th>有效期</th>
+              </tr>
+            </thead>
+            <tbody id="svcSummaryBody"></tbody>
+          </table>
+        </div>
+        <p id="svcChartEmpty" class="muted center hidden">暂无数据。</p>
+      </div>
+      </div>
+      </div><!-- /#cardsApp -->
+
+      <div id="vehicleApp" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="vehTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="vehTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="vehTabChartBtn">图表</button>
+      </div>
+
+      <!-- Vehicle tab: add / edit form -->
+      <div class="tab-panel hidden" id="vehTabAdd">
+      <div class="card">
+        <h2 id="vehFormTitle">添加保养记录</h2>
+        <form id="vehForm" class="record-form">
+          <input type="hidden" id="vehEditId" />
+          <div class="field">
+            <label for="vehVehicle">车辆</label>
+            <select id="vehVehicle" required></select>
+            <input type="text" id="vehVehicleCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的车辆名称" />
+          </div>
+          <div class="field">
+            <label for="vehCategory">保养类型</label>
+            <select id="vehCategory" required></select>
+            <input type="text" id="vehCategoryCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的类型" />
+          </div>
+          <div class="field">
+            <label for="vehDate">日期</label>
+            <input type="date" id="vehDate" required />
+          </div>
+          <div class="field">
+            <label for="vehCost">费用</label>
+            <input type="number" id="vehCost" step="0.01" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="vehOdometer">里程(km)</label>
+            <input type="number" id="vehOdometer" step="1" inputmode="numeric" placeholder="可选" />
+          </div>
+          <div class="field field-wide">
+            <label for="vehNote">备注</label>
+            <input type="text" id="vehNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="vehAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="vehCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <!-- Vehicle tab: records table -->
+      <div class="tab-panel" id="vehTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>保养明细</h2>
+          <span id="vehRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="vehFilterDate">按日期：</label>
+          <input type="date" id="vehFilterDate" />
+          <input type="text" id="vehSearchInput" placeholder="搜索车辆/类型/备注" />
+          <button type="button" id="vehClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="vehShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="vehTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>车辆</th>
+                <th>类型</th>
+                <th class="num">费用</th>
+                <th class="num">里程</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="vehBody"></tbody>
+          </table>
+        </div>
+        <p id="vehEmptyHint" class="muted center hidden">暂无保养记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <!-- Vehicle tab: charts -->
+      <div class="tab-panel hidden" id="vehTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year" id="vehChartTitle">保养费用走势</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="vehChartTotal">0.00</div>
+              <div class="chart-total-label">费用合计</div>
+            </div>
+            <div class="chart-asof">
+              <div class="chart-asof-label">年度：</div>
+              <select id="vehChartYear"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">累计保养费用瀑布图（按日期）</div>
+          <div id="vehWaterfall" class="waterfall"></div>
+        </div>
+        <div class="chart-cell">
+          <div class="chart-cell-head">
+            <div class="chart-cell-title">各月保养费用</div>
+          </div>
+          <div id="vehMonthBars" class="month-bars"></div>
+        </div>
+        <p id="vehChartEmpty" class="muted center hidden">该年度暂无数据。</p>
+      </div>
+      </div>
+      </div><!-- /#vehicleApp -->
+
+      <div id="healthApp" class="hidden">
+      <!-- 体重 / 血压 sub-switch -->
+      <div class="sub-switch">
+        <button type="button" class="sub-btn active" id="heaSubWeightBtn">体重</button>
+        <button type="button" class="sub-btn" id="heaSubBpBtn">血压</button>
+      </div>
+
+      <!-- ==================== 体重 (hw) ==================== -->
+      <div id="hwSub">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="hwTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="hwTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="hwTabChartBtn">图表</button>
+        <button type="button" class="tab-btn hidden" id="hwTabCurveBtn">生长曲线</button>
+      </div>
+
+      <div class="tab-panel hidden" id="hwTabAdd">
+      <div class="card">
+        <h2 id="hwFormTitle">添加体重记录</h2>
+        <form id="hwForm" class="record-form">
+          <input type="hidden" id="hwEditId" />
+          <div class="field">
+            <label for="hwPerson">姓名</label>
+            <select id="hwPerson" required></select>
+            <input type="text" id="hwPersonCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的姓名" />
+          </div>
+          <div class="field">
+            <label for="hwDate">日期</label>
+            <input type="date" id="hwDate" required />
+          </div>
+          <div class="field">
+            <label for="hwWeight">体重(kg)</label>
+            <input type="number" id="hwWeight" step="0.1" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="hwHeight">身高(cm)</label>
+            <input type="number" id="hwHeight" step="1" inputmode="numeric" placeholder="可选" />
+          </div>
+          <div class="field field-wide">
+            <label for="hwNote">备注</label>
+            <input type="text" id="hwNote" placeholder="可选" />
+          </div>
+          <p class="muted" id="hwBmiHint"></p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="hwAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="hwCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <div class="tab-panel" id="hwTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>体重明细</h2>
+          <span id="hwRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="hwFilterDate">按日期：</label>
+          <input type="date" id="hwFilterDate" />
+          <input type="text" id="hwSearchInput" placeholder="搜索姓名/备注" />
+          <button type="button" id="hwClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="hwShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="hwTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>姓名</th>
+                <th class="num">体重</th>
+                <th class="num">身高</th>
+                <th class="num">BMI</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="hwBody"></tbody>
+          </table>
+        </div>
+        <p id="hwEmptyHint" class="muted center hidden">暂无体重记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <div class="tab-panel hidden" id="hwTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year">体重走势</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-asof">
+              <div class="chart-asof-label">姓名：</div>
+              <select id="hwChartPerson"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="line-chart-wrap"><svg id="hwChartSvg" class="line-chart" preserveAspectRatio="none"></svg></div>
+          <div class="line-legend" id="hwChartLegend"></div>
+        </div>
+        <p id="hwChartEmpty" class="muted center hidden">该姓名暂无数据。</p>
+      </div>
+      </div>
+
+      <div class="tab-panel hidden" id="hwTabCurve">
+        <p class="muted center" style="margin-top:0">对照 2023 版中国女童 0–2 岁标准（P3 / 中位数 / P97）。</p>
+        <div class="card">
+          <div class="chart-header stk-chart-header">
+            <div class="chart-title"><div class="chart-title-year">年龄–体重</div></div>
+          </div>
+          <div class="chart-cell">
+            <div class="line-chart-wrap"><svg id="hwcAwSvg" class="line-chart" preserveAspectRatio="none"></svg></div>
+            <div class="line-legend" id="hwcAwLegend"></div>
+          </div>
+          <p id="hwcAwEmpty" class="muted center hidden">暂无数据。</p>
+        </div>
+        <div class="card">
+          <div class="chart-header stk-chart-header">
+            <div class="chart-title"><div class="chart-title-year">年龄–身高</div></div>
+          </div>
+          <div class="chart-cell">
+            <div class="line-chart-wrap"><svg id="hwcAhSvg" class="line-chart" preserveAspectRatio="none"></svg></div>
+            <div class="line-legend" id="hwcAhLegend"></div>
+          </div>
+          <p id="hwcAhEmpty" class="muted center hidden">暂无数据。</p>
+        </div>
+        <div class="card">
+          <div class="chart-header stk-chart-header">
+            <div class="chart-title"><div class="chart-title-year">体重–身高</div></div>
+          </div>
+          <div class="chart-cell">
+            <div class="line-chart-wrap"><svg id="hwcHwSvg" class="line-chart" preserveAspectRatio="none"></svg></div>
+            <div class="line-legend" id="hwcHwLegend"></div>
+          </div>
+          <p id="hwcHwEmpty" class="muted center hidden">暂无数据。</p>
+        </div>
+      </div>
+      </div><!-- /#hwSub -->
+
+      <!-- ==================== 血压 (hb) ==================== -->
+      <div id="hbSub" class="hidden">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="hbTabListBtn">明细</button>
+        <button type="button" class="tab-btn" id="hbTabAddBtn">新建</button>
+        <button type="button" class="tab-btn" id="hbTabChartBtn">图表</button>
+      </div>
+
+      <div class="tab-panel hidden" id="hbTabAdd">
+      <div class="card">
+        <h2 id="hbFormTitle">添加血压记录</h2>
+        <form id="hbForm" class="record-form">
+          <input type="hidden" id="hbEditId" />
+          <div class="field">
+            <label for="hbPerson">姓名</label>
+            <select id="hbPerson" required></select>
+            <input type="text" id="hbPersonCustom" class="hidden" autocomplete="off"
+                   placeholder="输入新的姓名" />
+          </div>
+          <div class="field">
+            <label for="hbDate">日期</label>
+            <input type="date" id="hbDate" required />
+          </div>
+          <div class="field">
+            <label for="hbSystolic">收缩压(高压)</label>
+            <input type="number" id="hbSystolic" step="1" inputmode="numeric" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="hbDiastolic">舒张压(低压)</label>
+            <input type="number" id="hbDiastolic" step="1" inputmode="numeric" placeholder="0" required />
+          </div>
+          <div class="field">
+            <label for="hbPulse">脉搏</label>
+            <input type="number" id="hbPulse" step="1" inputmode="numeric" placeholder="可选" />
+          </div>
+          <div class="field field-wide">
+            <label for="hbNote">备注</label>
+            <input type="text" id="hbNote" placeholder="可选" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="hbAddBtn">添加并保存</button>
+            <button type="button" class="btn btn-ghost hidden" id="hbCancelBtn">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      </div>
+
+      <div class="tab-panel" id="hbTabList">
+      <div class="card">
+        <div class="list-controls">
+        <div class="table-head-row">
+          <h2>血压明细</h2>
+          <span id="hbRecordCount" class="muted"></span>
+        </div>
+        <div class="filter-bar">
+          <label for="hbFilterDate">按日期：</label>
+          <input type="date" id="hbFilterDate" />
+          <input type="text" id="hbSearchInput" placeholder="搜索姓名/备注" />
+          <button type="button" id="hbClearFilterBtn" class="btn btn-ghost hidden">清除</button>
+          <button type="button" id="hbShowAllBtn" class="btn btn-ghost hidden">显示全部</button>
+        </div>
+        </div>
+        <div class="table-wrap">
+          <table id="hbTable">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>姓名</th>
+                <th class="num">收缩压</th>
+                <th class="num">舒张压</th>
+                <th class="num">脉搏</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="hbBody"></tbody>
+          </table>
+        </div>
+        <p id="hbEmptyHint" class="muted center hidden">暂无血压记录，请在上方添加。</p>
+      </div>
+      </div>
+
+      <div class="tab-panel hidden" id="hbTabChart">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year">血压走势</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-asof">
+              <div class="chart-asof-label">姓名：</div>
+              <select id="hbChartPerson"></select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-cell">
+          <div class="line-chart-wrap"><svg id="hbChartSvg" class="line-chart" preserveAspectRatio="none"></svg></div>
+          <div class="line-legend" id="hbChartLegend"></div>
+        </div>
+        <p id="hbChartEmpty" class="muted center hidden">该姓名暂无数据。</p>
+      </div>
+      </div>
+      </div><!-- /#hbSub -->
+      </div><!-- /#healthApp -->
+
+      <!-- ==================== 生活博客 (blog) ==================== -->
+      <div id="blogApp" class="hidden">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="blogTabListBtn">文章</button>
+        <button type="button" class="tab-btn hidden" id="blogTabViewBtn">阅读</button>
+        <button type="button" class="tab-btn" id="blogTabEditBtn">写博文</button>
+        <button type="button" class="tab-btn hidden" id="blogClearFilterBtn">清除筛选</button>
+      </div>
+
+      <!-- 列表 -->
+      <div class="tab-panel" id="blogTabList">
+        <div class="card">
+          <div class="blog-toolbar">
+            <input type="search" id="blogSearch" placeholder="搜索标题或正文…" autocomplete="off" />
+            <span class="muted" id="blogCount"></span>
+          </div>
+          <div id="blogList" class="blog-list"></div>
+          <p class="muted hidden" id="blogEmpty">暂无文章。</p>
+        </div>
+      </div>
+
+      <!-- 阅读 -->
+      <div class="tab-panel hidden" id="blogTabView">
+        <div class="card">
+          <div class="blog-view-actions">
+            <button type="button" class="btn btn-ghost" id="blogBackBtn">← 返回列表</button>
+            <button type="button" class="btn btn-ghost" id="blogEditThisBtn">编辑</button>
+            <button type="button" class="btn btn-danger" id="blogDeleteThisBtn">删除</button>
+          </div>
+          <h2 id="blogViewTitle"></h2>
+          <p class="muted" id="blogViewDate"></p>
+          <div id="blogViewBody" class="blog-body"></div>
+        </div>
+      </div>
+
+      <!-- 写博文 / 编辑 -->
+      <div class="tab-panel hidden" id="blogTabEdit">
+        <div class="card">
+          <h2 id="blogEditFormTitle">写博文</h2>
+          <input type="hidden" id="blogEditId" />
+          <div class="field">
+            <label for="blogTitleInput">标题</label>
+            <input type="text" id="blogTitleInput" autocomplete="off" placeholder="文章标题" />
+          </div>
+          <div class="field">
+            <label for="blogDateInput">日期</label>
+            <input type="date" id="blogDateInput" />
+          </div>
+          <div class="field field-wide">
+            <label for="blogBodyInput">正文（Markdown）</label>
+            <div class="blog-md-toolbar" id="blogMdToolbar">
+              <button type="button" class="md-btn" data-md="bold" title="加粗"><b>B</b></button>
+              <button type="button" class="md-btn" data-md="italic" title="斜体"><i>I</i></button>
+              <button type="button" class="md-btn" data-md="underline" title="下划线"><u>U</u></button>
+              <button type="button" class="md-btn" data-md="h2" title="标题">H2</button>
+              <button type="button" class="md-btn" data-md="quote" title="引用">&ldquo;&rdquo;</button>
+              <button type="button" class="md-btn" data-md="ul" title="无序列表">• 列表</button>
+              <button type="button" class="md-btn" data-md="ol" title="有序列表">1. 列表</button>
+              <button type="button" class="md-btn" data-md="link" title="链接">链接</button>
+              <button type="button" class="md-btn" data-md="code" title="行内代码">&lt;/&gt;</button>
+              <button type="button" class="md-btn" data-md="hr" title="分割线">—</button>
+            </div>
+            <textarea id="blogBodyInput" rows="16" placeholder="支持 Markdown：# 标题、**加粗**、- 列表、[链接](url)、图片见下方上传…"></textarea>
+          </div>
+          <div class="field field-wide">
+            <label for="blogImageInput">插入图片</label>
+            <input type="file" id="blogImageInput" accept="image/*" multiple />
+            <p class="muted" id="blogImageHint">选择图片后会上传，并在正文光标处插入引用。</p>
+            <button type="button" class="btn btn-ghost" id="blogPickExistingBtn">从已有图片选择</button>
+            <div id="blogImgPicker" class="blog-img-picker hidden">
+              <div class="blog-img-picker-bar">
+                <span class="muted" id="blogImgPickerCount">正在载入…</span>
+                <button type="button" class="btn btn-ghost" id="blogImgPickerClose">关闭</button>
+              </div>
+              <div id="blogImgPickerGrid" class="blog-img-picker-grid"></div>
+              <div id="blogImgPickerPager" class="blog-img-picker-pager hidden">
+                <button type="button" class="btn btn-ghost" id="blogImgPickerPrev">上一页</button>
+                <span class="muted" id="blogImgPickerPageInfo"></span>
+                <button type="button" class="btn btn-ghost" id="blogImgPickerNext">下一页</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="blogSaveBtn">保存</button>
+            <button type="button" class="btn btn-ghost" id="blogCancelBtn">取消</button>
+          </div>
+        </div>
+      </div>
+      </div><!-- /#blogApp -->
+      <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
     </section>
   </main>
 

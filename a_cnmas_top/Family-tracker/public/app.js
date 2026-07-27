@@ -119,6 +119,18 @@ const MEDICAL_RECORDS_FILE = "medical-records.json";
 // (Celine 收入, 借还款, 理财, 储值卡, 车辆保养, 健康). One JSON per module.
 const EXTRA_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgCbS1q24rUkSajMLkNxkDtLAcWbFicegxxe-3yOfzGATqc?email=celine_mas%40outlook.com&e=76QT2n";
 const CELINE_INCOME_FILE = "celine-income.json";
+const BORROW_REPAY_FILE = "borrow-repay.json";
+const INVEST_FILE = "invest.json";
+const STORED_CARD_FILE = "stored-value-cards.json";
+const VEHICLE_FILE = "vehicle-maintenance.json";
+const HEALTH_WEIGHT_FILE = "health-weight.json";
+const HEALTH_BP_FILE = "health-bp.json";
+
+/* --------------------------- BLOG CONFIG -------------------------------- */
+// The blog/life-journal lives in its OWN dedicated OneDrive shared folder.
+// Structure inside it:  blog-index.json  +  posts/<id>.md  +  images/<file>
+const BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM";
+const BLOG_INDEX_FILE = "blog-index.json";
 
 // Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
 // Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
@@ -282,6 +294,7 @@ const els = {
   incHiddenPayees: $("incHiddenPayees"),
   // --- stock mode ---
   modeStockBtn: $("modeStockBtn"),
+  modeBlogBtn: $("modeBlogBtn"),
   stockApp: $("stockApp"),
   // --- stock tabs ---
   stkTabAddBtn: $("stkTabAddBtn"),
@@ -350,7 +363,6 @@ const els = {
   feeSaveBtn: $("feeSaveBtn"),
   feeResetBtn: $("feeResetBtn"),
   // --- medical mode ---
-  modeMedicalBtn: $("modeMedicalBtn"),
   medicalApp: $("medicalApp"),
   // --- medical tabs ---
   medTabAddBtn: $("medTabAddBtn"),
@@ -430,6 +442,255 @@ const els = {
   celMonthBars: $("celMonthBars"),
   celCatLegend: $("celCatLegend"),
   celChartEmpty: $("celChartEmpty"),
+  // --- borrow-repay mode ---
+  borrowApp: $("borrowApp"),
+  brwTabAddBtn: $("brwTabAddBtn"),
+  brwTabListBtn: $("brwTabListBtn"),
+  brwTabChartBtn: $("brwTabChartBtn"),
+  brwTabAdd: $("brwTabAdd"),
+  brwTabList: $("brwTabList"),
+  brwTabChart: $("brwTabChart"),
+  brwForm: $("brwForm"),
+  brwEditId: $("brwEditId"),
+  brwPerson: $("brwPerson"),
+  brwPersonCustom: $("brwPersonCustom"),
+  brwDate: $("brwDate"),
+  brwType: $("brwType"),
+  brwAmount: $("brwAmount"),
+  brwNote: $("brwNote"),
+  brwAddBtn: $("brwAddBtn"),
+  brwCancelBtn: $("brwCancelBtn"),
+  brwFormTitle: $("brwFormTitle"),
+  brwBody: $("brwBody"),
+  brwRecordCount: $("brwRecordCount"),
+  brwEmptyHint: $("brwEmptyHint"),
+  brwFilterDate: $("brwFilterDate"),
+  brwSearchInput: $("brwSearchInput"),
+  brwClearFilterBtn: $("brwClearFilterBtn"),
+  brwShowAllBtn: $("brwShowAllBtn"),
+  brwChartTitle: $("brwChartTitle"),
+  brwChartTotal: $("brwChartTotal"),
+  brwPersonBars: $("brwPersonBars"),
+  brwPersonLegend: $("brwPersonLegend"),
+  brwChartEmpty: $("brwChartEmpty"),
+  // --- invest mode ---
+  investApp: $("investApp"),
+  invTabAddBtn: $("invTabAddBtn"),
+  invTabListBtn: $("invTabListBtn"),
+  invTabChartBtn: $("invTabChartBtn"),
+  invTabAdd: $("invTabAdd"),
+  invTabList: $("invTabList"),
+  invTabChart: $("invTabChart"),
+  invForm: $("invForm"),
+  invEditId: $("invEditId"),
+  invName: $("invName"),
+  invNameList: $("invNameList"),
+  invDate: $("invDate"),
+  invAmount: $("invAmount"),
+  invRate: $("invRate"),
+  invTerm: $("invTerm"),
+  invEarn: $("invEarn"),
+  invNote: $("invNote"),
+  invAddBtn: $("invAddBtn"),
+  invCancelBtn: $("invCancelBtn"),
+  invFormTitle: $("invFormTitle"),
+  invBody: $("invBody"),
+  invRecordCount: $("invRecordCount"),
+  invEmptyHint: $("invEmptyHint"),
+  invFilterDate: $("invFilterDate"),
+  invSearchInput: $("invSearchInput"),
+  invClearFilterBtn: $("invClearFilterBtn"),
+  invShowAllBtn: $("invShowAllBtn"),
+  invChartTitle: $("invChartTitle"),
+  invChartTotal: $("invChartTotal"),
+  invChartYear: $("invChartYear"),
+  invWaterfall: $("invWaterfall"),
+  invMonthBars: $("invMonthBars"),
+  invChartEmpty: $("invChartEmpty"),
+  // --- stored-value cards mode ---
+  cardsApp: $("cardsApp"),
+  svcTabAddBtn: $("svcTabAddBtn"),
+  svcTabListBtn: $("svcTabListBtn"),
+  svcTabChartBtn: $("svcTabChartBtn"),
+  svcTabAdd: $("svcTabAdd"),
+  svcTabList: $("svcTabList"),
+  svcTabChart: $("svcTabChart"),
+  svcForm: $("svcForm"),
+  svcEditId: $("svcEditId"),
+  svcCard: $("svcCard"),
+  svcCardCustom: $("svcCardCustom"),
+  svcDate: $("svcDate"),
+  svcType: $("svcType"),
+  svcAmount: $("svcAmount"),
+  svcAccount: $("svcAccount"),
+  svcExpiry: $("svcExpiry"),
+  svcNote: $("svcNote"),
+  svcAddBtn: $("svcAddBtn"),
+  svcCancelBtn: $("svcCancelBtn"),
+  svcFormTitle: $("svcFormTitle"),
+  svcBody: $("svcBody"),
+  svcRecordCount: $("svcRecordCount"),
+  svcEmptyHint: $("svcEmptyHint"),
+  svcFilterDate: $("svcFilterDate"),
+  svcSearchInput: $("svcSearchInput"),
+  svcClearFilterBtn: $("svcClearFilterBtn"),
+  svcShowAllBtn: $("svcShowAllBtn"),
+  svcChartTotal: $("svcChartTotal"),
+  svcSummaryBody: $("svcSummaryBody"),
+  svcChartEmpty: $("svcChartEmpty"),
+
+  // 车辆保养 (veh*)
+  vehicleApp: $("vehicleApp"),
+  vehTabAddBtn: $("vehTabAddBtn"),
+  vehTabListBtn: $("vehTabListBtn"),
+  vehTabChartBtn: $("vehTabChartBtn"),
+  vehTabAdd: $("vehTabAdd"),
+  vehTabList: $("vehTabList"),
+  vehTabChart: $("vehTabChart"),
+  vehForm: $("vehForm"),
+  vehEditId: $("vehEditId"),
+  vehVehicle: $("vehVehicle"),
+  vehVehicleCustom: $("vehVehicleCustom"),
+  vehCategory: $("vehCategory"),
+  vehCategoryCustom: $("vehCategoryCustom"),
+  vehDate: $("vehDate"),
+  vehCost: $("vehCost"),
+  vehOdometer: $("vehOdometer"),
+  vehNote: $("vehNote"),
+  vehAddBtn: $("vehAddBtn"),
+  vehCancelBtn: $("vehCancelBtn"),
+  vehFormTitle: $("vehFormTitle"),
+  vehBody: $("vehBody"),
+  vehRecordCount: $("vehRecordCount"),
+  vehEmptyHint: $("vehEmptyHint"),
+  vehFilterDate: $("vehFilterDate"),
+  vehSearchInput: $("vehSearchInput"),
+  vehClearFilterBtn: $("vehClearFilterBtn"),
+  vehShowAllBtn: $("vehShowAllBtn"),
+  vehChartTitle: $("vehChartTitle"),
+  vehChartTotal: $("vehChartTotal"),
+  vehChartYear: $("vehChartYear"),
+  vehWaterfall: $("vehWaterfall"),
+  vehMonthBars: $("vehMonthBars"),
+  vehChartEmpty: $("vehChartEmpty"),
+
+  // 健康 (hea / hw 体重 / hb 血压)
+  healthApp: $("healthApp"),
+  heaSubWeightBtn: $("heaSubWeightBtn"),
+  heaSubBpBtn: $("heaSubBpBtn"),
+  hwSub: $("hwSub"),
+  hbSub: $("hbSub"),
+  // 体重 hw*
+  hwTabAddBtn: $("hwTabAddBtn"),
+  hwTabListBtn: $("hwTabListBtn"),
+  hwTabChartBtn: $("hwTabChartBtn"),
+  hwTabAdd: $("hwTabAdd"),
+  hwTabList: $("hwTabList"),
+  hwTabChart: $("hwTabChart"),
+  hwForm: $("hwForm"),
+  hwEditId: $("hwEditId"),
+  hwPerson: $("hwPerson"),
+  hwPersonCustom: $("hwPersonCustom"),
+  hwDate: $("hwDate"),
+  hwWeight: $("hwWeight"),
+  hwHeight: $("hwHeight"),
+  hwNote: $("hwNote"),
+  hwBmiHint: $("hwBmiHint"),
+  hwAddBtn: $("hwAddBtn"),
+  hwCancelBtn: $("hwCancelBtn"),
+  hwFormTitle: $("hwFormTitle"),
+  hwBody: $("hwBody"),
+  hwRecordCount: $("hwRecordCount"),
+  hwEmptyHint: $("hwEmptyHint"),
+  hwFilterDate: $("hwFilterDate"),
+  hwSearchInput: $("hwSearchInput"),
+  hwClearFilterBtn: $("hwClearFilterBtn"),
+  hwShowAllBtn: $("hwShowAllBtn"),
+  hwChartPerson: $("hwChartPerson"),
+  hwChartSvg: $("hwChartSvg"),
+  hwChartLegend: $("hwChartLegend"),
+  hwChartEmpty: $("hwChartEmpty"),
+  hwTabCurveBtn: $("hwTabCurveBtn"),
+  hwTabCurve: $("hwTabCurve"),
+  hwcAwSvg: $("hwcAwSvg"),
+  hwcAwLegend: $("hwcAwLegend"),
+  hwcAwEmpty: $("hwcAwEmpty"),
+  hwcAhSvg: $("hwcAhSvg"),
+  hwcAhLegend: $("hwcAhLegend"),
+  hwcAhEmpty: $("hwcAhEmpty"),
+  hwcHwSvg: $("hwcHwSvg"),
+  hwcHwLegend: $("hwcHwLegend"),
+  hwcHwEmpty: $("hwcHwEmpty"),
+  // 血压 hb*
+  hbTabAddBtn: $("hbTabAddBtn"),
+  hbTabListBtn: $("hbTabListBtn"),
+  hbTabChartBtn: $("hbTabChartBtn"),
+  hbTabAdd: $("hbTabAdd"),
+  hbTabList: $("hbTabList"),
+  hbTabChart: $("hbTabChart"),
+  hbForm: $("hbForm"),
+  hbEditId: $("hbEditId"),
+  hbPerson: $("hbPerson"),
+  hbPersonCustom: $("hbPersonCustom"),
+  hbDate: $("hbDate"),
+  hbSystolic: $("hbSystolic"),
+  hbDiastolic: $("hbDiastolic"),
+  hbPulse: $("hbPulse"),
+  hbNote: $("hbNote"),
+  hbAddBtn: $("hbAddBtn"),
+  hbCancelBtn: $("hbCancelBtn"),
+  hbFormTitle: $("hbFormTitle"),
+  hbBody: $("hbBody"),
+  hbRecordCount: $("hbRecordCount"),
+  hbEmptyHint: $("hbEmptyHint"),
+  hbFilterDate: $("hbFilterDate"),
+  hbSearchInput: $("hbSearchInput"),
+  hbClearFilterBtn: $("hbClearFilterBtn"),
+  hbShowAllBtn: $("hbShowAllBtn"),
+  hbChartPerson: $("hbChartPerson"),
+  hbChartSvg: $("hbChartSvg"),
+  hbChartLegend: $("hbChartLegend"),
+  hbChartEmpty: $("hbChartEmpty"),
+  // 生活博客 (blog*)
+  blogApp: $("blogApp"),
+  blogTabListBtn: $("blogTabListBtn"),
+  blogTabViewBtn: $("blogTabViewBtn"),
+  blogTabEditBtn: $("blogTabEditBtn"),
+  blogClearFilterBtn: $("blogClearFilterBtn"),
+  blogLightbox: $("blogLightbox"),
+  blogLightboxImg: $("blogLightboxImg"),
+  blogTabList: $("blogTabList"),
+  blogTabView: $("blogTabView"),
+  blogTabEdit: $("blogTabEdit"),
+  blogSearch: $("blogSearch"),
+  blogCount: $("blogCount"),
+  blogList: $("blogList"),
+  blogEmpty: $("blogEmpty"),
+  blogBackBtn: $("blogBackBtn"),
+  blogEditThisBtn: $("blogEditThisBtn"),
+  blogDeleteThisBtn: $("blogDeleteThisBtn"),
+  blogViewTitle: $("blogViewTitle"),
+  blogViewDate: $("blogViewDate"),
+  blogViewBody: $("blogViewBody"),
+  blogEditFormTitle: $("blogEditFormTitle"),
+  blogEditId: $("blogEditId"),
+  blogTitleInput: $("blogTitleInput"),
+  blogDateInput: $("blogDateInput"),
+  blogBodyInput: $("blogBodyInput"),
+  blogMdToolbar: $("blogMdToolbar"),
+  blogImageInput: $("blogImageInput"),
+  blogImageHint: $("blogImageHint"),
+  blogPickExistingBtn: $("blogPickExistingBtn"),
+  blogImgPicker: $("blogImgPicker"),
+  blogImgPickerGrid: $("blogImgPickerGrid"),
+  blogImgPickerCount: $("blogImgPickerCount"),
+  blogImgPickerClose: $("blogImgPickerClose"),
+  blogImgPickerPager: $("blogImgPickerPager"),
+  blogImgPickerPrev: $("blogImgPickerPrev"),
+  blogImgPickerNext: $("blogImgPickerNext"),
+  blogImgPickerPageInfo: $("blogImgPickerPageInfo"),
+  blogSaveBtn: $("blogSaveBtn"),
+  blogCancelBtn: $("blogCancelBtn"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -2023,6 +2284,7 @@ function incRecalc() {
   els.incNet.value = net ? round2(net) : "";
 }
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+function round1(n) { return Math.round((Number(n) || 0) * 10) / 10; }
 
 function incInitForm() {
   incRebuildSelects();
@@ -2424,13 +2686,21 @@ async function setMode(next) {
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeStockBtn.classList.toggle("active", isStk);
-  els.modeMedicalBtn.classList.toggle("active", isMed);
-  els.modeMoreBtn.classList.toggle("active", isCel);
+  els.modeBlogBtn.classList.toggle("active", next === "blog");
+  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical");
+  els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
+    it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
   els.stockApp.classList.toggle("hidden", !isStk);
   els.medicalApp.classList.toggle("hidden", !isMed);
   els.celineApp.classList.toggle("hidden", !isCel);
+  els.borrowApp.classList.toggle("hidden", next !== "borrow");
+  els.investApp.classList.toggle("hidden", next !== "invest");
+  els.cardsApp.classList.toggle("hidden", next !== "cards");
+  els.vehicleApp.classList.toggle("hidden", next !== "vehicle");
+  els.healthApp.classList.toggle("hidden", next !== "health");
+  els.blogApp.classList.toggle("hidden", next !== "blog");
   els.modeMoreMenu.classList.add("hidden");
   if (!account) return;
   if (isInc) {
@@ -2445,7 +2715,25 @@ async function setMode(next) {
     catch (e) { setStatus("看病数据载入失败：" + (e.message || e), "error"); }
   } else if (isCel) {
     try { await celLoad(); }
-    catch (e) { setStatus("Celine 收入数据载入失败：" + (e.message || e), "error"); }
+    catch (e) { setStatus("Celine 存钱罐数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "borrow") {
+    try { await brwLoad(); }
+    catch (e) { setStatus("借还款数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "invest") {
+    try { await invLoad(); }
+    catch (e) { setStatus("理财数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "cards") {
+    try { await svcLoad(); }
+    catch (e) { setStatus("储值卡数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "vehicle") {
+    try { await vehLoad(); }
+    catch (e) { setStatus("车辆保养数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "health") {
+    try { await heaLoad(); }
+    catch (e) { setStatus("健康数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "blog") {
+    try { await blogLoad(); }
+    catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -2457,7 +2745,7 @@ function incWireEvents() {
   els.modeSpendingBtn.onclick = () => setMode("spending");
   els.modeIncomeBtn.onclick = () => setMode("income");
   els.modeStockBtn.onclick = () => setMode("stock");
-  els.modeMedicalBtn.onclick = () => setMode("medical");
+  els.modeBlogBtn.onclick = () => setMode("blog");
 
   // 更多 ▾ dropdown: toggle menu, pick a mode, close on outside-click.
   els.modeMoreBtn.onclick = (e) => {
@@ -3492,6 +3780,37 @@ function stkWireEvents() {
   celResetForm();
   els.celFilterDate.value = todayStr();
 
+  // 借还款 module UI (data loads lazily when switching to that mode).
+  brwWireEvents();
+  brwResetForm();
+  els.brwFilterDate.value = todayStr();
+
+  // 理财 module UI (data loads lazily when switching to that mode).
+  invWireEvents();
+  invResetForm();
+  els.invFilterDate.value = todayStr();
+
+  // 储值卡 module UI (data loads lazily when switching to that mode).
+  svcWireEvents();
+  svcResetForm();
+  els.svcFilterDate.value = todayStr();
+
+  // 车辆保养 module UI (data loads lazily when switching to that mode).
+  vehWireEvents();
+  vehResetForm();
+  els.vehFilterDate.value = todayStr();
+
+  // 健康 module UI (data loads lazily when switching to that mode).
+  heaWireEvents();
+  hwResetForm();
+  hbResetForm();
+  els.hwFilterDate.value = todayStr();
+  els.hbFilterDate.value = todayStr();
+
+  // 生活博客 module UI (data loads lazily when switching to that mode).
+  blogWireEvents();
+  blogResetForm();
+
 
   // Surface any uncaught errors to the status bar instead of failing silently.
   window.addEventListener("error", (e) => {
@@ -4248,7 +4567,7 @@ let celChartYearVal = null;
 
 async function celLoad() {
   if (celineLoaded) return;
-  setStatus("正在载入 Celine 收入数据…");
+  setStatus("正在载入 Celine 存钱罐数据…");
   const token = await getToken();
   await xtResolveFolder(token);
   const r = await xtReadJson(token, CELINE_INCOME_FILE);
@@ -4618,3 +4937,2920 @@ function celWireEvents() {
   els.celShowAllBtn.onclick = () => { celShowAll = !celShowAll; celRender(); };
   els.celChartYear.onchange = () => { celChartYearVal = els.celChartYear.value; celRenderChart(); };
 }
+
+/* ========================================================================= *
+ *                       借还款 MODULE (brw*)                                 *
+ *   Per-person loans/repayments. Record: {id,person,date,amount,note,       *
+ *   createdBy,modified}. amount<0 = 借出, amount>0 = 还款. Net per person:   *
+ *   <0 => 对方欠你, >0 => 你欠对方. borrow-repay.json.                        *
+ * ========================================================================= */
+let borrowRecords = [];
+let brwEtag = null;
+let borrowLoaded = false;
+let brwShowAll = false;
+let brwFilterOn = false;
+let brwTab = "list";
+let brwSearchText = "";
+
+const BRW_PERSON_CUSTOM = "__custom__";
+const BRW_PERSON_COLORS = [
+  "#118DFF", "#E66C37", "#12B76A", "#9B51E0", "#F2994A",
+  "#EB5757", "#2D9CDB", "#6FCF97", "#BB6BD9", "#F2C94C",
+];
+
+async function brwLoad() {
+  if (borrowLoaded) return;
+  setStatus("正在载入借还款数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const r = await xtReadJson(token, BORROW_REPAY_FILE);
+  borrowRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  brwEtag = r.etag;
+  borrowLoaded = true;
+  brwRebuildPersonOptions();
+  brwRender();
+  setStatus("已载入 " + borrowRecords.length + " 条借还款记录。", "ok", 2000);
+}
+
+function brwApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function brwPersist(op) {
+  setStatus("正在保存借还款记录…");
+  const token = await getToken();
+  brwEtag = await xtWriteJson(
+    token, BORROW_REPAY_FILE, () => ({ records: borrowRecords }), brwEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      borrowRecords = brwApplyOp(list, op);
+    },
+    () => brwRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* ------------------------- 借还款 person dropdown ------------------------- */
+function brwRebuildPersonOptions(selected) {
+  const cur = selected != null ? selected : els.brwPerson.value;
+  const seen = new Set();
+  const persons = [];
+  for (const r of borrowRecords) {
+    const p = (r.person || "").trim();
+    if (p && !seen.has(p)) { seen.add(p); persons.push(p); }
+  }
+  persons.sort((a, b) => a.localeCompare(b, "zh"));
+
+  els.brwPerson.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择对方"; ph.disabled = true;
+  els.brwPerson.appendChild(ph);
+  for (const p of persons) {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p;
+    els.brwPerson.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = BRW_PERSON_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.brwPerson.appendChild(custom);
+
+  if (cur && persons.includes(cur)) els.brwPerson.value = cur;
+  else if (cur === BRW_PERSON_CUSTOM) els.brwPerson.value = BRW_PERSON_CUSTOM;
+  else els.brwPerson.value = "";
+  brwPersonOnChange();
+}
+
+function brwPersonValue() {
+  return els.brwPerson.value === BRW_PERSON_CUSTOM
+    ? els.brwPersonCustom.value.trim()
+    : els.brwPerson.value.trim();
+}
+
+function brwPersonOnChange() {
+  const on = els.brwPerson.value === BRW_PERSON_CUSTOM;
+  els.brwPersonCustom.classList.toggle("hidden", !on);
+  if (on) els.brwPersonCustom.focus();
+  else els.brwPersonCustom.value = "";
+}
+
+/* --------------------------- 借还款 form --------------------------------- */
+function brwResetForm() {
+  els.brwForm.reset();
+  els.brwEditId.value = "";
+  els.brwPerson.value = "";
+  els.brwPersonCustom.value = "";
+  els.brwPersonCustom.classList.add("hidden");
+  els.brwType.value = "lend";
+  els.brwDate.value = todayStr();
+  els.brwFormTitle.textContent = "添加借还款记录";
+  els.brwAddBtn.textContent = "添加并保存";
+  hide(els.brwCancelBtn);
+}
+
+async function brwOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.brwEditId.value;
+  const mag = Math.abs(parseFloat(els.brwAmount.value));
+  if (isNaN(mag) || mag === 0) { setStatus("请输入金额。", "warn"); return; }
+  const signed = els.brwType.value === "lend" ? -mag : mag;
+  const rec = {
+    id: els.brwEditId.value || uuid(),
+    person: brwPersonValue(),
+    date: els.brwDate.value,
+    amount: round2(signed),
+    note: els.brwNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.person) { setStatus("请填写对方。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = borrowRecords.slice();
+  if (isEdit) {
+    const i = borrowRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = borrowRecords[i].createdBy || rec.createdBy; borrowRecords[i] = rec; }
+    else borrowRecords.push(rec);
+  } else {
+    borrowRecords.push(rec);
+  }
+  els.brwAddBtn.disabled = true;
+  brwRebuildPersonOptions();
+  brwRender();
+  try {
+    await brwPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    brwResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    borrowRecords = snap; brwRebuildPersonOptions(); brwRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.brwAddBtn.disabled = false;
+  }
+}
+
+function brwStartEdit(id) {
+  const r = borrowRecords.find((x) => x.id === id);
+  if (!r) return;
+  const amt = Number(r.amount) || 0;
+  els.brwEditId.value = r.id;
+  brwRebuildPersonOptions(r.person || "");
+  els.brwDate.value = r.date;
+  els.brwType.value = amt < 0 ? "lend" : "repay";
+  els.brwAmount.value = Math.abs(amt);
+  els.brwNote.value = r.note || "";
+  els.brwFormTitle.textContent = "编辑借还款记录";
+  els.brwAddBtn.textContent = "保存修改";
+  show(els.brwCancelBtn);
+  brwSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function brwDelete(id) {
+  const r = borrowRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条借还款记录吗？\n${r.date} ${r.person} ${fmtAmount(r.amount)}`)) return;
+  const snap = borrowRecords.slice();
+  borrowRecords = borrowRecords.filter((x) => x.id !== id);
+  brwRebuildPersonOptions();
+  brwRender();
+  try {
+    await brwPersist({ type: "delete", id });
+  } catch (err) {
+    borrowRecords = snap; brwRebuildPersonOptions(); brwRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* --------------------------- 借还款 table -------------------------------- */
+function brwRender() {
+  const monthFilter = brwFilterOn && els.brwFilterDate ? els.brwFilterDate.value.slice(0, 7) : "";
+  const q = brwSearchText.trim().toLowerCase();
+  let sorted = [...borrowRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.person || "").toLowerCase().includes(q) || (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (brwShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.brwBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const amt = Number(r.amount) || 0;
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.person || "")}</td>
+      <td class="num strong${amt < 0 ? " neg" : " pos"}">${fmtAmount(amt)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => brwStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => brwDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.brwBody.appendChild(tr);
+  }
+
+  const total = borrowRecords.length;
+  const sum = view.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.brwRecordCount.textContent = `${view.length} 条，净额 ${fmtAmount(sum)}`;
+  else if (brwShowAll) els.brwRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.brwRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.brwClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.brwShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !brwShowAll));
+  els.brwShowAllBtn.textContent = brwShowAll ? "显示50条" : "显示全部";
+  els.brwEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- 借还款 chart -------------------------------- */
+// Per-person net balance. net<0 => 对方欠你 (receivable); net>0 => 你欠对方.
+function brwRenderChart() {
+  const netByPerson = new Map();
+  for (const r of borrowRecords) {
+    const who = (r.person || "").trim() || "未填写";
+    netByPerson.set(who, (netByPerson.get(who) || 0) + (Number(r.amount) || 0));
+  }
+  // Drop settled (net === 0) people; sort by outstanding magnitude desc.
+  const list = [...netByPerson.entries()]
+    .filter(([, v]) => round2(v) !== 0)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const grand = [...netByPerson.values()].reduce((a, b) => a + b, 0);
+
+  els.brwChartTotal.textContent = fmtAmount(grand);
+  els.brwChartTotal.classList.toggle("neg", grand < 0);
+
+  const has = list.length > 0;
+  els.brwChartEmpty.classList.toggle("hidden", has);
+  els.brwChartEmpty.textContent = borrowRecords.length ? "已全部结清。" : "暂无借还款数据。";
+  if (!has) {
+    els.brwPersonBars.innerHTML = ""; els.brwPersonLegend.innerHTML = "";
+    return;
+  }
+
+  const max = Math.abs(list[0][1]) || 1;
+  els.brwPersonBars.innerHTML = "";
+  els.brwPersonLegend.innerHTML = "";
+  list.forEach(([name, net], i) => {
+    const owedToYou = net < 0;           // 对方欠你
+    const color = owedToYou ? "#12B76A" : "#D64550";
+    const w = (Math.abs(net) / max) * 100;
+    const tag = owedToYou ? "对方欠你" : "你欠对方";
+    const row = document.createElement("div");
+    row.className = "pb-row";
+    row.innerHTML =
+      `<div class="pb-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>` +
+      `<div class="pb-track"><div class="pb-fill" style="width:${w}%;background:${color}"></div></div>` +
+      `<div class="pb-val">${fmtInt(Math.abs(net))}<span class="pb-pct">${tag}</span></div>`;
+    els.brwPersonBars.appendChild(row);
+    const lg = document.createElement("div");
+    lg.className = "legend-row";
+    lg.innerHTML =
+      `<span class="legend-dot" style="background:${color}"></span>` +
+      `<span class="legend-name">${escapeHtml(name)}（${tag}）</span>` +
+      `<span class="legend-val">${fmtInt(Math.abs(net))}</span>`;
+    els.brwPersonLegend.appendChild(lg);
+  });
+}
+
+/* --------------------------- 借还款 tabs --------------------------------- */
+function brwSwitchTab(name) {
+  brwTab = name;
+  const tabs = {
+    add: { panel: els.brwTabAdd, btn: els.brwTabAddBtn },
+    list: { panel: els.brwTabList, btn: els.brwTabListBtn },
+    chart: { panel: els.brwTabChart, btn: els.brwTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") brwRenderChart();
+}
+
+function brwWireEvents() {
+  els.brwTabAddBtn.onclick = () => brwSwitchTab("add");
+  els.brwTabListBtn.onclick = () => brwSwitchTab("list");
+  els.brwTabChartBtn.onclick = () => brwSwitchTab("chart");
+
+  els.brwForm.addEventListener("submit", brwOnSubmit);
+  els.brwCancelBtn.onclick = brwResetForm;
+  els.brwPerson.addEventListener("change", brwPersonOnChange);
+
+  els.brwFilterDate.addEventListener("change", () => {
+    brwFilterOn = true; brwShowAll = false;
+    brwRender();
+    els.brwFilterDate.blur();
+  });
+  els.brwSearchInput.addEventListener("input", () => { brwSearchText = els.brwSearchInput.value; brwRender(); });
+  els.brwClearFilterBtn.onclick = () => {
+    brwFilterOn = false; brwSearchText = ""; els.brwSearchInput.value = "";
+    els.brwFilterDate.value = todayStr(); brwRender();
+  };
+  els.brwShowAllBtn.onclick = () => { brwShowAll = !brwShowAll; brwRender(); };
+}
+
+/* ========================================================================= *
+ *                          理财 MODULE (inv*)                                *
+ *   Wealth-management product ledger. Record: {id,name,date,amount,rate,    *
+ *   term,earn,note,createdBy,modified}. amount=本金, earn=到期收益.          *
+ *   Chart: 到期收益走势 (by 购买时间). invest.json.                          *
+ * ========================================================================= */
+let investRecords = [];
+let invEtag = null;
+let investLoaded = false;
+let invShowAll = false;
+let invFilterOn = false;
+let invTab = "list";
+let invSearchText = "";
+let invChartYearVal = null;
+
+async function invLoad() {
+  if (investLoaded) return;
+  setStatus("正在载入理财数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const r = await xtReadJson(token, INVEST_FILE);
+  investRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  invEtag = r.etag;
+  investLoaded = true;
+  invRebuildDatalist();
+  invRender();
+  setStatus("已载入 " + investRecords.length + " 条理财记录。", "ok", 2000);
+}
+
+function invApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function invPersist(op) {
+  setStatus("正在保存理财记录…");
+  const token = await getToken();
+  invEtag = await xtWriteJson(
+    token, INVEST_FILE, () => ({ records: investRecords }), invEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      investRecords = invApplyOp(list, op);
+    },
+    () => invRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* --------------------------- 理财 form ----------------------------------- */
+function invNum(el) { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+function invOptNum(el) { const v = parseFloat(el.value); return (el.value.trim() === "" || isNaN(v)) ? null : v; }
+
+function invRebuildDatalist() {
+  const seen = new Set();
+  const names = [];
+  for (const r of investRecords) {
+    const n = (r.name || "").trim();
+    if (n && !seen.has(n)) { seen.add(n); names.push(n); }
+  }
+  names.sort((a, b) => a.localeCompare(b, "zh"));
+  els.invNameList.innerHTML = "";
+  for (const n of names) {
+    const o = document.createElement("option");
+    o.value = n;
+    els.invNameList.appendChild(o);
+  }
+}
+
+function invResetForm() {
+  els.invForm.reset();
+  els.invEditId.value = "";
+  els.invDate.value = todayStr();
+  els.invFormTitle.textContent = "添加理财记录";
+  els.invAddBtn.textContent = "添加并保存";
+  hide(els.invCancelBtn);
+}
+
+async function invOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.invEditId.value;
+  const term = invOptNum(els.invTerm);
+  const rec = {
+    id: els.invEditId.value || uuid(),
+    name: els.invName.value.trim(),
+    date: els.invDate.value,
+    amount: round2(invNum(els.invAmount)),
+    rate: invOptNum(els.invRate),
+    term: term == null ? null : Math.round(term),
+    earn: round2(invNum(els.invEarn)),
+    note: els.invNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.name) { setStatus("请填写产品名称。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = investRecords.slice();
+  if (isEdit) {
+    const i = investRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = investRecords[i].createdBy || rec.createdBy; investRecords[i] = rec; }
+    else investRecords.push(rec);
+  } else {
+    investRecords.push(rec);
+  }
+  els.invAddBtn.disabled = true;
+  invRebuildDatalist();
+  invRender();
+  try {
+    await invPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    invResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    investRecords = snap; invRebuildDatalist(); invRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.invAddBtn.disabled = false;
+  }
+}
+
+function invStartEdit(id) {
+  const r = investRecords.find((x) => x.id === id);
+  if (!r) return;
+  els.invEditId.value = r.id;
+  els.invName.value = r.name || "";
+  els.invDate.value = r.date;
+  els.invAmount.value = r.amount || "";
+  els.invRate.value = (r.rate == null ? "" : r.rate);
+  els.invTerm.value = (r.term == null ? "" : r.term);
+  els.invEarn.value = (r.earn || r.earn === 0) ? r.earn : "";
+  els.invNote.value = r.note || "";
+  els.invFormTitle.textContent = "编辑理财记录";
+  els.invAddBtn.textContent = "保存修改";
+  show(els.invCancelBtn);
+  invSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function invDelete(id) {
+  const r = investRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条理财记录吗？\n${r.date} ${r.name} ${fmtAmount(r.amount)}`)) return;
+  const snap = investRecords.slice();
+  investRecords = investRecords.filter((x) => x.id !== id);
+  invRebuildDatalist();
+  invRender();
+  try {
+    await invPersist({ type: "delete", id });
+  } catch (err) {
+    investRecords = snap; invRebuildDatalist(); invRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* --------------------------- 理财 table ---------------------------------- */
+function invRender() {
+  const monthFilter = invFilterOn && els.invFilterDate ? els.invFilterDate.value.slice(0, 7) : "";
+  const q = invSearchText.trim().toLowerCase();
+  let sorted = [...investRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.name || "").toLowerCase().includes(q) || (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (invShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.invBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    const rate = (r.rate == null || r.rate === "") ? "" : r.rate + "%";
+    const term = (r.term == null || r.term === "") ? "" : r.term + "天";
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.name || "")}</td>
+      <td class="num">${fmtAmount(r.amount)}</td>
+      <td class="num">${escapeHtml(rate)}</td>
+      <td class="num">${escapeHtml(term)}</td>
+      <td class="num strong pos">${fmtAmount(r.earn)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => invStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => invDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.invBody.appendChild(tr);
+  }
+
+  const total = investRecords.length;
+  const amtSum = view.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const earnSum = view.reduce((s, r) => s + (Number(r.earn) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.invRecordCount.textContent = `${view.length} 条，金额 ${fmtAmount(amtSum)}，收益 ${fmtAmount(earnSum)}`;
+  else if (invShowAll) els.invRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.invRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.invClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.invShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !invShowAll));
+  els.invShowAllBtn.textContent = invShowAll ? "显示50条" : "显示全部";
+  els.invEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- 理财 chart ---------------------------------- */
+function invYears() {
+  const s = new Set();
+  for (const r of investRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort().reverse();
+}
+
+function invRenderChart() {
+  const years = invYears();
+  if (!invChartYearVal) invChartYearVal = "all";
+  els.invChartYear.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "all"; optAll.textContent = "全部年度";
+  if (invChartYearVal === "all") optAll.selected = true;
+  els.invChartYear.appendChild(optAll);
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === invChartYearVal) o.selected = true;
+    els.invChartYear.appendChild(o);
+  }
+
+  const year = invChartYearVal;
+  let buckets = []; // {label, earn}
+  const index = new Map();
+  if (year === "all") {
+    const keys = new Set();
+    for (const r of investRecords) if (r.date && r.date.length >= 7) keys.add(r.date.slice(0, 7));
+    const ordered = [...keys].sort();
+    if (ordered.length) {
+      const [y0, m0] = ordered[0].split("-").map(Number);
+      const [y1, m1] = ordered[ordered.length - 1].split("-").map(Number);
+      let yy = y0, mm = m0;
+      while (yy < y1 || (yy === y1 && mm <= m1)) {
+        const key = `${yy}-${String(mm).padStart(2, "0")}`;
+        const b = { label: `${String(yy).slice(2)}/${mm}`, earn: 0 };
+        index.set(key, b); buckets.push(b);
+        mm++; if (mm > 12) { mm = 1; yy++; }
+      }
+    }
+  } else {
+    for (let m = 1; m <= 12; m++) {
+      const b = { label: MONTH_LABELS[m - 1], earn: 0 };
+      index.set(`${year}-${String(m).padStart(2, "0")}`, b);
+      buckets.push(b);
+    }
+  }
+
+  for (const r of investRecords) {
+    if (!r.date || r.date.length < 7) continue;
+    if (year !== "all" && r.date.slice(0, 4) !== year) continue;
+    const b = index.get(r.date.slice(0, 7));
+    if (b) b.earn += Number(r.earn) || 0;
+  }
+  const grand = buckets.reduce((s, b) => s + b.earn, 0);
+  els.invChartTitle.textContent = (year === "all" ? "全部年度" : year + " 年度") + "到期收益";
+  els.invChartTotal.textContent = fmtAmount(grand);
+
+  const has = grand > 0;
+  els.invChartEmpty.classList.toggle("hidden", has);
+  if (!has) {
+    els.invWaterfall.innerHTML = ""; els.invMonthBars.innerHTML = "";
+    return;
+  }
+
+  invBuildWaterfall(buckets, grand);
+  invBuildMonthBars(buckets);
+}
+
+function invBuildWaterfall(buckets, grand) {
+  const max = grand || 1;
+  els.invWaterfall.innerHTML = "";
+  let run = 0;
+  buckets.forEach((b, i) => {
+    const v = b.earn;
+    const basePct = (run / max) * 100;
+    const fillPct = (v / max) * 100;
+    const topPct = basePct + fillPct;
+    const col = document.createElement("div");
+    col.className = "wf-col";
+    const connector = (i > 0 && v)
+      ? `<div class="wf-connector" style="bottom:${basePct}%"></div>` : "";
+    col.innerHTML =
+      `<div class="wf-track">` +
+        connector +
+        (v ? `<div class="wf-fill" style="bottom:${basePct}%;height:${fillPct}%"></div>` : "") +
+        (v ? `<div class="wf-val" style="bottom:${topPct}%">${fmtInt(v)}</div>` : "") +
+      `</div>` +
+      `<div class="wf-name">${b.label}</div>`;
+    run += v;
+    els.invWaterfall.appendChild(col);
+  });
+  const tot = document.createElement("div");
+  tot.className = "wf-col wf-total";
+  tot.innerHTML =
+    `<div class="wf-track">` +
+      `<div class="wf-fill total" style="bottom:0;height:100%"></div>` +
+      `<div class="wf-val" style="bottom:100%">${fmtInt(grand)}</div>` +
+    `</div>` +
+    `<div class="wf-name">合计</div>`;
+  els.invWaterfall.appendChild(tot);
+}
+
+function invBuildMonthBars(buckets) {
+  let max = 1;
+  for (const b of buckets) max = Math.max(max, b.earn);
+  els.invMonthBars.innerHTML = "";
+  for (const b of buckets) {
+    const v = b.earn;
+    const col = document.createElement("div");
+    col.className = "mb-col";
+    const h = (v / max) * 100;
+    const inner = v ? `<div class="mb-seg" style="height:${h}%;background:#12B76A" title="${fmtInt(v)}"></div>` : "";
+    col.innerHTML =
+      `<div class="mb-val">${v ? fmtInt(v) : ""}</div>` +
+      `<div class="mb-track">${inner}</div>` +
+      `<div class="mb-name">${b.label}</div>`;
+    els.invMonthBars.appendChild(col);
+  }
+}
+
+/* --------------------------- 理财 tabs ----------------------------------- */
+function invSwitchTab(name) {
+  invTab = name;
+  const tabs = {
+    add: { panel: els.invTabAdd, btn: els.invTabAddBtn },
+    list: { panel: els.invTabList, btn: els.invTabListBtn },
+    chart: { panel: els.invTabChart, btn: els.invTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") invRenderChart();
+}
+
+function invWireEvents() {
+  els.invTabAddBtn.onclick = () => invSwitchTab("add");
+  els.invTabListBtn.onclick = () => invSwitchTab("list");
+  els.invTabChartBtn.onclick = () => invSwitchTab("chart");
+
+  els.invForm.addEventListener("submit", invOnSubmit);
+  els.invCancelBtn.onclick = invResetForm;
+
+  els.invFilterDate.addEventListener("change", () => {
+    invFilterOn = true; invShowAll = false;
+    invRender();
+    els.invFilterDate.blur();
+  });
+  els.invSearchInput.addEventListener("input", () => { invSearchText = els.invSearchInput.value; invRender(); });
+  els.invClearFilterBtn.onclick = () => {
+    invFilterOn = false; invSearchText = ""; els.invSearchInput.value = "";
+    els.invFilterDate.value = todayStr(); invRender();
+  };
+  els.invShowAllBtn.onclick = () => { invShowAll = !invShowAll; invRender(); };
+  els.invChartYear.onchange = () => { invChartYearVal = els.invChartYear.value; invRenderChart(); };
+}
+
+/* ========================================================================= *
+ *                          储值卡 MODULE (svc*)                              *
+ *   Stored-value cards ledger. Transaction record:                          *
+ *   {id,card,account,date,amount(signed 充值+/使用-),expiry,note,            *
+ *    createdBy,modified}. A card's balance = sum of its amounts.             *
+ *   Chart tab = per-card balance summary. stored-value-cards.json.          *
+ * ========================================================================= */
+let storedCards = [];
+let svcEtag = null;
+let storedLoaded = false;
+let svcShowAll = false;
+let svcFilterOn = false;
+let svcTab = "list";
+let svcSearchText = "";
+const SVC_CARD_CUSTOM = "__custom__";
+
+async function svcLoad() {
+  if (storedLoaded) return;
+  setStatus("正在载入储值卡数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const r = await xtReadJson(token, STORED_CARD_FILE);
+  storedCards = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  svcEtag = r.etag;
+  storedLoaded = true;
+  svcRebuildCardOptions();
+  svcRender();
+  setStatus("已载入 " + storedCards.length + " 条储值卡记录。", "ok", 2000);
+}
+
+function svcApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function svcPersist(op) {
+  setStatus("正在保存储值卡记录…");
+  const token = await getToken();
+  svcEtag = await xtWriteJson(
+    token, STORED_CARD_FILE, () => ({ records: storedCards }), svcEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      storedCards = svcApplyOp(list, op);
+    },
+    () => svcRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* --------------------------- 储值卡 card dropdown ------------------------- */
+function svcRebuildCardOptions(selected) {
+  const cur = selected != null ? selected : els.svcCard.value;
+  const seen = new Set();
+  const cards = [];
+  for (const r of storedCards) {
+    const c = (r.card || "").trim();
+    if (c && !seen.has(c)) { seen.add(c); cards.push(c); }
+  }
+  cards.sort((a, b) => a.localeCompare(b, "zh"));
+
+  els.svcCard.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择卡片"; ph.disabled = true;
+  els.svcCard.appendChild(ph);
+  for (const c of cards) {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    els.svcCard.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = SVC_CARD_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.svcCard.appendChild(custom);
+
+  if (cur && cards.includes(cur)) els.svcCard.value = cur;
+  else if (cur === SVC_CARD_CUSTOM) els.svcCard.value = SVC_CARD_CUSTOM;
+  else els.svcCard.value = "";
+  svcCardOnChange();
+}
+
+function svcCardValue() {
+  return els.svcCard.value === SVC_CARD_CUSTOM
+    ? els.svcCardCustom.value.trim()
+    : els.svcCard.value.trim();
+}
+
+function svcCardOnChange() {
+  const on = els.svcCard.value === SVC_CARD_CUSTOM;
+  els.svcCardCustom.classList.toggle("hidden", !on);
+  if (on) els.svcCardCustom.focus();
+  else els.svcCardCustom.value = "";
+}
+
+/* --------------------------- 储值卡 form --------------------------------- */
+function svcResetForm() {
+  els.svcForm.reset();
+  els.svcEditId.value = "";
+  els.svcCard.value = "";
+  els.svcCardCustom.value = "";
+  els.svcCardCustom.classList.add("hidden");
+  els.svcType.value = "topup";
+  els.svcDate.value = todayStr();
+  els.svcFormTitle.textContent = "添加储值卡记录";
+  els.svcAddBtn.textContent = "添加并保存";
+  hide(els.svcCancelBtn);
+}
+
+async function svcOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.svcEditId.value;
+  const mag = Math.abs(parseFloat(els.svcAmount.value));
+  if (isNaN(mag)) { setStatus("请输入金额变动。", "warn"); return; }
+  const signed = els.svcType.value === "use" ? -mag : mag;
+  const rec = {
+    id: els.svcEditId.value || uuid(),
+    card: svcCardValue(),
+    account: els.svcAccount.value.trim(),
+    date: els.svcDate.value,
+    amount: round2(signed),
+    expiry: els.svcExpiry.value.trim(),
+    note: els.svcNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.card) { setStatus("请填写卡名。", "warn"); return; }
+
+  const snap = storedCards.slice();
+  if (isEdit) {
+    const i = storedCards.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = storedCards[i].createdBy || rec.createdBy; storedCards[i] = rec; }
+    else storedCards.push(rec);
+  } else {
+    storedCards.push(rec);
+  }
+  els.svcAddBtn.disabled = true;
+  svcRebuildCardOptions();
+  svcRender();
+  try {
+    await svcPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    svcResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    storedCards = snap; svcRebuildCardOptions(); svcRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.svcAddBtn.disabled = false;
+  }
+}
+
+function svcStartEdit(id) {
+  const r = storedCards.find((x) => x.id === id);
+  if (!r) return;
+  const amt = Number(r.amount) || 0;
+  els.svcEditId.value = r.id;
+  svcRebuildCardOptions(r.card || "");
+  els.svcType.value = amt < 0 ? "use" : "topup";
+  els.svcAmount.value = Math.abs(amt);
+  els.svcDate.value = r.date || "";
+  els.svcAccount.value = r.account || "";
+  els.svcExpiry.value = r.expiry || "";
+  els.svcNote.value = r.note || "";
+  els.svcFormTitle.textContent = "编辑储值卡记录";
+  els.svcAddBtn.textContent = "保存修改";
+  show(els.svcCancelBtn);
+  svcSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function svcDelete(id) {
+  const r = storedCards.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条储值卡记录吗？\n${r.date || ""} ${r.card} ${fmtAmount(r.amount)}`)) return;
+  const snap = storedCards.slice();
+  storedCards = storedCards.filter((x) => x.id !== id);
+  svcRebuildCardOptions();
+  svcRender();
+  try {
+    await svcPersist({ type: "delete", id });
+  } catch (err) {
+    storedCards = snap; svcRebuildCardOptions(); svcRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* --------------------------- 储值卡 table -------------------------------- */
+function svcRender() {
+  const monthFilter = svcFilterOn && els.svcFilterDate ? els.svcFilterDate.value.slice(0, 7) : "";
+  const q = svcSearchText.trim().toLowerCase();
+  let sorted = [...storedCards].sort((a, b) => ((a.date || "") < (b.date || "") ? 1 : (a.date || "") > (b.date || "") ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.card || "").toLowerCase().includes(q) ||
+      (r.account || "").toLowerCase().includes(q) ||
+      (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (svcShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.svcBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    const dk = r.date || "";
+    if (dk !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = dk; }
+    const amt = Number(r.amount) || 0;
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = dk;
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date || "")}</td>
+      <td>${escapeHtml(r.card || "")}</td>
+      <td class="num strong ${amt < 0 ? "neg" : "pos"}">${fmtAmount(amt)}</td>
+      <td>${escapeHtml(r.account || "")}</td>
+      <td>${escapeHtml(r.expiry || "")}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => svcStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => svcDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.svcBody.appendChild(tr);
+  }
+
+  const total = storedCards.length;
+  const amtSum = view.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.svcRecordCount.textContent = `${view.length} 条，合计 ${fmtAmount(amtSum)}`;
+  else if (svcShowAll) els.svcRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.svcRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.svcClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.svcShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !svcShowAll));
+  els.svcShowAllBtn.textContent = svcShowAll ? "显示50条" : "显示全部";
+  els.svcEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- 储值卡 balances ----------------------------- */
+function svcRenderChart() {
+  // Aggregate per card: balance = Σamount; account/expiry = most-recent non-empty.
+  const map = new Map(); // card -> {balance, account, expiry, akey, ekey}
+  for (const r of storedCards) {
+    const card = (r.card || "").trim();
+    if (!card) continue;
+    let e = map.get(card);
+    if (!e) { e = { balance: 0, account: "", expiry: "", akey: "", ekey: "" }; map.set(card, e); }
+    e.balance += Number(r.amount) || 0;
+    const rk = (r.date || "") + "|" + (r.modified || "");
+    if ((r.account || "").trim() && rk >= e.akey) { e.account = r.account.trim(); e.akey = rk; }
+    if ((r.expiry || "").trim() && rk >= e.ekey) { e.expiry = r.expiry.trim(); e.ekey = rk; }
+  }
+  const list = [...map.entries()].sort((a, b) => b[1].balance - a[1].balance);
+  const grand = list.reduce((s, [, v]) => s + v.balance, 0);
+  els.svcChartTotal.textContent = fmtAmount(grand);
+
+  const has = list.length > 0;
+  els.svcChartEmpty.classList.toggle("hidden", has);
+  els.svcSummaryBody.innerHTML = "";
+  if (!has) return;
+
+  for (const [card, v] of list) {
+    const bal = round2(v.balance);
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${escapeHtml(card)}</td>` +
+      `<td>${escapeHtml(v.account)}</td>` +
+      `<td class="num strong ${bal < 0 ? "neg" : "pos"}">${fmtAmount(bal)}</td>` +
+      `<td>${escapeHtml(v.expiry)}</td>`;
+    els.svcSummaryBody.appendChild(tr);
+  }
+}
+
+/* --------------------------- 储值卡 tabs --------------------------------- */
+function svcSwitchTab(name) {
+  svcTab = name;
+  const tabs = {
+    add: { panel: els.svcTabAdd, btn: els.svcTabAddBtn },
+    list: { panel: els.svcTabList, btn: els.svcTabListBtn },
+    chart: { panel: els.svcTabChart, btn: els.svcTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") svcRenderChart();
+}
+
+function svcWireEvents() {
+  els.svcTabAddBtn.onclick = () => svcSwitchTab("add");
+  els.svcTabListBtn.onclick = () => svcSwitchTab("list");
+  els.svcTabChartBtn.onclick = () => svcSwitchTab("chart");
+
+  els.svcForm.addEventListener("submit", svcOnSubmit);
+  els.svcCancelBtn.onclick = svcResetForm;
+  els.svcCard.addEventListener("change", svcCardOnChange);
+
+  els.svcFilterDate.addEventListener("change", () => {
+    svcFilterOn = true; svcShowAll = false;
+    svcRender();
+    els.svcFilterDate.blur();
+  });
+  els.svcSearchInput.addEventListener("input", () => { svcSearchText = els.svcSearchInput.value; svcRender(); });
+  els.svcClearFilterBtn.onclick = () => {
+    svcFilterOn = false; svcSearchText = ""; els.svcSearchInput.value = "";
+    els.svcFilterDate.value = todayStr(); svcRender();
+  };
+  els.svcShowAllBtn.onclick = () => { svcShowAll = !svcShowAll; svcRender(); };
+}
+
+/* ========================================================================= *
+ *                          车辆保养 MODULE (veh*)                            *
+ *   Vehicle maintenance ledger. Record:                                     *
+ *   {id,vehicle,date,cost,category,odometer(int|null),note,                 *
+ *    createdBy,modified}. Chart: 保养费用走势 (by 日期).                     *
+ *   vehicle-maintenance.json.                                               *
+ * ========================================================================= */
+let vehicleRecords = [];
+let vehEtag = null;
+let vehicleLoaded = false;
+let vehShowAll = false;
+let vehFilterOn = false;
+let vehTab = "list";
+let vehSearchText = "";
+let vehChartYearVal = null;
+const VEH_VEHICLE_CUSTOM = "__custom__";
+const VEH_CATEGORY_CUSTOM = "__custom__";
+
+async function vehLoad() {
+  if (vehicleLoaded) return;
+  setStatus("正在载入车辆保养数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const r = await xtReadJson(token, VEHICLE_FILE);
+  vehicleRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  vehEtag = r.etag;
+  vehicleLoaded = true;
+  vehRebuildVehicleOptions();
+  vehRebuildCategoryOptions();
+  vehRender();
+  setStatus("已载入 " + vehicleRecords.length + " 条保养记录。", "ok", 2000);
+}
+
+function vehApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+async function vehPersist(op) {
+  setStatus("正在保存保养记录…");
+  const token = await getToken();
+  vehEtag = await xtWriteJson(
+    token, VEHICLE_FILE, () => ({ records: vehicleRecords }), vehEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      vehicleRecords = vehApplyOp(list, op);
+    },
+    () => vehRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+/* --------------------------- 车辆保养 dropdowns -------------------------- */
+function vehRebuildVehicleOptions(selected) {
+  const cur = selected != null ? selected : els.vehVehicle.value;
+  const seen = new Set();
+  const items = [];
+  for (const r of vehicleRecords) {
+    const v = (r.vehicle || "").trim();
+    if (v && !seen.has(v)) { seen.add(v); items.push(v); }
+  }
+  items.sort((a, b) => a.localeCompare(b, "zh"));
+
+  els.vehVehicle.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择车辆"; ph.disabled = true;
+  els.vehVehicle.appendChild(ph);
+  for (const v of items) {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = v;
+    els.vehVehicle.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = VEH_VEHICLE_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.vehVehicle.appendChild(custom);
+
+  if (cur && items.includes(cur)) els.vehVehicle.value = cur;
+  else if (cur === VEH_VEHICLE_CUSTOM) els.vehVehicle.value = VEH_VEHICLE_CUSTOM;
+  else els.vehVehicle.value = "";
+  vehVehicleOnChange();
+}
+
+function vehVehicleValue() {
+  return els.vehVehicle.value === VEH_VEHICLE_CUSTOM
+    ? els.vehVehicleCustom.value.trim()
+    : els.vehVehicle.value.trim();
+}
+
+function vehVehicleOnChange() {
+  const on = els.vehVehicle.value === VEH_VEHICLE_CUSTOM;
+  els.vehVehicleCustom.classList.toggle("hidden", !on);
+  if (on) els.vehVehicleCustom.focus();
+  else els.vehVehicleCustom.value = "";
+}
+
+function vehRebuildCategoryOptions(selected) {
+  const cur = selected != null ? selected : els.vehCategory.value;
+  const seen = new Set();
+  const items = [];
+  for (const r of vehicleRecords) {
+    const c = (r.category || "").trim();
+    if (c && !seen.has(c)) { seen.add(c); items.push(c); }
+  }
+  items.sort((a, b) => a.localeCompare(b, "zh"));
+
+  els.vehCategory.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择类型"; ph.disabled = true;
+  els.vehCategory.appendChild(ph);
+  for (const c of items) {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    els.vehCategory.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = VEH_CATEGORY_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.vehCategory.appendChild(custom);
+
+  if (cur && items.includes(cur)) els.vehCategory.value = cur;
+  else if (cur === VEH_CATEGORY_CUSTOM) els.vehCategory.value = VEH_CATEGORY_CUSTOM;
+  else els.vehCategory.value = "";
+  vehCategoryOnChange();
+}
+
+function vehCategoryValue() {
+  return els.vehCategory.value === VEH_CATEGORY_CUSTOM
+    ? els.vehCategoryCustom.value.trim()
+    : els.vehCategory.value.trim();
+}
+
+function vehCategoryOnChange() {
+  const on = els.vehCategory.value === VEH_CATEGORY_CUSTOM;
+  els.vehCategoryCustom.classList.toggle("hidden", !on);
+  if (on) els.vehCategoryCustom.focus();
+  else els.vehCategoryCustom.value = "";
+}
+
+/* --------------------------- 车辆保养 form ------------------------------- */
+function vehNum(el) { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+function vehOptInt(el) {
+  const v = parseFloat(el.value);
+  return (el.value.trim() === "" || isNaN(v)) ? null : Math.round(v);
+}
+
+function vehResetForm() {
+  els.vehForm.reset();
+  els.vehEditId.value = "";
+  els.vehVehicle.value = "";
+  els.vehVehicleCustom.value = "";
+  els.vehVehicleCustom.classList.add("hidden");
+  els.vehCategory.value = "";
+  els.vehCategoryCustom.value = "";
+  els.vehCategoryCustom.classList.add("hidden");
+  els.vehDate.value = todayStr();
+  els.vehFormTitle.textContent = "添加保养记录";
+  els.vehAddBtn.textContent = "添加并保存";
+  hide(els.vehCancelBtn);
+}
+
+async function vehOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.vehEditId.value;
+  const rec = {
+    id: els.vehEditId.value || uuid(),
+    vehicle: vehVehicleValue(),
+    date: els.vehDate.value,
+    cost: round2(vehNum(els.vehCost)),
+    category: vehCategoryValue(),
+    odometer: vehOptInt(els.vehOdometer),
+    note: els.vehNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.vehicle) { setStatus("请填写车辆。", "warn"); return; }
+  if (!rec.category) { setStatus("请填写保养类型。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = vehicleRecords.slice();
+  if (isEdit) {
+    const i = vehicleRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = vehicleRecords[i].createdBy || rec.createdBy; vehicleRecords[i] = rec; }
+    else vehicleRecords.push(rec);
+  } else {
+    vehicleRecords.push(rec);
+  }
+  els.vehAddBtn.disabled = true;
+  vehRebuildVehicleOptions();
+  vehRebuildCategoryOptions();
+  vehRender();
+  try {
+    await vehPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    vehResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    vehicleRecords = snap; vehRebuildVehicleOptions(); vehRebuildCategoryOptions(); vehRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.vehAddBtn.disabled = false;
+  }
+}
+
+function vehStartEdit(id) {
+  const r = vehicleRecords.find((x) => x.id === id);
+  if (!r) return;
+  els.vehEditId.value = r.id;
+  vehRebuildVehicleOptions(r.vehicle || "");
+  vehRebuildCategoryOptions(r.category || "");
+  els.vehDate.value = r.date;
+  els.vehCost.value = r.cost || "";
+  els.vehOdometer.value = (r.odometer == null ? "" : r.odometer);
+  els.vehNote.value = r.note || "";
+  els.vehFormTitle.textContent = "编辑保养记录";
+  els.vehAddBtn.textContent = "保存修改";
+  show(els.vehCancelBtn);
+  vehSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function vehDelete(id) {
+  const r = vehicleRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条保养记录吗？\n${r.date} ${r.vehicle} ${fmtAmount(r.cost)}`)) return;
+  const snap = vehicleRecords.slice();
+  vehicleRecords = vehicleRecords.filter((x) => x.id !== id);
+  vehRebuildVehicleOptions();
+  vehRebuildCategoryOptions();
+  vehRender();
+  try {
+    await vehPersist({ type: "delete", id });
+  } catch (err) {
+    vehicleRecords = snap; vehRebuildVehicleOptions(); vehRebuildCategoryOptions(); vehRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+/* --------------------------- 车辆保养 table ------------------------------ */
+function vehRender() {
+  const monthFilter = vehFilterOn && els.vehFilterDate ? els.vehFilterDate.value.slice(0, 7) : "";
+  const q = vehSearchText.trim().toLowerCase();
+  let sorted = [...vehicleRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.vehicle || "").toLowerCase().includes(q) ||
+      (r.category || "").toLowerCase().includes(q) ||
+      (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (vehShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.vehBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    const odo = (r.odometer == null || r.odometer === "") ? "" : fmtInt(r.odometer);
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.vehicle || "")}</td>
+      <td>${escapeHtml(r.category || "")}</td>
+      <td class="num">${fmtAmount(r.cost)}</td>
+      <td class="num">${escapeHtml(odo)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => vehStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => vehDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.vehBody.appendChild(tr);
+  }
+
+  const total = vehicleRecords.length;
+  const costSum = view.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.vehRecordCount.textContent = `${view.length} 条，费用 ${fmtAmount(costSum)}`;
+  else if (vehShowAll) els.vehRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.vehRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.vehClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.vehShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !vehShowAll));
+  els.vehShowAllBtn.textContent = vehShowAll ? "显示50条" : "显示全部";
+  els.vehEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+/* --------------------------- 车辆保养 chart ------------------------------ */
+function vehYears() {
+  const s = new Set();
+  for (const r of vehicleRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  return [...s].sort().reverse();
+}
+
+function vehRenderChart() {
+  const years = vehYears();
+  if (!vehChartYearVal) vehChartYearVal = "all";
+  els.vehChartYear.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "all"; optAll.textContent = "全部年度";
+  if (vehChartYearVal === "all") optAll.selected = true;
+  els.vehChartYear.appendChild(optAll);
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = y; o.textContent = y + " 年"; if (y === vehChartYearVal) o.selected = true;
+    els.vehChartYear.appendChild(o);
+  }
+
+  const year = vehChartYearVal;
+  let buckets = []; // {label, cost}
+  const index = new Map();
+  if (year === "all") {
+    const keys = new Set();
+    for (const r of vehicleRecords) if (r.date && r.date.length >= 7) keys.add(r.date.slice(0, 7));
+    const ordered = [...keys].sort();
+    if (ordered.length) {
+      const [y0, m0] = ordered[0].split("-").map(Number);
+      const [y1, m1] = ordered[ordered.length - 1].split("-").map(Number);
+      let yy = y0, mm = m0;
+      while (yy < y1 || (yy === y1 && mm <= m1)) {
+        const key = `${yy}-${String(mm).padStart(2, "0")}`;
+        const b = { label: `${String(yy).slice(2)}/${mm}`, cost: 0 };
+        index.set(key, b); buckets.push(b);
+        mm++; if (mm > 12) { mm = 1; yy++; }
+      }
+    }
+  } else {
+    for (let m = 1; m <= 12; m++) {
+      const b = { label: MONTH_LABELS[m - 1], cost: 0 };
+      index.set(`${year}-${String(m).padStart(2, "0")}`, b);
+      buckets.push(b);
+    }
+  }
+
+  for (const r of vehicleRecords) {
+    if (!r.date || r.date.length < 7) continue;
+    if (year !== "all" && r.date.slice(0, 4) !== year) continue;
+    const b = index.get(r.date.slice(0, 7));
+    if (b) b.cost += Number(r.cost) || 0;
+  }
+  const grand = buckets.reduce((s, b) => s + b.cost, 0);
+  els.vehChartTitle.textContent = (year === "all" ? "全部年度" : year + " 年度") + "保养费用";
+  els.vehChartTotal.textContent = fmtAmount(grand);
+
+  // Only show months that actually have maintenance spending.
+  buckets = buckets.filter((b) => b.cost !== 0);
+
+  const has = grand > 0;
+  els.vehChartEmpty.classList.toggle("hidden", has);
+  if (!has) {
+    els.vehWaterfall.innerHTML = ""; els.vehMonthBars.innerHTML = "";
+    return;
+  }
+
+  vehBuildWaterfall(buckets, grand);
+  vehBuildMonthBars(buckets);
+}
+
+function vehBuildWaterfall(buckets, grand) {
+  const max = grand || 1;
+  els.vehWaterfall.innerHTML = "";
+  let run = 0;
+  buckets.forEach((b, i) => {
+    const v = b.cost;
+    const basePct = (run / max) * 100;
+    const fillPct = (v / max) * 100;
+    const topPct = basePct + fillPct;
+    const col = document.createElement("div");
+    col.className = "wf-col";
+    const connector = (i > 0 && v)
+      ? `<div class="wf-connector" style="bottom:${basePct}%"></div>` : "";
+    col.innerHTML =
+      `<div class="wf-track">` +
+        connector +
+        (v ? `<div class="wf-fill" style="bottom:${basePct}%;height:${fillPct}%"></div>` : "") +
+        (v ? `<div class="wf-val" style="bottom:${topPct}%">${fmtInt(v)}</div>` : "") +
+      `</div>` +
+      `<div class="wf-name">${b.label}</div>`;
+    run += v;
+    els.vehWaterfall.appendChild(col);
+  });
+  const tot = document.createElement("div");
+  tot.className = "wf-col wf-total";
+  tot.innerHTML =
+    `<div class="wf-track">` +
+      `<div class="wf-fill total" style="bottom:0;height:100%"></div>` +
+      `<div class="wf-val" style="bottom:100%">${fmtInt(grand)}</div>` +
+    `</div>` +
+    `<div class="wf-name">合计</div>`;
+  els.vehWaterfall.appendChild(tot);
+}
+
+function vehBuildMonthBars(buckets) {
+  let max = 1;
+  for (const b of buckets) max = Math.max(max, b.cost);
+  els.vehMonthBars.innerHTML = "";
+  for (const b of buckets) {
+    const v = b.cost;
+    const col = document.createElement("div");
+    col.className = "mb-col";
+    const h = (v / max) * 100;
+    const inner = v ? `<div class="mb-seg" style="height:${h}%;background:#118DFF" title="${fmtInt(v)}"></div>` : "";
+    col.innerHTML =
+      `<div class="mb-val">${v ? fmtInt(v) : ""}</div>` +
+      `<div class="mb-track">${inner}</div>` +
+      `<div class="mb-name">${b.label}</div>`;
+    els.vehMonthBars.appendChild(col);
+  }
+}
+
+/* --------------------------- 车辆保养 tabs ------------------------------- */
+function vehSwitchTab(name) {
+  vehTab = name;
+  const tabs = {
+    add: { panel: els.vehTabAdd, btn: els.vehTabAddBtn },
+    list: { panel: els.vehTabList, btn: els.vehTabListBtn },
+    chart: { panel: els.vehTabChart, btn: els.vehTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") vehRenderChart();
+}
+
+function vehWireEvents() {
+  els.vehTabAddBtn.onclick = () => vehSwitchTab("add");
+  els.vehTabListBtn.onclick = () => vehSwitchTab("list");
+  els.vehTabChartBtn.onclick = () => vehSwitchTab("chart");
+
+  els.vehForm.addEventListener("submit", vehOnSubmit);
+  els.vehCancelBtn.onclick = vehResetForm;
+  els.vehVehicle.addEventListener("change", vehVehicleOnChange);
+  els.vehCategory.addEventListener("change", vehCategoryOnChange);
+
+  els.vehFilterDate.addEventListener("change", () => {
+    vehFilterOn = true; vehShowAll = false;
+    vehRender();
+    els.vehFilterDate.blur();
+  });
+  els.vehSearchInput.addEventListener("input", () => { vehSearchText = els.vehSearchInput.value; vehRender(); });
+  els.vehClearFilterBtn.onclick = () => {
+    vehFilterOn = false; vehSearchText = ""; els.vehSearchInput.value = "";
+    els.vehFilterDate.value = todayStr(); vehRender();
+  };
+  els.vehShowAllBtn.onclick = () => { vehShowAll = !vehShowAll; vehRender(); };
+  els.vehChartYear.onchange = () => { vehChartYearVal = els.vehChartYear.value; vehRenderChart(); };
+}
+
+/* ========================================================================= *
+ *                          健康 MODULE (hw 体重 / hb 血压)                    *
+ *   Two datasets under one mode with a 体重/血压 sub-switch.                 *
+ *   Weight record: {id,person,date,weight,height(int|null),bmi(num|null),   *
+ *                   note,createdBy,modified}  -> health-weight.json          *
+ *   BP record: {id,person,date,systolic,diastolic,pulse(int|null),note,     *
+ *               createdBy,modified}           -> health-bp.json              *
+ *   Charts: per-person time-series line charts (shared SVG helper).         *
+ * ========================================================================= */
+let weightRecords = [];
+let bpRecords = [];
+let hwEtag = null;
+let hbEtag = null;
+let healthLoaded = false;
+let heaSub = "weight";
+// 体重 state
+let hwShowAll = false, hwFilterOn = false, hwTab = "list", hwSearchText = "", hwChartPersonVal = null;
+// 血压 state
+let hbShowAll = false, hbFilterOn = false, hbTab = "list", hbSearchText = "", hbChartPersonVal = null;
+const HW_PERSON_CUSTOM = "__custom__";
+const HB_PERSON_CUSTOM = "__custom__";
+
+async function heaLoad() {
+  if (healthLoaded) return;
+  setStatus("正在载入健康数据…");
+  const token = await getToken();
+  await xtResolveFolder(token);
+  const rw = await xtReadJson(token, HEALTH_WEIGHT_FILE);
+  weightRecords = (rw.data && Array.isArray(rw.data.records)) ? rw.data.records : [];
+  hwEtag = rw.etag;
+  const rb = await xtReadJson(token, HEALTH_BP_FILE);
+  bpRecords = (rb.data && Array.isArray(rb.data.records)) ? rb.data.records : [];
+  hbEtag = rb.etag;
+  healthLoaded = true;
+  hwRebuildPersonOptions(); hwRender();
+  hbRebuildPersonOptions(); hbRender();
+  setStatus("已载入 体重 " + weightRecords.length + " 条、血压 " + bpRecords.length + " 条。", "ok", 2500);
+}
+
+/* --------------------------- 健康 sub-switch ----------------------------- */
+function heaSwitchSub(name) {
+  heaSub = name;
+  const isW = name === "weight";
+  els.heaSubWeightBtn.classList.toggle("active", isW);
+  els.heaSubBpBtn.classList.toggle("active", !isW);
+  els.hwSub.classList.toggle("hidden", !isW);
+  els.hbSub.classList.toggle("hidden", isW);
+}
+
+/* --------------------------- shared op helper ---------------------------- */
+function healthApplyOp(list, op) {
+  const out = list.slice();
+  const idx = (id) => out.findIndex((r) => r.id === id);
+  if (op.type === "delete") {
+    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
+    return out;
+  }
+  const i = idx(op.rec.id);
+  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
+  return out;
+}
+
+/* --------------------------- shared line chart --------------------------- */
+// series: [{ name, color, points:[{t:ms, v:number}] }]. fmtV formats a value.
+function heaRenderLine(svgEl, legendEl, emptyEl, series, fmtV) {
+  const clean = series
+    .map((s) => ({
+      name: s.name, color: s.color,
+      points: s.points
+        .filter((p) => p.v != null && !isNaN(p.v) && p.t)
+        .sort((a, b) => a.t - b.t),
+    }))
+    .filter((s) => s.points.length);
+  const any = clean.length > 0;
+  emptyEl.classList.toggle("hidden", any);
+  legendEl.innerHTML = "";
+  if (!any) { svgEl.innerHTML = ""; return; }
+
+  const W = 760, H = 320, padL = 46, padR = 14, padT = 14, padB = 38;
+  svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  let allT = [], allV = [];
+  for (const s of clean) for (const p of s.points) { allT.push(p.t); allV.push(p.v); }
+  let tMin = Math.min(...allT), tMax = Math.max(...allT);
+  let vMin = Math.min(...allV), vMax = Math.max(...allV);
+  if (tMin === tMax) { tMin -= 86400000; tMax += 86400000; }
+  let vPad = (vMax - vMin) * 0.12 || Math.max(1, Math.abs(vMax) * 0.1);
+  vMin -= vPad; vMax += vPad;
+  const xOf = (t) => padL + (t - tMin) / (tMax - tMin) * (W - padL - padR);
+  const yOf = (v) => H - padB - (v - vMin) / (vMax - vMin) * (H - padT - padB);
+  const fmtDate = (t) => {
+    const d = new Date(t);
+    return `${String(d.getFullYear()).slice(2)}/${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  let svg = "";
+  // horizontal gridlines + y labels
+  for (let i = 0; i <= 4; i++) {
+    const v = vMin + (i / 4) * (vMax - vMin);
+    const y = yOf(v);
+    svg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="lc-grid"/>`;
+    svg += `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" class="lc-ylabel">${fmtV(v)}</text>`;
+  }
+  // x date labels
+  for (let i = 0; i <= 4; i++) {
+    const t = tMin + (i / 4) * (tMax - tMin);
+    const x = xOf(t);
+    svg += `<text x="${x.toFixed(1)}" y="${H - padB + 16}" class="lc-xlabel">${fmtDate(t)}</text>`;
+  }
+  // series polylines + dots
+  for (const s of clean) {
+    const pts = s.points.map((p) => `${xOf(p.t).toFixed(1)},${yOf(p.v).toFixed(1)}`).join(" ");
+    svg += `<polyline class="lc-line" points="${pts}" style="stroke:${s.color}"/>`;
+    for (const p of s.points) {
+      svg += `<circle cx="${xOf(p.t).toFixed(1)}" cy="${yOf(p.v).toFixed(1)}" r="2.6" style="fill:${s.color}"/>`;
+    }
+  }
+  svgEl.innerHTML = svg;
+
+  for (const s of clean) {
+    const last = s.points[s.points.length - 1];
+    legendEl.insertAdjacentHTML("beforeend",
+      `<span class="ll-item"><span class="ll-dot" style="background:${s.color}"></span>` +
+      `${escapeHtml(s.name)} <b>${fmtV(last.v)}</b></span>`);
+  }
+}
+
+function heaPersons(records) {
+  const seen = new Set(), out = [];
+  for (const r of records) {
+    const p = (r.person || "").trim();
+    if (p && !seen.has(p)) { seen.add(p); out.push(p); }
+  }
+  return out.sort((a, b) => a.localeCompare(b, "zh"));
+}
+
+// Person with the most records (default chart selection).
+function heaTopPerson(records) {
+  const cnt = new Map();
+  for (const r of records) {
+    const p = (r.person || "").trim();
+    if (p) cnt.set(p, (cnt.get(p) || 0) + 1);
+  }
+  let best = "", bestN = -1;
+  for (const [p, n] of cnt) if (n > bestN) { best = p; bestN = n; }
+  return best;
+}
+
+function dateMs(s) {
+  if (!s || s.length < 10) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d).getTime();
+}
+
+/* ======================= 体重 (hw*) ====================================== */
+async function hwPersist(op) {
+  setStatus("正在保存体重记录…");
+  const token = await getToken();
+  hwEtag = await xtWriteJson(
+    token, HEALTH_WEIGHT_FILE, () => ({ records: weightRecords }), hwEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      weightRecords = healthApplyOp(list, op);
+    },
+    () => hwRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+function hwRebuildPersonOptions(selected) {
+  const cur = selected != null ? selected : els.hwPerson.value;
+  const persons = heaPersons(weightRecords);
+  els.hwPerson.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择姓名"; ph.disabled = true;
+  els.hwPerson.appendChild(ph);
+  for (const p of persons) {
+    const o = document.createElement("option"); o.value = p; o.textContent = p;
+    els.hwPerson.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = HW_PERSON_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.hwPerson.appendChild(custom);
+  if (cur && persons.includes(cur)) els.hwPerson.value = cur;
+  else if (cur === HW_PERSON_CUSTOM) els.hwPerson.value = HW_PERSON_CUSTOM;
+  else els.hwPerson.value = "";
+  hwPersonOnChange();
+}
+
+function hwPersonValue() {
+  return els.hwPerson.value === HW_PERSON_CUSTOM
+    ? els.hwPersonCustom.value.trim() : els.hwPerson.value.trim();
+}
+
+function hwPersonOnChange() {
+  const on = els.hwPerson.value === HW_PERSON_CUSTOM;
+  els.hwPersonCustom.classList.toggle("hidden", !on);
+  if (on) els.hwPersonCustom.focus();
+  else els.hwPersonCustom.value = "";
+}
+
+function hwComputeBmi(weight, height) {
+  if (weight == null || !height) return null;
+  const m = height / 100;
+  if (m <= 0) return null;
+  return round1(weight / (m * m));
+}
+
+function hwUpdateBmiHint() {
+  const w = parseFloat(els.hwWeight.value);
+  const h = parseFloat(els.hwHeight.value);
+  const bmi = hwComputeBmi(isNaN(w) ? null : w, isNaN(h) ? null : Math.round(h));
+  els.hwBmiHint.textContent = bmi != null ? "自动计算 BMI：" + bmi : "";
+}
+
+function hwResetForm() {
+  els.hwForm.reset();
+  els.hwEditId.value = "";
+  els.hwPerson.value = "";
+  els.hwPersonCustom.value = "";
+  els.hwPersonCustom.classList.add("hidden");
+  els.hwDate.value = todayStr();
+  els.hwBmiHint.textContent = "";
+  els.hwFormTitle.textContent = "添加体重记录";
+  els.hwAddBtn.textContent = "添加并保存";
+  hide(els.hwCancelBtn);
+}
+
+async function hwOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.hwEditId.value;
+  const w = parseFloat(els.hwWeight.value);
+  if (isNaN(w)) { setStatus("请输入体重。", "warn"); return; }
+  const hv = parseFloat(els.hwHeight.value);
+  const height = (els.hwHeight.value.trim() === "" || isNaN(hv)) ? null : Math.round(hv);
+  const weight = round1(w);
+  const rec = {
+    id: els.hwEditId.value || uuid(),
+    person: hwPersonValue(),
+    date: els.hwDate.value,
+    weight: weight,
+    height: height,
+    bmi: hwComputeBmi(weight, height),
+    note: els.hwNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.person) { setStatus("请填写姓名。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = weightRecords.slice();
+  if (isEdit) {
+    const i = weightRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = weightRecords[i].createdBy || rec.createdBy; weightRecords[i] = rec; }
+    else weightRecords.push(rec);
+  } else {
+    weightRecords.push(rec);
+  }
+  els.hwAddBtn.disabled = true;
+  hwRebuildPersonOptions();
+  hwRender();
+  try {
+    await hwPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    hwResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    weightRecords = snap; hwRebuildPersonOptions(); hwRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.hwAddBtn.disabled = false;
+  }
+}
+
+function hwStartEdit(id) {
+  const r = weightRecords.find((x) => x.id === id);
+  if (!r) return;
+  els.hwEditId.value = r.id;
+  hwRebuildPersonOptions(r.person || "");
+  els.hwDate.value = r.date;
+  els.hwWeight.value = (r.weight == null ? "" : r.weight);
+  els.hwHeight.value = (r.height == null ? "" : r.height);
+  els.hwNote.value = r.note || "";
+  hwUpdateBmiHint();
+  els.hwFormTitle.textContent = "编辑体重记录";
+  els.hwAddBtn.textContent = "保存修改";
+  show(els.hwCancelBtn);
+  hwSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function hwDelete(id) {
+  const r = weightRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条体重记录吗？\n${r.date} ${r.person} ${r.weight}kg`)) return;
+  const snap = weightRecords.slice();
+  weightRecords = weightRecords.filter((x) => x.id !== id);
+  hwRebuildPersonOptions();
+  hwRender();
+  try {
+    await hwPersist({ type: "delete", id });
+  } catch (err) {
+    weightRecords = snap; hwRebuildPersonOptions(); hwRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+function hwRender() {
+  hwUpdateCurveTabVisibility();
+  const monthFilter = hwFilterOn && els.hwFilterDate ? els.hwFilterDate.value.slice(0, 7) : "";
+  const q = hwSearchText.trim().toLowerCase();
+  let sorted = [...weightRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.person || "").toLowerCase().includes(q) || (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (hwShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.hwBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    const wt = (r.weight == null ? "" : r.weight);
+    const ht = (r.height == null || r.height === "") ? "" : fmtInt(r.height);
+    const bmi = (r.bmi == null || r.bmi === "") ? "" : r.bmi;
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.person || "")}</td>
+      <td class="num">${escapeHtml(String(wt))}</td>
+      <td class="num">${escapeHtml(ht)}</td>
+      <td class="num">${escapeHtml(String(bmi))}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => hwStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => hwDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.hwBody.appendChild(tr);
+  }
+
+  const total = weightRecords.length;
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.hwRecordCount.textContent = `${view.length} 条`;
+  else if (hwShowAll) els.hwRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.hwRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.hwClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.hwShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !hwShowAll));
+  els.hwShowAllBtn.textContent = hwShowAll ? "显示50条" : "显示全部";
+  els.hwEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+function hwRenderChart() {
+  const persons = heaPersons(weightRecords);
+  if (!hwChartPersonVal || !persons.includes(hwChartPersonVal)) hwChartPersonVal = heaTopPerson(weightRecords);
+  els.hwChartPerson.innerHTML = "";
+  for (const p of persons) {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p; if (p === hwChartPersonVal) o.selected = true;
+    els.hwChartPerson.appendChild(o);
+  }
+  const person = hwChartPersonVal;
+  const points = weightRecords
+    .filter((r) => (r.person || "").trim() === person)
+    .map((r) => ({ t: dateMs(r.date), v: (r.weight == null ? null : Number(r.weight)) }));
+  heaRenderLine(
+    els.hwChartSvg, els.hwChartLegend, els.hwChartEmpty,
+    [{ name: (person || "") + " 体重(kg)", color: "#118DFF", points }],
+    (v) => (Math.round(v * 10) / 10).toFixed(1)
+  );
+}
+
+function hwSwitchTab(name) {
+  hwTab = name;
+  const tabs = {
+    add: { panel: els.hwTabAdd, btn: els.hwTabAddBtn },
+    list: { panel: els.hwTabList, btn: els.hwTabListBtn },
+    chart: { panel: els.hwTabChart, btn: els.hwTabChartBtn },
+    curve: { panel: els.hwTabCurve, btn: els.hwTabCurveBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") hwRenderChart();
+  if (name === "curve") hwRenderCurves();
+}
+
+/* 2023 版中国女童生长标准 [x, P3, 中位数, P97]（完整 0–7 岁，横轴自动裁剪） */
+const GROWTH_STD = {
+  ageWeight: [[0,2.7,3.3,4.1],[1,3.5,4.3,5.3],[2,4.4,5.4,6.6],[3,5.1,6.2,7.6],[4,5.6,6.9,8.4],[5,6,7.4,9.1],[6,6.4,7.8,9.6],[7,6.7,8.1,10],[8,6.9,8.4,10.4],[9,7.2,8.7,10.8],[10,7.4,9,11.1],[11,7.6,9.2,11.4],[12,7.7,9.4,11.6],[13,7.9,9.6,11.9],[14,8.1,9.8,12.2],[15,8.3,10,12.4],[16,8.4,10.3,12.7],[17,8.6,10.5,12.9],[18,8.8,10.7,13.2],[19,9,10.9,13.5],[20,9.1,11.1,13.8],[21,9.3,11.3,14],[22,9.5,11.5,14.3],[23,9.7,11.7,14.6],[24,9.8,11.9,14.8],[27,10.3,12.5,15.5],[30,10.7,13,16.2],[33,11.1,13.6,16.9],[36,11.5,14.1,17.7],[39,12,14.7,18.4],[42,12.4,15.2,19.1],[45,12.8,15.7,19.8],[48,13.1,16.2,20.5],[51,13.5,16.7,21.1],[54,13.9,17.2,21.9],[57,14.3,17.8,22.6],[60,14.7,18.4,23.4],[63,15.1,19,24.3],[66,15.5,19.6,25.1],[69,15.9,20.2,26],[72,16.3,20.7,26.8],[75,16.7,21.3,27.6],[78,17,21.8,28.5],[81,17.4,22.4,29.3]],
+  ageHeight: [[0,46.8,50.3,53.8],[1,50.4,54.1,57.8],[2,53.8,57.7,61.6],[3,56.7,60.8,64.8],[4,59.1,63.3,67.4],[5,61,65.3,69.6],[6,62.7,67.1,71.5],[7,64.2,68.7,73.1],[8,65.6,70.1,74.7],[9,66.8,71.5,76.1],[10,68.1,72.8,77.5],[11,69.2,74,78.8],[12,70.4,75.2,80.1],[13,71.4,76.4,81.4],[14,72.5,77.5,82.6],[15,73.5,78.6,83.8],[16,74.6,79.7,84.9],[17,75.5,80.8,86.1],[18,76.5,81.9,87.2],[19,77.5,82.9,88.3],[20,78.4,83.9,89.4],[21,79.3,84.9,90.4],[22,80.2,85.8,91.5],[23,81.1,86.8,92.5],[24,81.2,87,92.8],[27,83.6,89.5,95.5],[30,85.7,91.9,98.1],[33,87.7,94.1,100.5],[36,89.7,96.2,102.7],[39,91.5,98.2,104.9],[42,93.2,100.1,106.9],[45,94.9,101.9,108.9],[48,96.5,103.7,110.9],[51,98.1,105.4,112.8],[54,99.7,107.2,114.7],[57,101.3,109,116.7],[60,103,110.8,118.6],[63,104.6,112.6,120.6],[66,106.1,114.3,122.4],[69,107.6,115.9,124.2],[72,109,117.5,126],[75,110.4,119.1,127.7],[78,111.8,120.6,129.4],[81,113.2,122.1,131]],
+  htWeight02: [[45,2,2.3,2.8],[46,2.1,2.5,3],[47,2.3,2.7,3.2],[48,2.5,2.9,3.4],[49,2.6,3.1,3.6],[50,2.8,3.3,3.9],[51,3,3.5,4.2],[52,3.2,3.8,4.5],[53,3.4,4,4.8],[54,3.7,4.3,5.1],[55,3.9,4.6,5.4],[56,4.2,4.9,5.8],[57,4.4,5.1,6.1],[58,4.6,5.4,6.4],[59,4.9,5.7,6.8],[60,5.1,6,7.1],[61,5.3,6.2,7.4],[62,5.6,6.5,7.7],[63,5.8,6.8,8],[64,6,7,8.3],[65,6.2,7.3,8.6],[66,6.5,7.5,8.9],[67,6.7,7.7,9.2],[68,6.9,8,9.4],[69,7.1,8.2,9.7],[70,7.2,8.4,9.9],[71,7.4,8.6,10.2],[72,7.6,8.8,10.4],[73,7.8,9,10.6],[74,8,9.2,10.9],[75,8.1,9.4,11.1],[76,8.3,9.6,11.3],[77,8.5,9.8,11.5],[78,8.6,9.9,11.7],[79,8.8,10.1,11.9],[80,9,10.3,12.2],[81,9.2,10.5,12.4],[82,9.3,10.7,12.6],[83,9.5,10.9,12.8],[84,9.7,11.1,13.1],[85,9.9,11.3,13.3],[86,10.1,11.6,13.6],[87,10.3,11.8,13.8],[88,10.5,12,14.1],[89,10.7,12.2,14.3],[90,10.9,12.4,14.6],[91,11.1,12.7,14.8],[92,11.3,12.9,15.1],[93,11.5,13.1,15.4],[94,11.7,13.4,15.7],[95,11.9,13.6,16],[96,12.1,13.9,16.3],[97,12.4,14.1,16.6],[98,12.6,14.4,16.9],[99,12.8,14.7,17.2],[100,13.1,14.9,17.5]],
+  htWeight27: [[75,8.3,9.5,11.2],[76,8.4,9.7,11.4],[77,8.6,9.9,11.7],[78,8.8,10.1,11.9],[79,8.9,10.3,12.1],[80,9.1,10.5,12.3],[81,9.3,10.7,12.5],[82,9.5,10.9,12.8],[83,9.7,11.1,13],[84,9.8,11.3,13.2],[85,10,11.5,13.5],[86,10.2,11.7,13.7],[87,10.4,11.9,14],[88,10.6,12.1,14.2],[89,10.8,12.4,14.5],[90,11,12.6,14.8],[91,11.2,12.8,15],[92,11.4,13.1,15.3],[93,11.6,13.3,15.6],[94,11.8,13.5,15.9],[95,12.1,13.8,16.2],[96,12.3,14.1,16.5],[97,12.5,14.3,16.8],[98,12.8,14.6,17.1],[99,13,14.9,17.4],[100,13.2,15.1,17.8],[101,13.5,15.4,18.1],[102,13.7,15.7,18.4],[103,13.9,16,18.8],[104,14.2,16.3,19.1],[105,14.4,16.5,19.5],[106,14.7,16.8,19.8],[107,14.9,17.1,20.2],[108,15.1,17.4,20.6],[109,15.4,17.8,21],[110,15.7,18.1,21.4],[111,15.9,18.4,21.8],[112,16.2,18.8,22.3],[113,16.5,19.1,22.8],[114,16.7,19.5,23.3],[115,17,19.9,23.8],[116,17.3,20.3,24.4],[117,17.6,20.7,24.9],[118,17.9,21.1,25.5],[119,18.2,21.5,26.1],[120,18.5,22,26.8],[121,18.9,22.4,27.4],[122,19.2,22.9,28.1],[123,19.5,23.4,28.8],[124,19.9,23.8,29.5],[125,20.2,24.3,30.2],[126,20.5,24.8,30.9],[127,20.9,25.3,31.7],[128,21.2,25.8,32.4],[129,21.5,26.3,33.1],[130,21.8,26.8,33.9]],
+};
+const CLOUD_BIRTH_MS = Date.UTC(2025, 6, 3); // 2025-07-03
+
+// 通用数值 XY 折线图：series=[{name,color,points:[{x,y}],dashed,thin,showDots}]
+function heaRenderXY(svgEl, legendEl, emptyEl, series, opts) {
+  opts = opts || {};
+  const fmtX = opts.fmtX || ((x) => String(Math.round(x)));
+  const fmtY = opts.fmtY || ((y) => (Math.round(y * 10) / 10).toFixed(1));
+  const clean = series
+    .map((s) => ({
+      name: s.name, color: s.color, dashed: !!s.dashed, thin: !!s.thin,
+      showDots: s.showDots !== false,
+      points: (s.points || [])
+        .filter((p) => p.x != null && p.y != null && !isNaN(p.x) && !isNaN(p.y))
+        .sort((a, b) => a.x - b.x),
+    }))
+    .filter((s) => s.points.length);
+  const dataSeries = clean.filter((s) => !s.thin);
+  const any = dataSeries.length > 0;
+  if (emptyEl) emptyEl.classList.toggle("hidden", any);
+  if (legendEl) legendEl.innerHTML = "";
+  if (!any) { svgEl.innerHTML = ""; return; }
+
+  const W = 760, H = 320, padL = 46, padR = 14, padT = 14, padB = 38;
+  svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  let xs = [], ys = [];
+  for (const s of clean) for (const p of s.points) { xs.push(p.x); ys.push(p.y); }
+  let xMin = Math.min(...xs), xMax = Math.max(...xs);
+  let yMin = Math.min(...ys), yMax = Math.max(...ys);
+  if (xMin === xMax) { xMin -= 1; xMax += 1; }
+  const yPad = (yMax - yMin) * 0.12 || Math.max(1, Math.abs(yMax) * 0.1);
+  yMin -= yPad; yMax += yPad;
+  const xOf = (x) => padL + (x - xMin) / (xMax - xMin) * (W - padL - padR);
+  const yOf = (y) => H - padB - (y - yMin) / (yMax - yMin) * (H - padT - padB);
+
+  let svg = "";
+  for (let i = 0; i <= 4; i++) {
+    const y = yMin + (i / 4) * (yMax - yMin);
+    const yy = yOf(y);
+    svg += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" class="lc-grid"/>`;
+    svg += `<text x="${padL - 6}" y="${(yy + 3).toFixed(1)}" class="lc-ylabel">${fmtY(y)}</text>`;
+  }
+  for (let i = 0; i <= 4; i++) {
+    const x = xMin + (i / 4) * (xMax - xMin);
+    const xx = xOf(x);
+    svg += `<text x="${xx.toFixed(1)}" y="${H - padB + 16}" class="lc-xlabel">${fmtX(x)}</text>`;
+  }
+  if (opts.xLabel) {
+    svg += `<text x="${((padL + W - padR) / 2).toFixed(1)}" y="${H - 4}" class="lc-xlabel">${escapeHtml(opts.xLabel)}</text>`;
+  }
+  for (const s of clean) {
+    const pts = s.points.map((p) => `${xOf(p.x).toFixed(1)},${yOf(p.y).toFixed(1)}`).join(" ");
+    const cls = s.thin ? "lc-line lc-ref" : "lc-line";
+    const dash = s.dashed ? ' stroke-dasharray="4 3"' : "";
+    const sw = s.thin ? ' stroke-width="1"' : ' stroke-width="2.4"';
+    svg += `<polyline class="${cls}" points="${pts}" style="stroke:${s.color}"${dash}${sw}/>`;
+    if (s.showDots) {
+      for (const p of s.points) {
+        svg += `<circle cx="${xOf(p.x).toFixed(1)}" cy="${yOf(p.y).toFixed(1)}" r="2.6" style="fill:${s.color}"/>`;
+      }
+    }
+  }
+  svgEl.innerHTML = svg;
+
+  if (legendEl) {
+    for (const s of clean) {
+      legendEl.insertAdjacentHTML("beforeend",
+        `<span class="ll-item"><span class="ll-dot" style="background:${s.color}"></span>` +
+        `${escapeHtml(s.name)}</span>`);
+    }
+  }
+}
+
+function hwRefSeries(rows) {
+  return [
+    { name: "P3", color: "#9aa0a6", thin: true, dashed: true, showDots: false,
+      points: rows.map((r) => ({ x: r[0], y: r[1] })) },
+    { name: "中位数", color: "#5f6368", thin: true, showDots: false,
+      points: rows.map((r) => ({ x: r[0], y: r[2] })) },
+    { name: "P97", color: "#9aa0a6", thin: true, dashed: true, showDots: false,
+      points: rows.map((r) => ({ x: r[0], y: r[3] })) },
+  ];
+}
+
+// 只保留 [lo, hi] 窗口内的标准行，并各向外多带一行让参考线延伸到边缘
+function hwClipRows(rows, lo, hi) {
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const x = rows[i][0];
+    if (x >= lo && x <= hi) out.push(rows[i]);
+    else if (x < lo && i + 1 < rows.length && rows[i + 1][0] >= lo) out.push(rows[i]);
+    else if (x > hi && i > 0 && rows[i - 1][0] <= hi) out.push(rows[i]);
+  }
+  return out;
+}
+
+function hwRenderCurves() {
+  const recs = weightRecords.filter((r) => (r.person || "").trim() === "Cloud");
+  const ageOf = (r) => (dateMs(r.date) - CLOUD_BIRTH_MS) / (30.4375 * 86400000);
+  const awPts = recs
+    .filter((r) => r.weight != null)
+    .map((r) => ({ x: ageOf(r), y: Number(r.weight) }))
+    .filter((p) => p.x >= 0);
+  const ahPts = recs
+    .filter((r) => r.height != null)
+    .map((r) => ({ x: ageOf(r), y: Number(r.height) }))
+    .filter((p) => p.x >= 0);
+  const hwPts = recs
+    .filter((r) => r.height != null && r.weight != null)
+    .map((r) => ({ x: Number(r.height), y: Number(r.weight) }));
+
+  // 年龄横轴窗口：随云朵成长自动扩展（24→81 月），下限 0
+  const ages = awPts.concat(ahPts).map((p) => p.x);
+  const maxAge = ages.length ? Math.max(...ages) : 0;
+  const ageWin = Math.min(81, Math.max(24, Math.ceil(maxAge) + 3));
+
+  heaRenderXY(els.hwcAwSvg, els.hwcAwLegend, els.hwcAwEmpty,
+    hwRefSeries(hwClipRows(GROWTH_STD.ageWeight, 0, ageWin)).concat([
+      { name: "云朵 体重(kg)", color: "#118DFF", points: awPts }]),
+    { fmtX: (x) => Math.round(x) + "月", fmtY: (y) => y.toFixed(1), xLabel: "月龄" });
+
+  heaRenderXY(els.hwcAhSvg, els.hwcAhLegend, els.hwcAhEmpty,
+    hwRefSeries(hwClipRows(GROWTH_STD.ageHeight, 0, ageWin)).concat([
+      { name: "云朵 身高(cm)", color: "#118DFF", points: ahPts }]),
+    { fmtX: (x) => Math.round(x) + "月", fmtY: (y) => y.toFixed(0), xLabel: "月龄" });
+
+  // 体重–身高：按月龄 24 月切换标准块，再按云朵身高范围裁剪
+  const htRows = maxAge < 24 ? GROWTH_STD.htWeight02 : GROWTH_STD.htWeight27;
+  const hs = hwPts.map((p) => p.x);
+  const htLo = hs.length ? Math.min(...hs) - 3 : -Infinity;
+  const htHi = hs.length ? Math.max(...hs) + 3 : Infinity;
+  heaRenderXY(els.hwcHwSvg, els.hwcHwLegend, els.hwcHwEmpty,
+    hwRefSeries(hwClipRows(htRows, htLo, htHi)).concat([
+      { name: "云朵 体重(kg)", color: "#118DFF", points: hwPts }]),
+    { fmtX: (x) => Math.round(x) + "cm", fmtY: (y) => y.toFixed(1), xLabel: "身高(cm)" });
+}
+
+function hwUpdateCurveTabVisibility() {
+  const show = hwChartPersonVal === "Cloud" || heaPersons(weightRecords).includes("Cloud");
+  if (els.hwTabCurveBtn) els.hwTabCurveBtn.classList.toggle("hidden", !show);
+  if (!show && hwTab === "curve") hwSwitchTab("list");
+}
+
+
+/* ======================= 血压 (hb*) ====================================== */
+async function hbPersist(op) {
+  setStatus("正在保存血压记录…");
+  const token = await getToken();
+  hbEtag = await xtWriteJson(
+    token, HEALTH_BP_FILE, () => ({ records: bpRecords }), hbEtag,
+    (fresh) => {
+      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
+      bpRecords = healthApplyOp(list, op);
+    },
+    () => hbRender()
+  );
+  setStatus("已保存。", "ok", 3000);
+}
+
+function hbRebuildPersonOptions(selected) {
+  const cur = selected != null ? selected : els.hbPerson.value;
+  const persons = heaPersons(bpRecords);
+  els.hbPerson.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "请选择姓名"; ph.disabled = true;
+  els.hbPerson.appendChild(ph);
+  for (const p of persons) {
+    const o = document.createElement("option"); o.value = p; o.textContent = p;
+    els.hbPerson.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = HB_PERSON_CUSTOM; custom.textContent = "＋ 自定义…";
+  els.hbPerson.appendChild(custom);
+  if (cur && persons.includes(cur)) els.hbPerson.value = cur;
+  else if (cur === HB_PERSON_CUSTOM) els.hbPerson.value = HB_PERSON_CUSTOM;
+  else els.hbPerson.value = "";
+  hbPersonOnChange();
+}
+
+function hbPersonValue() {
+  return els.hbPerson.value === HB_PERSON_CUSTOM
+    ? els.hbPersonCustom.value.trim() : els.hbPerson.value.trim();
+}
+
+function hbPersonOnChange() {
+  const on = els.hbPerson.value === HB_PERSON_CUSTOM;
+  els.hbPersonCustom.classList.toggle("hidden", !on);
+  if (on) els.hbPersonCustom.focus();
+  else els.hbPersonCustom.value = "";
+}
+
+function hbResetForm() {
+  els.hbForm.reset();
+  els.hbEditId.value = "";
+  els.hbPerson.value = "";
+  els.hbPersonCustom.value = "";
+  els.hbPersonCustom.classList.add("hidden");
+  els.hbDate.value = todayStr();
+  els.hbFormTitle.textContent = "添加血压记录";
+  els.hbAddBtn.textContent = "添加并保存";
+  hide(els.hbCancelBtn);
+}
+
+function hbOptInt(el) {
+  const v = parseFloat(el.value);
+  return (el.value.trim() === "" || isNaN(v)) ? null : Math.round(v);
+}
+
+async function hbOnSubmit(e) {
+  e.preventDefault();
+  const isEdit = !!els.hbEditId.value;
+  const sys = parseFloat(els.hbSystolic.value);
+  const dia = parseFloat(els.hbDiastolic.value);
+  if (isNaN(sys) || isNaN(dia)) { setStatus("请输入收缩压和舒张压。", "warn"); return; }
+  const rec = {
+    id: els.hbEditId.value || uuid(),
+    person: hbPersonValue(),
+    date: els.hbDate.value,
+    systolic: Math.round(sys),
+    diastolic: Math.round(dia),
+    pulse: hbOptInt(els.hbPulse),
+    note: els.hbNote.value.trim(),
+    createdBy: (account && (account.name || account.username)) || "",
+    modified: new Date().toISOString(),
+  };
+  if (!rec.person) { setStatus("请填写姓名。", "warn"); return; }
+  if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
+
+  const snap = bpRecords.slice();
+  if (isEdit) {
+    const i = bpRecords.findIndex((r) => r.id === rec.id);
+    if (i >= 0) { rec.createdBy = bpRecords[i].createdBy || rec.createdBy; bpRecords[i] = rec; }
+    else bpRecords.push(rec);
+  } else {
+    bpRecords.push(rec);
+  }
+  els.hbAddBtn.disabled = true;
+  hbRebuildPersonOptions();
+  hbRender();
+  try {
+    await hbPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    hbResetForm();
+    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+  } catch (err) {
+    bpRecords = snap; hbRebuildPersonOptions(); hbRender();
+    setStatus("保存出错：" + (err.message || err), "error");
+  } finally {
+    els.hbAddBtn.disabled = false;
+  }
+}
+
+function hbStartEdit(id) {
+  const r = bpRecords.find((x) => x.id === id);
+  if (!r) return;
+  els.hbEditId.value = r.id;
+  hbRebuildPersonOptions(r.person || "");
+  els.hbDate.value = r.date;
+  els.hbSystolic.value = (r.systolic == null ? "" : r.systolic);
+  els.hbDiastolic.value = (r.diastolic == null ? "" : r.diastolic);
+  els.hbPulse.value = (r.pulse == null ? "" : r.pulse);
+  els.hbNote.value = r.note || "";
+  els.hbFormTitle.textContent = "编辑血压记录";
+  els.hbAddBtn.textContent = "保存修改";
+  show(els.hbCancelBtn);
+  hbSwitchTab("add");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function hbDelete(id) {
+  const r = bpRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm(`确定删除这条血压记录吗？\n${r.date} ${r.person} ${r.systolic}/${r.diastolic}`)) return;
+  const snap = bpRecords.slice();
+  bpRecords = bpRecords.filter((x) => x.id !== id);
+  hbRebuildPersonOptions();
+  hbRender();
+  try {
+    await hbPersist({ type: "delete", id });
+  } catch (err) {
+    bpRecords = snap; hbRebuildPersonOptions(); hbRender();
+    setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+function hbRender() {
+  const monthFilter = hbFilterOn && els.hbFilterDate ? els.hbFilterDate.value.slice(0, 7) : "";
+  const q = hbSearchText.trim().toLowerCase();
+  let sorted = [...bpRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  if (q) {
+    sorted = sorted.filter((r) =>
+      (r.person || "").toLowerCase().includes(q) || (r.note || "").toLowerCase().includes(q));
+  }
+  let view, limited = false;
+  if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
+  else if (hbShowAll || q) view = sorted;
+  else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+
+  els.hbBody.innerHTML = "";
+  let prevDate = null, dateBand = 0;
+  for (const r of view) {
+    if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
+    const tr = document.createElement("tr");
+    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.dataset.date = r.date || "";
+    const pulse = (r.pulse == null || r.pulse === "") ? "" : fmtInt(r.pulse);
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.person || "")}</td>
+      <td class="num">${escapeHtml(String(r.systolic == null ? "" : r.systolic))}</td>
+      <td class="num">${escapeHtml(String(r.diastolic == null ? "" : r.diastolic))}</td>
+      <td class="num">${escapeHtml(pulse)}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td class="actions"></td>`;
+    const actions = tr.querySelector(".actions");
+    const editB = document.createElement("button");
+    editB.className = "btn btn-mini"; editB.textContent = "编辑";
+    editB.onclick = () => hbStartEdit(r.id);
+    const delB = document.createElement("button");
+    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+    delB.onclick = () => hbDelete(r.id);
+    actions.appendChild(editB); actions.appendChild(delB);
+    els.hbBody.appendChild(tr);
+  }
+
+  const total = bpRecords.length;
+  const anyFilter = !!monthFilter || !!q;
+  if (anyFilter) els.hbRecordCount.textContent = `${view.length} 条`;
+  else if (hbShowAll) els.hbRecordCount.textContent = `显示全部 ${total} 条`;
+  else els.hbRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
+
+  els.hbClearFilterBtn.classList.toggle("hidden", !anyFilter);
+  els.hbShowAllBtn.classList.toggle("hidden", anyFilter || (!limited && !hbShowAll));
+  els.hbShowAllBtn.textContent = hbShowAll ? "显示50条" : "显示全部";
+  els.hbEmptyHint.classList.toggle("hidden", view.length !== 0);
+}
+
+function hbRenderChart() {
+  const persons = heaPersons(bpRecords);
+  if (!hbChartPersonVal || !persons.includes(hbChartPersonVal)) hbChartPersonVal = heaTopPerson(bpRecords);
+  els.hbChartPerson.innerHTML = "";
+  for (const p of persons) {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p; if (p === hbChartPersonVal) o.selected = true;
+    els.hbChartPerson.appendChild(o);
+  }
+  const person = hbChartPersonVal;
+  const mine = bpRecords.filter((r) => (r.person || "").trim() === person);
+  const sysPts = mine.map((r) => ({ t: dateMs(r.date), v: (r.systolic == null ? null : Number(r.systolic)) }));
+  const diaPts = mine.map((r) => ({ t: dateMs(r.date), v: (r.diastolic == null ? null : Number(r.diastolic)) }));
+  const pulPts = mine.map((r) => ({ t: dateMs(r.date), v: (r.pulse == null ? null : Number(r.pulse)) }));
+  heaRenderLine(
+    els.hbChartSvg, els.hbChartLegend, els.hbChartEmpty,
+    [
+      { name: "收缩压", color: "#D64550", points: sysPts },
+      { name: "舒张压", color: "#118DFF", points: diaPts },
+      { name: "脉搏", color: "#12B76A", points: pulPts },
+    ],
+    (v) => String(Math.round(v))
+  );
+}
+
+function hbSwitchTab(name) {
+  hbTab = name;
+  const tabs = {
+    add: { panel: els.hbTabAdd, btn: els.hbTabAddBtn },
+    list: { panel: els.hbTabList, btn: els.hbTabListBtn },
+    chart: { panel: els.hbTabChart, btn: els.hbTabChartBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chart") hbRenderChart();
+}
+
+/* --------------------------- 健康 wiring --------------------------------- */
+function heaWireEvents() {
+  els.heaSubWeightBtn.onclick = () => heaSwitchSub("weight");
+  els.heaSubBpBtn.onclick = () => heaSwitchSub("bp");
+
+  // 体重
+  els.hwTabAddBtn.onclick = () => hwSwitchTab("add");
+  els.hwTabListBtn.onclick = () => hwSwitchTab("list");
+  els.hwTabChartBtn.onclick = () => hwSwitchTab("chart");
+  els.hwTabCurveBtn.onclick = () => hwSwitchTab("curve");
+  els.hwForm.addEventListener("submit", hwOnSubmit);
+  els.hwCancelBtn.onclick = hwResetForm;
+  els.hwPerson.addEventListener("change", hwPersonOnChange);
+  els.hwWeight.addEventListener("input", hwUpdateBmiHint);
+  els.hwHeight.addEventListener("input", hwUpdateBmiHint);
+  els.hwFilterDate.addEventListener("change", () => {
+    hwFilterOn = true; hwShowAll = false; hwRender(); els.hwFilterDate.blur();
+  });
+  els.hwSearchInput.addEventListener("input", () => { hwSearchText = els.hwSearchInput.value; hwRender(); });
+  els.hwClearFilterBtn.onclick = () => {
+    hwFilterOn = false; hwSearchText = ""; els.hwSearchInput.value = "";
+    els.hwFilterDate.value = todayStr(); hwRender();
+  };
+  els.hwShowAllBtn.onclick = () => { hwShowAll = !hwShowAll; hwRender(); };
+  els.hwChartPerson.onchange = () => { hwChartPersonVal = els.hwChartPerson.value; hwRenderChart(); };
+
+  // 血压
+  els.hbTabAddBtn.onclick = () => hbSwitchTab("add");
+  els.hbTabListBtn.onclick = () => hbSwitchTab("list");
+  els.hbTabChartBtn.onclick = () => hbSwitchTab("chart");
+  els.hbForm.addEventListener("submit", hbOnSubmit);
+  els.hbCancelBtn.onclick = hbResetForm;
+  els.hbPerson.addEventListener("change", hbPersonOnChange);
+  els.hbFilterDate.addEventListener("change", () => {
+    hbFilterOn = true; hbShowAll = false; hbRender(); els.hbFilterDate.blur();
+  });
+  els.hbSearchInput.addEventListener("input", () => { hbSearchText = els.hbSearchInput.value; hbRender(); });
+  els.hbClearFilterBtn.onclick = () => {
+    hbFilterOn = false; hbSearchText = ""; els.hbSearchInput.value = "";
+    els.hbFilterDate.value = todayStr(); hbRender();
+  };
+  els.hbShowAllBtn.onclick = () => { hbShowAll = !hbShowAll; hbRender(); };
+  els.hbChartPerson.onchange = () => { hbChartPersonVal = els.hbChartPerson.value; hbRenderChart(); };
+}
+
+/* ========================================================================= *
+ *                       生活博客 (blog*)                                     *
+ *   Private Markdown journal stored in its own OneDrive folder:             *
+ *     blog-index.json  +  posts/<id>.md  +  images/<file>                    *
+ * ========================================================================= */
+let blogDriveBase = "";
+let blogPosts = [];          // index entries [{id,title,date,excerpt,searchText,images}]
+let blogIndexEtag = null;
+let blogLoaded = false;
+let blogViewId = null;       // id currently open in 阅读
+let blogSearchText = "";
+const blogImgCache = {};     // "images/x.jpg" -> object URL
+
+// ---- folder + file addressing (own driveBase from BLOG_FOLDER_SHARE_URL) --
+async function blogResolveFolder(token) {
+  if (blogDriveBase) return;
+  const sid = encodeShareUrl(BLOG_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问博客文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  blogDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function blogEncPath(p) {
+  return p.split("/").map(encodeURIComponent).join("/");
+}
+function blogContentUrl(path) {
+  return `${blogDriveBase}:/${blogEncPath(path)}:/content`;
+}
+
+// ---- raw text (Markdown) read/write --------------------------------------
+async function blogReadText(token, path) {
+  const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("载入失败(" + path + ")：" + res.status);
+  return await res.text();
+}
+async function blogWriteText(token, path, text) {
+  const res = await fetch(blogContentUrl(path), {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "text/plain; charset=utf-8" },
+    body: text,
+  });
+  if (!res.ok) throw new Error("保存失败(" + path + ")：" + res.status + " " + (await res.text()));
+}
+async function blogDeleteFile(token, path) {
+  await fetch(`${blogDriveBase}:/${blogEncPath(path)}`, {
+    method: "DELETE", headers: { Authorization: "Bearer " + token },
+  });
+}
+
+// ---- index JSON read/write (eTag optimistic concurrency) -----------------
+async function blogReadIndex(token) {
+  const res = await fetch(blogContentUrl(BLOG_INDEX_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { posts: [], etag: null };
+  if (!res.ok) throw new Error("载入博客索引失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
+  return { posts, etag: res.headers.get("ETag") };
+}
+async function blogWriteIndex(token) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (blogIndexEtag) headers["If-Match"] = blogIndexEtag;
+    const res = await fetch(blogContentUrl(BLOG_INDEX_FILE), {
+      method: "PUT", headers, body: JSON.stringify({ posts: blogPosts }),
+    });
+    if (res.ok) { const it = await res.json(); blogIndexEtag = it.eTag; return; }
+    if (res.status === 412) { // someone else changed it — reload & keep our edits by id
+      const fresh = await blogReadIndex(token);
+      const byId = {}; fresh.posts.forEach((p) => { byId[p.id] = p; });
+      blogPosts.forEach((p) => { byId[p.id] = p; });
+      blogPosts = Object.values(byId).sort(blogCmp);
+      blogIndexEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存博客索引失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存博客索引冲突，重试多次仍失败。");
+}
+
+function blogCmp(a, b) {
+  const da = a.date || "", db = b.date || "";
+  if (da !== db) return db < da ? -1 : 1;   // date desc
+  return (b.id || "") < (a.id || "") ? -1 : 1;
+}
+
+// ---- load ----------------------------------------------------------------
+async function blogLoad() {
+  if (blogLoaded) return;
+  setStatus("正在载入博客…");
+  const token = await getToken();
+  await blogResolveFolder(token);
+  const idx = await blogReadIndex(token);
+  blogPosts = idx.posts.slice().sort(blogCmp);
+  blogIndexEtag = idx.etag;
+  blogLoaded = true;
+  blogRenderList();
+  blogSwitchTab("list");
+  setStatus("已载入 " + blogPosts.length + " 篇文章。", "ok", 2000);
+}
+
+// ---- list rendering ------------------------------------------------------
+function blogRenderList() {
+  const q = blogSearchText.trim().toLowerCase();
+  const list = blogPosts.filter((p) => {
+    if (!q) return true;
+    return ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || ""))
+      .toLowerCase().includes(q);
+  });
+  els.blogCount.textContent = "共 " + list.length + " 篇";
+  els.blogClearFilterBtn.classList.toggle("hidden", !q);
+  els.blogList.innerHTML = "";
+  els.blogEmpty.classList.toggle("hidden", list.length > 0);
+  list.forEach((p) => {
+    const item = document.createElement("div");
+    item.className = "blog-item";
+    item.tabIndex = 0;
+    const h = document.createElement("div");
+    h.className = "blog-item-title";
+    h.textContent = p.title || "(无标题)";
+    const meta = document.createElement("div");
+    meta.className = "blog-item-meta";
+    meta.textContent = (p.date || "") + (p.images ? "　·　" + p.images + " 图" : "");
+    const ex = document.createElement("div");
+    ex.className = "blog-item-excerpt";
+    ex.textContent = p.excerpt || "";
+    item.appendChild(h); item.appendChild(meta); item.appendChild(ex);
+    item.onclick = () => blogOpen(p.id);
+    item.onkeydown = (e) => { if (e.key === "Enter") blogOpen(p.id); };
+    els.blogList.appendChild(item);
+  });
+}
+
+// ---- open / view ---------------------------------------------------------
+async function blogOpen(id) {
+  const post = blogPosts.find((p) => p.id === id);
+  if (!post) return;
+  blogViewId = id;
+  blogSwitchTab("view");
+  els.blogViewTitle.textContent = post.title || "(无标题)";
+  els.blogViewDate.textContent = post.date || "";
+  els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    const md = await blogReadText(token, "posts/" + id + ".md");
+    els.blogViewBody.innerHTML = blogRenderMarkdown(md || "");
+    await blogResolveImages(token, els.blogViewBody);
+  } catch (e) {
+    els.blogViewBody.innerHTML = "";
+    setStatus("打开文章失败：" + (e.message || e), "error");
+  }
+}
+
+// Fetch the full-resolution image as a blob URL (cached per session).
+async function blogFullImageUrl(token, path) {
+  if (blogImgCache[path]) return blogImgCache[path];
+  const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+  if (!res.ok) throw new Error(String(res.status));
+  const url = URL.createObjectURL(await res.blob());
+  blogImgCache[path] = url;
+  return url;
+}
+// Resolve <img data-src="images/x"> to a Graph thumbnail (small download);
+// clicking the image loads the full-resolution original on demand.
+async function blogResolveImages(token, container) {
+  const imgs = Array.from(container.querySelectorAll("img[data-src]"));
+  for (const img of imgs) {
+    const path = img.getAttribute("data-src");
+    img.removeAttribute("data-src");
+    img.style.cursor = "pointer";
+    img.title = "点击查看原图";
+    // Click opens a full-screen lightbox with the full-resolution original.
+    // Use onclick property (not addEventListener) so iOS Safari fires the tap.
+    img.onclick = () => blogOpenLightbox(token, path, img.src);
+    try {
+      const turl = `${blogDriveBase}:/${blogEncPath(path)}:/thumbnails/0/large`;
+      const res = await fetch(turl, { headers: { Authorization: "Bearer " + token } });
+      if (!res.ok) throw new Error(String(res.status));
+      const j = await res.json();
+      if (j && j.url) { img.src = j.url; continue; }
+      throw new Error("no-thumb");
+    } catch {
+      // Fallback: some sources (CDN/system) have no thumbnail — load full blob.
+      try {
+        img.src = await blogFullImageUrl(token, path);
+        img.style.cursor = "pointer";
+        img.title = "点击查看原图";
+      } catch {
+        img.alt = "(图片无法加载: " + path + ")";
+      }
+    }
+  }
+}
+
+// Full-screen lightbox: show thumbnail immediately, then swap in full-res.
+async function blogOpenLightbox(token, path, previewSrc) {
+  els.blogLightboxImg.src = previewSrc || "";
+  els.blogLightbox.classList.remove("hidden");
+  try {
+    els.blogLightboxImg.src = await blogFullImageUrl(token, path);
+  } catch { /* keep preview */ }
+}
+function blogCloseLightbox() {
+  els.blogLightbox.classList.add("hidden");
+  els.blogLightboxImg.src = "";
+}
+
+// ---- minimal Markdown renderer (ASCII-safe, private content) -------------
+function blogEsc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function blogInline(s) {
+  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
+    (m, a, u) => '<img alt="' + a + '" data-src="' + u + '" loading="lazy" />');
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+    (m, t, u) => '<a href="' + u + '" target="_blank" rel="noopener">' + t + '</a>');
+  s = s.replace(/&lt;(https?:\/\/[^\s&]+)&gt;/g,
+    (m, u) => '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/&lt;u&gt;/g, "<u>").replace(/&lt;\/u&gt;/g, "</u>");
+  return s;
+}
+function blogRenderMarkdown(md) {
+  const lines = blogEsc(md).split(/\r?\n/);
+  const out = [];
+  let i = 0;
+  const isBlock = (l) => /^(#{1,6}\s|```|&gt;\s?|\s*[-*]\s+|\s*\d+\.\s+|\|)/.test(l);
+  while (i < lines.length) {
+    let line = lines[i];
+    if (/^```/.test(line)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++; out.push("<pre><code>" + buf.join("\n") + "</code></pre>"); continue;
+    }
+    if (line.trim() === "") { i++; continue; }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { const n = h[1].length; out.push("<h" + n + ">" + blogInline(h[2]) + "</h" + n + ">"); i++; continue; }
+    if (/^(---|\*\*\*|___)\s*$/.test(line)) { out.push("<hr />"); i++; continue; }
+    if (/^&gt;\s?/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^&gt;\s?/.test(lines[i])) { buf.push(lines[i].replace(/^&gt;\s?/, "")); i++; }
+      out.push("<blockquote>" + blogInline(buf.join(" ")) + "</blockquote>"); continue;
+    }
+    // table: header row with | then a separator row of ---
+    if (line.indexOf("|") >= 0 && i + 1 < lines.length &&
+        /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(lines[i + 1]) && lines[i + 1].indexOf("-") >= 0) {
+      const rows = [];
+      const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim());
+      const header = cells(line); i += 2;
+      while (i < lines.length && lines[i].indexOf("|") >= 0 && lines[i].trim() !== "") { rows.push(cells(lines[i])); i++; }
+      let t = "<table><thead><tr>" + header.map((c) => "<th>" + blogInline(c) + "</th>").join("") + "</tr></thead><tbody>";
+      rows.forEach((r) => { t += "<tr>" + r.map((c) => "<td>" + blogInline(c) + "</td>").join("") + "</tr>"; });
+      t += "</tbody></table>"; out.push(t); continue;
+    }
+    if (/^\s*[-*]\s+/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { buf.push(lines[i].replace(/^\s*[-*]\s+/, "")); i++; }
+      out.push("<ul>" + buf.map((x) => "<li>" + blogInline(x) + "</li>").join("") + "</ul>"); continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { buf.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
+      out.push("<ol>" + buf.map((x) => "<li>" + blogInline(x) + "</li>").join("") + "</ol>"); continue;
+    }
+    // paragraph
+    const buf = [line]; i++;
+    while (i < lines.length && lines[i].trim() !== "" && !isBlock(lines[i])) { buf.push(lines[i]); i++; }
+    out.push("<p>" + blogInline(buf.join("<br>")) + "</p>");
+  }
+  return out.join("\n");
+}
+
+// ---- tabs ----------------------------------------------------------------
+function blogSwitchTab(tab) {
+  els.blogTabListBtn.classList.toggle("active", tab === "list");
+  els.blogTabViewBtn.classList.toggle("active", tab === "view");
+  els.blogTabEditBtn.classList.toggle("active", tab === "edit");
+  els.blogTabList.classList.toggle("hidden", tab !== "list");
+  els.blogTabView.classList.toggle("hidden", tab !== "view");
+  els.blogTabEdit.classList.toggle("hidden", tab !== "edit");
+  els.blogTabViewBtn.classList.toggle("hidden", !blogViewId);
+}
+
+// ---- edit / new ----------------------------------------------------------
+function blogResetForm() {
+  els.blogEditId.value = "";
+  els.blogTitleInput.value = "";
+  els.blogDateInput.value = todayStr();
+  els.blogBodyInput.value = "";
+  els.blogImageInput.value = "";
+  els.blogImageHint.textContent = "选择图片后会上传，并在正文光标处插入引用。";
+  els.blogImgPicker.classList.add("hidden");
+  els.blogEditFormTitle.textContent = "写博文";
+}
+function blogNew() { blogResetForm(); blogSwitchTab("edit"); }
+async function blogEditThis() {
+  const post = blogPosts.find((p) => p.id === blogViewId);
+  if (!post) return;
+  blogResetForm();
+  els.blogEditFormTitle.textContent = "编辑文章";
+  els.blogEditId.value = post.id;
+  els.blogTitleInput.value = post.title || "";
+  els.blogDateInput.value = post.date || todayStr();
+  blogSwitchTab("edit");
+  els.blogBodyInput.value = "载入中…";
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    els.blogBodyInput.value = (await blogReadText(token, "posts/" + post.id + ".md")) || "";
+  } catch (e) {
+    els.blogBodyInput.value = "";
+    setStatus("载入正文失败：" + (e.message || e), "error");
+  }
+}
+
+// derive next id for a date (YYYY-MM-DD-NN), unique across index
+function blogNextId(date) {
+  const d = date || todayStr();
+  let n = 0;
+  blogPosts.forEach((p) => {
+    const m = (p.id || "").match(new RegExp("^" + d + "-(\\d+)$"));
+    if (m) n = Math.max(n, parseInt(m[1], 10));
+  });
+  let id;
+  do { n++; id = d + "-" + String(n).padStart(2, "0"); }
+  while (blogPosts.some((p) => p.id === id));
+  return id;
+}
+
+function blogMakeExcerpt(md) {
+  const s = md.replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#>*`_|\-]+/g, " ").replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ").trim();
+  return s.slice(0, 120);
+}
+
+async function blogSave() {
+  const title = els.blogTitleInput.value.trim();
+  const date = els.blogDateInput.value || todayStr();
+  const body = els.blogBodyInput.value;
+  if (!title) { setStatus("请填写标题。", "warn"); els.blogTitleInput.focus(); return; }
+  els.blogSaveBtn.disabled = true;
+  try {
+    setStatus("正在保存文章…");
+    const token = await getToken();
+    await blogResolveFolder(token);
+    let id = els.blogEditId.value;
+    const isNew = !id;
+    if (isNew) id = blogNextId(date);
+    await blogWriteText(token, "posts/" + id + ".md", body);
+    const imgCount = (body.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
+    const entry = {
+      id, title, date,
+      excerpt: blogMakeExcerpt(body),
+      searchText: blogMakeExcerpt(body).slice(0, 2000),
+      images: imgCount,
+    };
+    const idx = blogPosts.findIndex((p) => p.id === id);
+    if (idx >= 0) blogPosts[idx] = entry; else blogPosts.push(entry);
+    blogPosts.sort(blogCmp);
+    await blogWriteIndex(token);
+    setStatus("已保存。", "ok", 2500);
+    blogViewId = id;
+    blogRenderList();
+    blogOpen(id);
+  } catch (e) {
+    setStatus("保存失败：" + (e.message || e), "error");
+  } finally {
+    els.blogSaveBtn.disabled = false;
+  }
+}
+
+async function blogDeleteThis() {
+  const post = blogPosts.find((p) => p.id === blogViewId);
+  if (!post) return;
+  if (!confirm("确定删除这篇文章吗？\n「" + (post.title || "") + "」")) return;
+  try {
+    setStatus("正在删除…");
+    const token = await getToken();
+    await blogResolveFolder(token);
+    blogPosts = blogPosts.filter((p) => p.id !== post.id);
+    await blogWriteIndex(token);
+    await blogDeleteFile(token, "posts/" + post.id + ".md");
+    blogViewId = null;
+    blogRenderList();
+    blogSwitchTab("list");
+    setStatus("已删除。", "ok", 2500);
+  } catch (e) {
+    setStatus("删除失败：" + (e.message || e), "error");
+  }
+}
+
+// ---- image upload (insert reference at cursor) ---------------------------
+function blogSlugExt(name) {
+  const m = (name || "").match(/\.([a-zA-Z0-9]+)$/);
+  return m ? m[1].toLowerCase() : "png";
+}
+async function blogOnPickImages(files) {
+  if (!files || !files.length) return;
+  els.blogImageInput.disabled = true;
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    const refs = [];
+    for (const f of files) {
+      const ext = blogSlugExt(f.name);
+      const name = "img" + Date.now() + Math.floor(Math.random() * 1000) + "." + ext;
+      els.blogImageHint.textContent = "正在上传 " + name + " …";
+      const buf = await f.arrayBuffer();
+      const res = await fetch(blogContentUrl("images/" + name), {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + token, "Content-Type": f.type || "application/octet-stream" },
+        body: buf,
+      });
+      if (!res.ok) throw new Error("上传失败(" + name + ")：" + res.status);
+      refs.push("![](images/" + name + ")");
+    }
+    blogInsertAtCursor(els.blogBodyInput, "\n\n" + refs.join("\n\n") + "\n\n");
+    els.blogImageHint.textContent = "已插入 " + refs.length + " 张图片引用。";
+    els.blogImageInput.value = "";
+  } catch (e) {
+    els.blogImageHint.textContent = "";
+    setStatus("图片上传失败：" + (e.message || e), "error");
+  } finally {
+    els.blogImageInput.disabled = false;
+  }
+}
+function blogInsertAtCursor(ta, text) {
+  const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+  const pos = s + text.length;
+  ta.selectionStart = ta.selectionEnd = pos;
+  ta.focus();
+}
+
+// ---- Markdown toolbar helpers --------------------------------------------
+// Wrap the current selection with before/after; if nothing selected, insert a
+// placeholder and select it so the user can type over it.
+function blogWrapSelection(ta, before, after, placeholder) {
+  const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
+  const sel = ta.value.slice(s, e) || (placeholder || "");
+  const text = before + sel + after;
+  ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+  ta.selectionStart = s + before.length;
+  ta.selectionEnd = s + before.length + sel.length;
+  ta.focus();
+}
+// Prepend a prefix to every line touched by the selection (or the cursor line).
+function blogLinePrefix(ta, prefix) {
+  const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
+  const v = ta.value;
+  const ls = v.lastIndexOf("\n", s - 1) + 1;            // start of first line
+  let le = v.indexOf("\n", e); if (le === -1) le = v.length; // end of last line
+  const block = v.slice(ls, le);
+  const replaced = block.split("\n").map((l) => prefix + l).join("\n");
+  ta.value = v.slice(0, ls) + replaced + v.slice(le);
+  ta.selectionStart = ls;
+  ta.selectionEnd = ls + replaced.length;
+  ta.focus();
+}
+function blogMdAction(md) {
+  const ta = els.blogBodyInput;
+  switch (md) {
+    case "bold": return blogWrapSelection(ta, "**", "**", "加粗文字");
+    case "italic": return blogWrapSelection(ta, "*", "*", "斜体文字");
+    case "underline": return blogWrapSelection(ta, "<u>", "</u>", "下划线文字");
+    case "code": return blogWrapSelection(ta, "`", "`", "代码");
+    case "h2": return blogLinePrefix(ta, "## ");
+    case "quote": return blogLinePrefix(ta, "> ");
+    case "ul": return blogLinePrefix(ta, "- ");
+    case "ol": return blogLinePrefix(ta, "1. ");
+    case "hr": return blogInsertAtCursor(ta, "\n\n---\n\n");
+    case "link": {
+      const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
+      const sel = ta.value.slice(s, e) || "链接文字";
+      const text = "[" + sel + "](url)";
+      ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+      // Select the "url" placeholder so it's easy to replace.
+      const urlStart = s + text.length - 4;
+      ta.selectionStart = urlStart;
+      ta.selectionEnd = urlStart + 3;
+      ta.focus();
+      return;
+    }
+  }
+}
+
+// ---- pick from images already in the images/ folder ----------------------
+const BLOG_IMG_EXT = /\.(png|jpe?g|gif|webp|bmp|heic|heif|tiff?)$/i;
+const BLOG_PICKER_PAGE_SIZE = 24;
+let blogPickerItems = [];
+let blogPickerPage = 0;
+const blogPickerPicked = {}; // name -> true (survives paging)
+
+async function blogTogglePicker() {
+  if (!els.blogImgPicker.classList.contains("hidden")) {
+    els.blogImgPicker.classList.add("hidden");
+    return;
+  }
+  els.blogImgPicker.classList.remove("hidden");
+  els.blogImgPickerGrid.innerHTML = "";
+  els.blogImgPickerCount.textContent = "正在载入…";
+  els.blogImgPickerPager.classList.add("hidden");
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    let url = `${blogDriveBase}:/images:/children?$select=name,file&$expand=thumbnails($select=medium,small)&$top=200`;
+    const items = [];
+    while (url) {
+      const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      (data.value || []).forEach((it) => {
+        if (it.file && BLOG_IMG_EXT.test(it.name || "")) items.push(it);
+      });
+      url = data["@odata.nextLink"] || null;
+    }
+    items.sort((a, b) => (a.name < b.name ? 1 : -1)); // newest-ish (name has timestamp) first
+    blogPickerItems = items;
+    blogPickerPage = 0;
+    if (!items.length) {
+      els.blogImgPickerCount.textContent = "images/ 文件夹暂无图片。";
+      els.blogImgPickerPager.classList.add("hidden");
+      return;
+    }
+    blogRenderPickerPage();
+  } catch (e) {
+    els.blogImgPickerCount.textContent = "";
+    setStatus("载入已有图片失败：" + (e.message || e), "error");
+  }
+}
+
+function blogRenderPickerPage() {
+  const total = blogPickerItems.length;
+  const pages = Math.max(1, Math.ceil(total / BLOG_PICKER_PAGE_SIZE));
+  if (blogPickerPage > pages - 1) blogPickerPage = pages - 1;
+  if (blogPickerPage < 0) blogPickerPage = 0;
+  const start = blogPickerPage * BLOG_PICKER_PAGE_SIZE;
+  const slice = blogPickerItems.slice(start, start + BLOG_PICKER_PAGE_SIZE);
+  els.blogImgPickerCount.textContent = "共 " + total + " 张（点击插入，可连续多选）";
+  els.blogImgPickerGrid.innerHTML = "";
+  slice.forEach((it) => {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "blog-img-cell" + (blogPickerPicked[it.name] ? " picked" : "");
+    cell.title = it.name;
+    const im = document.createElement("img");
+    const th = it.thumbnails && it.thumbnails[0];
+    const src = th && ((th.medium && th.medium.url) || (th.small && th.small.url));
+    if (src) im.src = src;
+    im.alt = it.name;
+    im.loading = "lazy";
+    cell.appendChild(im);
+    cell.onclick = () => {
+      blogInsertAtCursor(els.blogBodyInput, "\n\n![](images/" + it.name + ")\n\n");
+      els.blogImageHint.textContent = "已插入 images/" + it.name + "。";
+      blogPickerPicked[it.name] = true;
+      cell.classList.add("picked");
+    };
+    els.blogImgPickerGrid.appendChild(cell);
+  });
+  els.blogImgPickerPageInfo.textContent = "第 " + (blogPickerPage + 1) + " / 共 " + pages + " 页";
+  els.blogImgPickerPrev.disabled = blogPickerPage <= 0;
+  els.blogImgPickerNext.disabled = blogPickerPage >= pages - 1;
+  els.blogImgPickerPager.classList.toggle("hidden", pages <= 1);
+  els.blogImgPickerGrid.scrollTop = 0;
+}
+
+// ---- wiring --------------------------------------------------------------
+function blogWireEvents() {
+  els.blogTabListBtn.onclick = () => blogSwitchTab("list");
+  els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
+  els.blogTabEditBtn.onclick = () => blogNew();
+  els.blogSearch.addEventListener("input", () => { blogSearchText = els.blogSearch.value; blogRenderList(); });
+  els.blogClearFilterBtn.onclick = () => { els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
+  els.blogPickExistingBtn.onclick = () => blogTogglePicker();
+  els.blogMdToolbar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".md-btn");
+    if (btn && btn.dataset.md) blogMdAction(btn.dataset.md);
+  });
+  els.blogImgPickerClose.onclick = () => els.blogImgPicker.classList.add("hidden");
+  els.blogImgPickerPrev.onclick = () => { blogPickerPage--; blogRenderPickerPage(); };
+  els.blogImgPickerNext.onclick = () => { blogPickerPage++; blogRenderPickerPage(); };
+  els.blogLightbox.onclick = () => blogCloseLightbox();
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
+  });
+  els.blogBackBtn.onclick = () => blogSwitchTab("list");
+  els.blogEditThisBtn.onclick = () => blogEditThis();
+  els.blogDeleteThisBtn.onclick = () => blogDeleteThis();
+  els.blogSaveBtn.onclick = () => blogSave();
+  els.blogCancelBtn.onclick = () => { blogViewId ? blogSwitchTab("view") : blogSwitchTab("list"); };
+  els.blogImageInput.addEventListener("change", () => blogOnPickImages(els.blogImageInput.files));
+}
+
