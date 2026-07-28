@@ -1499,6 +1499,16 @@ function renderHiddenList() {
 const CATEGORIES = window.CATEGORIES || {};
 
 function defaultCategoryTriple() {
+  // Time-based smart default (local time): 8:00–10:00 -> 早饭, otherwise 买菜.
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const morning = mins >= 8 * 60 && mins < 10 * 60;
+  const want = { i: "日常生活", ii: "餐饮", iii: morning ? "早饭" : "买菜" };
+  if (visL1().includes(want.i) &&
+      visL2(want.i).includes(want.ii) &&
+      visL3(want.i, want.ii).includes(want.iii)) {
+    return want;
+  }
   const i = visL1()[0] || "";
   const ii = visL2(i)[0] || "";
   const iii = visL3(i, ii)[0] || "";
@@ -2745,7 +2755,7 @@ async function setMode(next) {
     try { await celLoad(); }
     catch (e) { setStatus("Celine 存钱罐数据载入失败：" + (e.message || e), "error"); }
   } else if (next === "borrow") {
-    try { await brwLoad(); }
+    try { await brwLoad(); brwSwitchTab("chart"); }
     catch (e) { setStatus("借还款数据载入失败：" + (e.message || e), "error"); }
   } else if (next === "invest") {
     try { await invLoad(); }
@@ -4986,7 +4996,7 @@ let brwEtag = null;
 let borrowLoaded = false;
 let brwShowAll = false;
 let brwFilterOn = false;
-let brwTab = "list";
+let brwTab = "chart";
 let brwSearchText = "";
 
 const BRW_PERSON_CUSTOM = "__custom__";
@@ -7400,9 +7410,16 @@ async function blogListSummaries(token) {
   } catch { return []; }
 }
 
+// Creation-time key: post ids are "YYYY-MM-DD-NN" (creation date + sequence),
+// so they sort chronologically. Summaries fall back to their date.
+function blogCreatedKey(p) {
+  const id = p.id || "";
+  if (/^\d{4}-\d{2}-\d{2}-\d+$/.test(id)) return id;
+  return (p.date || "") + "-99"; // summaries: order by date, after same-day posts
+}
 function blogCmp(a, b) {
-   const da = a.date || "", db = b.date || "";
-  if (da !== db) return db < da ? -1 : 1;   // date desc
+  const ka = blogCreatedKey(a), kb = blogCreatedKey(b);
+  if (ka !== kb) return kb < ka ? -1 : 1;   // creation time desc (newest first)
   return (b.id || "") < (a.id || "") ? -1 : 1;
 }
 
@@ -7842,7 +7859,7 @@ async function blogTogglePicker() {
   try {
     const token = await getToken();
     await blogResolveFolder(token);
-    let url = `${blogDriveBase}:/images:/children?$select=name,file&$expand=thumbnails($select=medium,small)&$top=200`;
+    let url = `${blogDriveBase}:/images:/children?$select=name,file,lastModifiedDateTime&$expand=thumbnails($select=medium,small)&$top=200`;
     const items = [];
     while (url) {
       const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
@@ -7853,7 +7870,7 @@ async function blogTogglePicker() {
       });
       url = data["@odata.nextLink"] || null;
     }
-    items.sort((a, b) => (a.name < b.name ? 1 : -1)); // newest-ish (name has timestamp) first
+    items.sort((a, b) => new Date(b.lastModifiedDateTime || 0) - new Date(a.lastModifiedDateTime || 0)); // newest updated first
     blogPickerItems = items;
     blogPickerPage = 0;
     if (!items.length) {
