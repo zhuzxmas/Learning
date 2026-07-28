@@ -241,6 +241,14 @@ def summarize(corpus):
             {"role": "user", "content": corpus},
         ],
     }
+    # Log exactly what we send to DeepSeek (visible in the Action logs).
+    print("\n" + "=" * 70)
+    print("SENDING TO DEEPSEEK (model=%s)" % DEEPSEEK_MODEL)
+    print("-" * 70)
+    print("[system]\n" + payload["messages"][0]["content"])
+    print("-" * 70)
+    print("[user] (%d chars)\n%s" % (len(corpus), corpus))
+    print("=" * 70 + "\n")
     r = requests.post(DEEPSEEK_URL, headers={
         "Content-Type": "application/json",
         "Authorization": "Bearer " + key,
@@ -269,7 +277,7 @@ def main():
         # Ensure rt.enc exists even on the very first (secret-based) run.
         save_refresh_token(fernet, new_rt or refresh_token)
 
-    cutoff = (dt.datetime.utcnow() - dt.timedelta(days=SUMMARY_DAYS)) \
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=SUMMARY_DAYS)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
     print("Collecting content modified since", cutoff)
 
@@ -293,7 +301,7 @@ def main():
 
     today = dt.date.today().strftime("%Y-%m-%d")
     header = "# 生活与对话摘要 · 最近 %d 天\n\n_生成于 %s（UTC）_\n\n" % (
-        SUMMARY_DAYS, dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M"))
+        SUMMARY_DAYS, dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M"))
     out_path = "summaries/summary-%s.md" % today
     put_text(access_token, blog_base, out_path, header + summary)
     print("Wrote summary to blog folder:", out_path)

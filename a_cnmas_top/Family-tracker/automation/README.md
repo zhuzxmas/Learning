@@ -80,7 +80,9 @@ python bootstrap.py <你的 client_id>
 ## 可选调整
 
 - **看板范围**：环境变量 `SUMMARY_DAYS`（默认 14）。
-- **模型**：`DEEPSEEK_MODEL`（默认 `deepseek-v4-pro`，可改 `deepseek-v4-flash`）。
+- **模型**：`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`，可改 `deepseek-v4-pro`）。
 - **汇总重点**：改 `summarize.py` 里的 `SYSTEM_PROMPT`。
-- **路径**：workflow 里引用的是 `spending-tracker/automation/...`。若你把 `automation/`
-  放到仓库根目录，请相应改 `summarize.yml` 里的路径前缀。
+- **路径**：workflow 会用 `find` 自动定位仓库里任意位置的 `*automation*/summarize.py`，
+  无需写死路径。例如本仓库实际布局为
+  `a_cnmas_top/Family-tracker/automation/`，也能被自动找到。
+  唯一要求：`.github/workflows/summarize.yml` 必须放在**仓库根目录**的 `.github/` 下。

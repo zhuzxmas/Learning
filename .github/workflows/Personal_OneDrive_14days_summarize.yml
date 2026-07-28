@@ -1,9 +1,10 @@
 name: OneDrive 14-day summary
 
-# Runs ~every 14 days (1st and 15th of each month) plus a manual trigger.
+# Beijing Sat 06:00 == UTC Fri 22:00. Cron has no "every 2 weeks", so we fire
+# every Friday 22:00 UTC and gate to even ISO weeks (~every 14 days).
 on:
   schedule:
-    - cron: "0 0 1,15 * *"
+    - cron: "0 22 * * 5"
   workflow_dispatch: {}
 
 # Let the built-in GITHUB_TOKEN push the rotated rt.enc back to the repo
@@ -22,7 +23,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Biweekly gate: run on even ISO weeks (Beijing time), or always when
+      # triggered manually. Skips the rest of the job on odd weeks.
+      - name: Biweekly gate
+        id: gate
+        run: |
+          week=$(TZ=Asia/Shanghai date +%V)
+          echo "Beijing ISO week: $week"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ $((10#$week % 2)) -eq 0 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "-> running this week"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "-> odd week, skipping"
+          fi
+
       - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -31,6 +48,7 @@ jobs:
       # works regardless of where you committed it (root, spending-tracker/, ...).
       - name: Locate summarizer
         id: locate
+        if: steps.gate.outputs.run == 'true'
         run: |
           script="$(find . -type f -name summarize.py -path '*automation*' | head -n1)"
           if [ -z "$script" ]; then
@@ -43,9 +61,11 @@ jobs:
           echo "Found summarizer at: $script"
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: pip install -r "${{ steps.locate.outputs.dir }}/requirements.txt"
 
       - name: Run summarizer
+        if: steps.gate.outputs.run == 'true'
         env:
           ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
           ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
@@ -57,6 +77,7 @@ jobs:
         run: python "${{ steps.locate.outputs.script }}"
 
       - name: Commit rotated refresh token
+        if: steps.gate.outputs.run == 'true'
         run: |
           rt="${{ steps.locate.outputs.dir }}/rt.enc"
           if ! git diff --quiet -- "$rt"; then
