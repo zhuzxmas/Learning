@@ -19,7 +19,7 @@ day_one = datetime.date.today()
 ## This is the header for Eas Mon ##
 headers_easmon = {
     'Host': 'datacenter.eas{}ney.com'.format('tmo'),
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
     'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
@@ -33,7 +33,7 @@ headers_easmon = {
 ## This is the header for Eas Mon ##
 headers_easmon_stock_list = {
     'Host': 'dat{}nter-w{}.eas{}ney.com'.format('ace', 'eb', 'tmo'),
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/139.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.7,zh-CN;q=0.3',
     'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
@@ -666,7 +666,7 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
 
     headers_easmon_price_range = {
         'Host': 'push2his.eas{}ney.com'.format('tmo'),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
@@ -748,7 +748,7 @@ def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
 
     headers_easmon_price_range = {
         'Host': 'push2his.eas{}ney.com'.format('tmo'),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'Origin': 'https://emweb.securities.eas{}ney.com'.format('tmo'),
