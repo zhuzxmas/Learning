@@ -8387,12 +8387,30 @@ function chatGetCustomModels() {
 function chatSaveCustomModels(arr) {
   try { localStorage.setItem("chatCustomModels", JSON.stringify(arr)); } catch {}
 }
+// Built-in models the user has chosen to hide from the dropdown.
+function chatGetRemovedModels() {
+  try {
+    const arr = JSON.parse(localStorage.getItem("chatRemovedModels") || "[]");
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function chatSaveRemovedModels(arr) {
+  try { localStorage.setItem("chatRemovedModels", JSON.stringify(arr)); } catch {}
+}
+// The full, visible model list (built-in + custom, minus removed).
+function chatModelList() {
+  const removed = chatGetRemovedModels();
+  const list = [];
+  CHAT_MODELS.forEach((m) => { if (!removed.includes(m)) list.push(m); });
+  chatGetCustomModels().forEach((m) => { if (!list.includes(m) && !removed.includes(m)) list.push(m); });
+  if (!list.length) list.push(CHAT_MODELS[0]); // never leave the dropdown empty
+  return list;
+}
 function chatRenderModels(selected) {
   const sel = els.aiModel;
   if (!sel) return;
   sel.innerHTML = "";
-  const list = CHAT_MODELS.slice();
-  chatGetCustomModels().forEach((m) => { if (!list.includes(m)) list.push(m); });
+  const list = chatModelList();
   list.forEach((m) => {
     const o = document.createElement("option");
     o.value = m; o.textContent = m;
@@ -8401,8 +8419,8 @@ function chatRenderModels(selected) {
   const cust = document.createElement("option");
   cust.value = "__custom__"; cust.textContent = "＋ 自定义…";
   sel.appendChild(cust);
-  // Offer a "delete a custom model" entry only when there are custom models.
-  if (chatGetCustomModels().length) {
+  // Always offer a delete entry as long as there's more than one model.
+  if (list.length > 1) {
     const del = document.createElement("option");
     del.value = "__delete__"; del.textContent = "－ 删除模型…";
     sel.appendChild(del);
@@ -8444,6 +8462,9 @@ function chatWireEvents() {
     if (els.aiModel.value === "__custom__") {
       const name = (prompt("输入模型名称，例如 deepseek-v5-pro：") || "").trim();
       if (name) {
+        // Re-adding: un-hide a previously removed built-in, or store a new custom.
+        const removed = chatGetRemovedModels();
+        if (removed.includes(name)) chatSaveRemovedModels(removed.filter((m) => m !== name));
         const arr = chatGetCustomModels();
         if (!CHAT_MODELS.includes(name) && !arr.includes(name)) { arr.push(name); chatSaveCustomModels(arr); }
         chatRenderModels(name);
@@ -8451,24 +8472,28 @@ function chatWireEvents() {
         chatRenderModels(chatLastModel);   // cancelled: revert
       }
     } else if (els.aiModel.value === "__delete__") {
-      const arr = chatGetCustomModels();
-      if (!arr.length) { chatRenderModels(chatLastModel); }
-      else {
-        const name = (prompt(
-          "输入要删除的自定义模型名称：\n（内置模型无法删除）\n\n可删除：" + arr.join("、")
-        ) || "").trim();
-        if (name && arr.includes(name)) {
-          const next = arr.filter((m) => m !== name);
-          chatSaveCustomModels(next);
-          // If the deleted model was the current default, fall back to the first built-in.
-          const keep = chatLastModel === name ? CHAT_MODELS[0] : chatLastModel;
-          if (chatLastModel === name) { try { localStorage.setItem("chatModel", keep); } catch {} }
-          chatRenderModels(keep);
-          setStatus("已删除模型：" + name, "ok", 1500);
+      const list = chatModelList();
+      const name = (prompt(
+        "输入要删除的模型名称：\n\n可删除：" + list.join("、")
+      ) || "").trim();
+      if (name && list.includes(name)) {
+        // Custom models are removed from the custom list; built-ins are hidden.
+        const custom = chatGetCustomModels();
+        if (custom.includes(name)) {
+          chatSaveCustomModels(custom.filter((m) => m !== name));
         } else {
-          if (name) setStatus("未找到可删除的自定义模型：" + name, "warn", 2000);
-          chatRenderModels(chatLastModel);   // cancelled or built-in: revert
+          const removed = chatGetRemovedModels();
+          if (!removed.includes(name)) { removed.push(name); chatSaveRemovedModels(removed); }
         }
+        // If the deleted model was the current default, fall back to the first remaining one.
+        const remaining = chatModelList();
+        const keep = chatLastModel === name ? remaining[0] : chatLastModel;
+        if (chatLastModel === name) { try { localStorage.setItem("chatModel", keep); } catch {} }
+        chatRenderModels(keep);
+        setStatus("已删除模型：" + name, "ok", 1500);
+      } else {
+        if (name) setStatus("未找到可删除的模型：" + name, "warn", 2000);
+        chatRenderModels(chatLastModel);   // cancelled: revert
       }
     }
     chatLastModel = els.aiModel.value;
