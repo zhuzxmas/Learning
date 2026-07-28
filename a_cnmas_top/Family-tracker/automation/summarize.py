@@ -45,7 +45,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RT_ENC_PATH = os.path.join(HERE, "rt.enc")
 
 SUMMARY_DAYS = int(os.environ.get("SUMMARY_DAYS", "14"))
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 SYSTEM_PROMPT = (
     "你是一位贴心的生活记录助手。以下是我最近 {days} 天的生活博客正文和 AI 对话记录。"

@@ -27,8 +27,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Auto-locate the automation folder anywhere in the repo, so the workflow
+      # works regardless of where you committed it (root, spending-tracker/, ...).
+      - name: Locate summarizer
+        id: locate
+        run: |
+          script="$(find . -type f -name summarize.py -path '*automation*' | head -n1)"
+          if [ -z "$script" ]; then
+            echo "Could not find automation/summarize.py in the repo." >&2
+            exit 1
+          fi
+          dir="$(dirname "$script")"
+          echo "script=$script" >> "$GITHUB_OUTPUT"
+          echo "dir=$dir"        >> "$GITHUB_OUTPUT"
+          echo "Found summarizer at: $script"
+
       - name: Install dependencies
-        run: pip install -r a_cnmas_top/Family-tracker/automation/requirements.txt
+        run: pip install -r "${{ steps.locate.outputs.dir }}/requirements.txt"
 
       - name: Run summarizer
         env:
@@ -39,14 +54,15 @@ jobs:
           # Optional overrides:
           # SUMMARY_DAYS: "14"
           # DEEPSEEK_MODEL: "deepseek-v4-pro"
-        run: python spending-tracker/automation/summarize.py
+        run: python "${{ steps.locate.outputs.script }}"
 
       - name: Commit rotated refresh token
         run: |
-          if git status --porcelain | grep -q "spending-tracker/automation/rt.enc"; then
+          rt="${{ steps.locate.outputs.dir }}/rt.enc"
+          if ! git diff --quiet -- "$rt"; then
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add spending-tracker/automation/rt.enc
+            git add "$rt"
             git commit -m "chore: rotate OneDrive refresh token [skip ci]"
             git push
           else
