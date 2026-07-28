@@ -307,10 +307,10 @@ const els = {
   incHiddenCats: $("incHiddenCats"),
   incHiddenPayees: $("incHiddenPayees"),
   // --- stock mode ---
-  modeStockBtn: $("modeStockBtn"),
   modeBlogBtn: $("modeBlogBtn"),
   stockApp: $("stockApp"),
-  // --- AI 对话 (chat) mode ---
+  // --- 聊天 (chat) mode ---
+  modeChatBtn: $("modeChatBtn"),
   aiApp: $("aiApp"),
   aiConvList: $("aiConvList"),
   aiNewChatBtn: $("aiNewChatBtn"),
@@ -2712,9 +2712,9 @@ async function setMode(next) {
   const isCel = next === "celine";
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
-  els.modeStockBtn.classList.toggle("active", isStk);
+  els.modeChatBtn.classList.toggle("active", next === "ai");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
-  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || next === "ai");
+  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk);
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
@@ -2764,7 +2764,7 @@ async function setMode(next) {
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
   } else if (next === "ai") {
     try { await chatLoad(); }
-    catch (e) { setStatus("AI 对话载入失败：" + (e.message || e), "error"); }
+    catch (e) { setStatus("聊天载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -2775,7 +2775,7 @@ async function setMode(next) {
 function incWireEvents() {
   els.modeSpendingBtn.onclick = () => setMode("spending");
   els.modeIncomeBtn.onclick = () => setMode("income");
-  els.modeStockBtn.onclick = () => setMode("stock");
+  els.modeChatBtn.onclick = () => setMode("ai");
   els.modeBlogBtn.onclick = () => setMode("blog");
 
   // 更多 ▾ dropdown: toggle menu, pick a mode, close on outside-click.
@@ -7296,9 +7296,13 @@ let blogDriveBase = "";
 let blogPosts = [];          // index entries [{id,title,date,excerpt,searchText,images}]
 let blogIndexEtag = null;
 let blogLoaded = false;
-let blogViewId = null;       // id currently open in 阅读
-let blogSearchText = "";
-const blogImgCache = {};     // "images/x.jpg" -> object URL
+ let blogViewId = null;       // id currently open in 阅读
+ let blogSearchText = "";
+ let blogSummaries = [];      // read-only virtual entries from summaries/ folder
+ const blogImgCache = {};     // "images/x.jpg" -> object URL
+
+// All list entries = editable posts + read-only auto summaries.
+function blogAllEntries() { return blogPosts.concat(blogSummaries); }
 
 // ---- folder + file addressing (own driveBase from BLOG_FOLDER_SHARE_URL) --
 async function blogResolveFolder(token) {
@@ -7372,8 +7376,32 @@ async function blogWriteIndex(token) {
   throw new Error("保存博客索引冲突，重试多次仍失败。");
 }
 
+// ---- list summaries/ folder (read-only auto-generated digests) -----------
+async function blogListSummaries(token) {
+  try {
+    const url = `${blogDriveBase}:/summaries:/children?$select=name,lastModifiedDateTime&$top=200`;
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) return [];          // 404 = folder not created yet
+    const j = await res.json();
+    const files = (j.value || []).filter((f) => /\.md$/i.test(f.name || ""));
+    return files.map((f) => {
+      const m = (f.name || "").match(/(\d{4}-\d{2}-\d{2})/);
+      const date = m ? m[1] : (f.lastModifiedDateTime || "").slice(0, 10);
+      return {
+        id: "summary::" + f.name,
+        title: "定期总结 · " + date,
+        date: date,
+        excerpt: "自动生成的双周回顾",
+        searchText: "定期总结 summary 回顾 " + date,
+        isSummary: true,
+        summaryPath: "summaries/" + f.name,
+      };
+    });
+  } catch { return []; }
+}
+
 function blogCmp(a, b) {
-  const da = a.date || "", db = b.date || "";
+   const da = a.date || "", db = b.date || "";
   if (da !== db) return db < da ? -1 : 1;   // date desc
   return (b.id || "") < (a.id || "") ? -1 : 1;
 }
@@ -7387,16 +7415,17 @@ async function blogLoad() {
   const idx = await blogReadIndex(token);
   blogPosts = idx.posts.slice().sort(blogCmp);
   blogIndexEtag = idx.etag;
+  blogSummaries = await blogListSummaries(token);
   blogLoaded = true;
   blogRenderList();
   blogSwitchTab("list");
-  setStatus("已载入 " + blogPosts.length + " 篇文章。", "ok", 2000);
+  setStatus("已载入 " + blogPosts.length + " 篇文章、" + blogSummaries.length + " 篇总结。", "ok", 2000);
 }
 
 // ---- list rendering ------------------------------------------------------
 function blogRenderList() {
   const q = blogSearchText.trim().toLowerCase();
-  const list = blogPosts.filter((p) => {
+  const list = blogAllEntries().slice().sort(blogCmp).filter((p) => {
     if (!q) return true;
     return ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || ""))
       .toLowerCase().includes(q);
@@ -7407,11 +7436,18 @@ function blogRenderList() {
   els.blogEmpty.classList.toggle("hidden", list.length > 0);
   list.forEach((p) => {
     const item = document.createElement("div");
-    item.className = "blog-item";
+    item.className = "blog-item" + (p.isSummary ? " blog-item-summary" : "");
     item.tabIndex = 0;
     const h = document.createElement("div");
     h.className = "blog-item-title";
     h.textContent = p.title || "(无标题)";
+    if (p.isSummary) {
+      const badge = document.createElement("span");
+      badge.className = "blog-badge";
+      badge.textContent = "总结";
+      h.appendChild(document.createTextNode(" "));
+      h.appendChild(badge);
+    }
     const meta = document.createElement("div");
     meta.className = "blog-item-meta";
     meta.textContent = (p.date || "") + (p.images ? "　·　" + p.images + " 图" : "");
@@ -7427,17 +7463,21 @@ function blogRenderList() {
 
 // ---- open / view ---------------------------------------------------------
 async function blogOpen(id) {
-  const post = blogPosts.find((p) => p.id === id);
+  const post = blogAllEntries().find((p) => p.id === id);
   if (!post) return;
   blogViewId = id;
   blogSwitchTab("view");
+  // Summaries are read-only: hide edit/delete controls.
+  els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
+  els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
   els.blogViewTitle.textContent = post.title || "(无标题)";
   els.blogViewDate.textContent = post.date || "";
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
   try {
     const token = await getToken();
     await blogResolveFolder(token);
-    const md = await blogReadText(token, "posts/" + id + ".md");
+    const path = post.isSummary ? post.summaryPath : "posts/" + id + ".md";
+    const md = await blogReadText(token, path);
     els.blogViewBody.innerHTML = blogRenderMarkdown(md || "");
     await blogResolveImages(token, els.blogViewBody);
   } catch (e) {
