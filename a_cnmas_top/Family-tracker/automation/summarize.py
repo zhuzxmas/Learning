@@ -241,14 +241,20 @@ def summarize(corpus):
             {"role": "user", "content": corpus},
         ],
     }
-    # Log exactly what we send to DeepSeek (visible in the Action logs).
-    print("\n" + "=" * 70)
-    print("SENDING TO DEEPSEEK (model=%s)" % DEEPSEEK_MODEL)
-    print("-" * 70)
-    print("[system]\n" + payload["messages"][0]["content"])
-    print("-" * 70)
-    print("[user] (%d chars)\n%s" % (len(corpus), corpus))
-    print("=" * 70 + "\n")
+    # Log exactly what we send to DeepSeek (only when LOG_PROMPT is enabled).
+    # The corpus contains your blog/chat text, so this is OFF by default; set
+    # the LOG_PROMPT env/secret to 1/true/yes to reveal it in the Action logs.
+    if os.environ.get("LOG_PROMPT", "").strip().lower() in ("1", "true", "yes"):
+        print("\n" + "=" * 70)
+        print("SENDING TO DEEPSEEK (model=%s)" % DEEPSEEK_MODEL)
+        print("-" * 70)
+        print("[system]\n" + payload["messages"][0]["content"])
+        print("-" * 70)
+        print("[user] (%d chars)\n%s" % (len(corpus), corpus))
+        print("=" * 70 + "\n")
+    else:
+        print("Sending %d chars to DeepSeek (set LOG_PROMPT=1 to log full prompt)."
+              % len(corpus))
     r = requests.post(DEEPSEEK_URL, headers={
         "Content-Type": "application/json",
         "Authorization": "Bearer " + key,

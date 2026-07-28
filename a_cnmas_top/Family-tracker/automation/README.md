@@ -81,6 +81,8 @@ python bootstrap.py <你的 client_id>
 
 - **看板范围**：环境变量 `SUMMARY_DAYS`（默认 14）。
 - **模型**：`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`，可改 `deepseek-v4-pro`）。
+- **打印发送内容**：`LOG_PROMPT=1` 时会把发给 DeepSeek 的完整 prompt（含博客/对话原文）
+  打印到 Action 日志，默认关闭。公开仓库慎用（日志任何人可见）。
 - **汇总重点**：改 `summarize.py` 里的 `SYSTEM_PROMPT`。
 - **路径**：workflow 会用 `find` 自动定位仓库里任意位置的 `*automation*/summarize.py`，
   无需写死路径。例如本仓库实际布局为

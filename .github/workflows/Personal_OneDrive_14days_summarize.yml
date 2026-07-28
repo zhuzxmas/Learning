@@ -74,6 +74,7 @@ jobs:
           # Optional overrides:
           # SUMMARY_DAYS: "14"
           # DEEPSEEK_MODEL: "deepseek-v4-pro"
+          # LOG_PROMPT: "1"   # print the full prompt (blog+chat text) to the logs
         run: python "${{ steps.locate.outputs.script }}"
 
       - name: Commit rotated refresh token
