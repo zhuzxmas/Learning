@@ -648,6 +648,40 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 ################# to get the stock price for each year #####################################
 
 
+def request_easmon_kline_with_retry(url, headers, proxies=None, max_retries=5, timeout=30):
+    """Request the EastMoney kline API with exponential backoff.
+
+    EastMoney rate-limits the kline endpoint: after a burst of requests it will
+    close the TCP connection without responding, which surfaces as
+    requests.exceptions.ConnectionError('RemoteDisconnected'). This helper
+    retries with an increasing (jittered) delay so that a temporary throttle is
+    ridden out instead of crashing the whole run.
+
+    Returns the successful Response, or None if every attempt fails.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            return requests.get(url, headers=headers, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            wait = min(30 * attempt, 120) + random.uniform(0, 15)
+            print('EasMon kline request attempt {}/{} failed ({}: {}).'.format(
+                attempt, max_retries, type(e).__name__, e))
+            if attempt < max_retries:
+                print('Backing off for {:.0f}s before retrying...'.format(wait))
+                time.sleep(wait)
+            else:
+                # last resort: try once through the proxy if one is configured
+                if proxies:
+                    try:
+                        return requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                    except requests.exceptions.RequestException as e2:
+                        print('Proxy fallback also failed ({}: {}).'.format(
+                            type(e2).__name__, e2))
+                print('EasMon kline request permanently failed after {} attempts; skipping.'.format(
+                    max_retries))
+    return None
+
+
 def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     # Generate a random UUID (version 4)
     random_uuid = uuid.uuid4()
@@ -686,13 +720,9 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=quote_jp4'.format(
         'sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
 
-    try:
-        response_price = requests.get(
-            url_price_range, headers=headers_easmon_price_range)
-    except:
-        response_price = requests.get(
-            url_price_range, headers=headers_easmon_price_range, proxies=proxies)
-    if response_price.status_code == 200:
+    response_price = request_easmon_kline_with_retry(
+        url_price_range, headers_easmon_price_range, proxies=proxies)
+    if response_price is not None and response_price.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_cn))
         # Remove the JSONP wrapper
@@ -723,8 +753,9 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
         price_df['日期'] = pd.to_datetime(price_df['日期'])
 
     else:
+        status = response_price.status_code if response_price is not None else 'no response'
         print(
-            f"Failed to retrieve data: {response_price.status_code} for Price Range... ")
+            f"Failed to retrieve data: {status} for Price Range... ")
         # to turn price range list into DataFrame
         columns = ["日期", "开盘", "收盘", "最高", "最低",
                    "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
@@ -769,13 +800,9 @@ def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
         'sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
 
 
-    try:
-        response_price = requests.get(
-            url_price_range, headers=headers_easmon_price_range)
-    except:
-        response_price = requests.get(
-            url_price_range, headers=headers_easmon_price_range, proxies=proxies)
-    if response_price.status_code == 200:
+    response_price = request_easmon_kline_with_retry(
+        url_price_range, headers_easmon_price_range, proxies=proxies)
+    if response_price is not None and response_price.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_hk))
         # Remove the JSONP wrapper
@@ -806,8 +833,9 @@ def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
         price_df['日期'] = pd.to_datetime(price_df['日期'])
 
     else:
+        status = response_price.status_code if response_price is not None else 'no response'
         print(
-            f"Failed to retrieve data: {response_price.status_code} for Price Range... ")
+            f"Failed to retrieve data: {status} for Price Range... ")
         # to turn price range list into DataFrame
         columns = ["日期", "开盘", "收盘", "最高", "最低",
                    "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
