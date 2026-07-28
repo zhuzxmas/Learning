@@ -1,0 +1,54 @@
+name: OneDrive 14-day summary
+
+# Runs ~every 14 days (1st and 15th of each month) plus a manual trigger.
+on:
+  schedule:
+    - cron: "0 0 1,15 * *"
+  workflow_dispatch: {}
+
+# Let the built-in GITHUB_TOKEN push the rotated rt.enc back to the repo
+# (no personal access token needed).
+permissions:
+  contents: write
+
+concurrency:
+  group: onedrive-summary
+  cancel-in-progress: false
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r a_cnmas_top/Family-tracker/automation/requirements.txt
+
+      - name: Run summarizer
+        env:
+          ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+          ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+          TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # Optional overrides:
+          # SUMMARY_DAYS: "14"
+          # DEEPSEEK_MODEL: "deepseek-v4-pro"
+        run: python spending-tracker/automation/summarize.py
+
+      - name: Commit rotated refresh token
+        run: |
+          if git status --porcelain | grep -q "spending-tracker/automation/rt.enc"; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add spending-tracker/automation/rt.enc
+            git commit -m "chore: rotate OneDrive refresh token [skip ci]"
+            git push
+          else
+            echo "rt.enc unchanged; nothing to commit."
+          fi
