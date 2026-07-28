@@ -648,20 +648,45 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 ################# to get the stock price for each year #####################################
 
 
-def request_easmon_kline_with_retry(url, headers, proxies=None, max_retries=5, timeout=30):
-    """Request the EastMoney kline API with exponential backoff.
+def request_easmon_kline_with_retry(url, headers, proxies=None, warmup_url=None, max_retries=5, timeout=30):
+    """Request the EastMoney kline API with a warm-up + exponential backoff.
 
-    EastMoney rate-limits the kline endpoint: after a burst of requests it will
-    close the TCP connection without responding, which surfaces as
-    requests.exceptions.ConnectionError('RemoteDisconnected'). This helper
-    retries with an increasing (jittered) delay so that a temporary throttle is
-    ridden out instead of crashing the whole run.
+    EastMoney's historical kline host (push2his) sits behind a "checkuser" WAF:
+    a bare request without the ``wsc_checkuser_ok`` cookie gets its TCP
+    connection dropped, which surfaces as
+    requests.exceptions.ConnectionError('RemoteDisconnected'). A real browser
+    first visits the stock's concept page, which sets ``qgqp_b_id`` and
+    ``wsc_checkuser_ok=1``, and only then calls the kline API.
+
+    This helper reproduces that flow with a ``requests.Session``: it first GETs
+    ``warmup_url`` (the concept page) to obtain the WAF cookies, then calls the
+    kline endpoint on the same session so the cookies ride along. Each retry
+    starts a fresh session and re-warms, since the cookie may expire or the
+    challenge may need re-passing.
 
     Returns the successful Response, or None if every attempt fails.
     """
     for attempt in range(1, max_retries + 1):
         try:
-            return requests.get(url, headers=headers, timeout=timeout)
+            session = requests.Session()
+            if warmup_url:
+                try:
+                    warmup_headers = {
+                        'User-Agent': headers.get('User-Agent', 'Mozilla/5.0'),
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                    }
+                    session.get(warmup_url, headers=warmup_headers, timeout=timeout)
+                    cookie_names = list(session.cookies.keys())
+                    print('Warm-up GET {} -> cookies obtained: {} (checkuser_ok={})'.format(
+                        warmup_url, cookie_names, session.cookies.get('wsc_checkuser_ok')))
+                except requests.exceptions.RequestException as ew:
+                    print('Warm-up request failed ({}: {}); proceeding without cookies.'.format(
+                        type(ew).__name__, ew))
+            return session.get(url, headers=headers, timeout=timeout)
         except requests.exceptions.RequestException as e:
             wait = min(30 * attempt, 120) + random.uniform(0, 15)
             print('EasMon kline request attempt {}/{} failed ({}: {}).'.format(
@@ -720,8 +745,11 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=quote_jp4'.format(
         'sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
 
+    warmup_url = 'https://quote.eas{}ney.com/concept/{}{}.html'.format(
+        'tmo', stock_mkt_lower_case, stock_number)
+
     response_price = request_easmon_kline_with_retry(
-        url_price_range, headers_easmon_price_range, proxies=proxies)
+        url_price_range, headers_easmon_price_range, proxies=proxies, warmup_url=warmup_url)
     if response_price is not None and response_price.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_cn))
