@@ -322,6 +322,7 @@ const els = {
   aiTitle: $("aiTitle"),
   aiSidebar: $("aiSidebar"),
   aiToggleSidebar: $("aiToggleSidebar"),
+  aiBackdrop: $("aiBackdrop"),
   // --- stock tabs ---
   stkTabAddBtn: $("stkTabAddBtn"),
   stkTabListBtn: $("stkTabListBtn"),
@@ -7897,15 +7898,47 @@ function blogWireEvents() {
  *   DeepSeek is reached through the Cloudflare Worker at CHAT_API_URL, which   *
  *   injects the secret API key and only serves the allowed accounts.          *
  * ========================================================================= */
-let chatDriveBase = "";
-let chatConvs = [];          // index entries [{id,title,updated}]
-let chatIndexEtag = null;
-let chatLoaded = false;
-let chatCurId = null;        // id of the open conversation
-let chatMessages = [];       // messages of the open conversation [{role,content,reasoning}]
-let chatCurEtag = null;      // eTag of chats/<id>.json (optimistic concurrency)
-let chatSending = false;     // guard against concurrent sends
-let chatLastModel = "";      // last valid model selection (for revert on cancel)
+// NOTE: these use `var` (hoisted, no TDZ) because boot() calls chatWireEvents()
+// -> chatRenderModels() early, before this line executes in source order.
+var chatDriveBase = "";
+var chatConvs = [];          // index entries [{id,title,updated}]
+var chatIndexEtag = null;
+var chatLoaded = false;
+var chatCurId = null;        // id of the open conversation
+var chatMessages = [];       // messages of the open conversation [{role,content,reasoning}]
+var chatCurEtag = null;      // eTag of chats/<id>.json (optimistic concurrency)
+var chatSending = false;     // guard against concurrent sends
+var chatLastModel = "";      // last valid model selection (for revert on cancel)
+var chatWired = false;       // idempotency guard for chatWireEvents()
+
+// ---- local content cache (instant re-open) -------------------------------
+// Caches each conversation's messages + eTag in localStorage so re-opening is
+// instant. On open we show the cached copy immediately, then revalidate against
+// OneDrive in the background and re-render only if the eTag changed.
+const CHAT_CACHE_KEY = "chatConvCache";
+function chatCacheAll() {
+  try { return JSON.parse(localStorage.getItem(CHAT_CACHE_KEY) || "{}") || {}; }
+  catch { return {}; }
+}
+function chatCacheGet(id) {
+  const all = chatCacheAll();
+  const e = all[id];
+  return e && Array.isArray(e.messages) ? e : null;
+}
+function chatCacheSet(id, etag, messages) {
+  if (!etag) return; // don't cache un-versioned (e.g. 404) content
+  try {
+    const all = chatCacheAll();
+    all[id] = { etag, messages };
+    localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(all));
+  } catch { /* quota exceeded etc. — cache is best-effort */ }
+}
+function chatCacheDelete(id) {
+  try {
+    const all = chatCacheAll();
+    if (id in all) { delete all[id]; localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(all)); }
+  } catch {}
+}
 
 // ---- folder + file addressing (own driveBase from CHAT_FOLDER_SHARE_URL) --
 async function chatResolveFolder(token) {
@@ -7967,7 +8000,9 @@ async function chatReadConv(token, id) {
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   const messages = (data && Array.isArray(data.messages)) ? data.messages : [];
-  return { messages, etag: res.headers.get("ETag") };
+  const etag = res.headers.get("ETag");
+  chatCacheSet(id, etag, messages);
+  return { messages, etag };
 }
 async function chatWriteConv(token, id) {
   const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
@@ -7981,12 +8016,13 @@ async function chatWriteConv(token, id) {
       method: "PUT", headers, body: JSON.stringify({ messages: chatMessages }),
     });
     if (!res2.ok) throw new Error("保存对话失败：" + res2.status);
-    const it2 = await res2.json(); chatCurEtag = it2.eTag; return;
+    const it2 = await res2.json(); chatCurEtag = it2.eTag; chatCacheSet(id, it2.eTag, chatMessages); return;
   }
   if (!res.ok) throw new Error("保存对话失败：" + res.status + " " + (await res.text()));
-  const it = await res.json(); chatCurEtag = it.eTag;
+  const it = await res.json(); chatCurEtag = it.eTag; chatCacheSet(id, it.eTag, chatMessages);
 }
 async function chatDeleteConv(token, id) {
+  chatCacheDelete(id);
   await fetch(`${chatDriveBase}:/${chatEncPath("chats/" + id + ".json")}`, {
     method: "DELETE", headers: { Authorization: "Bearer " + token },
   });
@@ -8010,9 +8046,8 @@ async function chatLoad() {
   chatIndexEtag = idx.etag;
   chatLoaded = true;
   chatRenderList();
-  // Open the most recent conversation, or start a fresh one.
-  if (chatConvs.length) await chatOpen(chatConvs[0].id);
-  else chatNew();
+  // Always start on a fresh new conversation; existing ones are in the sidebar.
+  chatNew();
   setStatus("已载入 " + chatConvs.length + " 个对话。", "ok", 1500);
 }
 
@@ -8044,16 +8079,41 @@ function chatRenderList() {
 
 // ---- open / new / delete -------------------------------------------------
 async function chatOpen(id) {
-  const token = await getToken();
-  const conv = await chatReadConv(token, id);
+  // Respond instantly: highlight the item, set the title, and close the mobile
+  // sidebar BEFORE the (slow) network read so the UI never feels laggy.
   chatCurId = id;
-  chatMessages = conv.messages;
-  chatCurEtag = conv.etag;
   const meta = chatConvs.find((c) => c.id === id);
   els.aiTitle.textContent = (meta && meta.title) || "对话";
   chatRenderList();
-  chatRenderMessages();
   chatCloseSidebarMobile();
+
+  // Show the cached copy immediately (秒开) if we have one; otherwise a spinner.
+  const cached = chatCacheGet(id);
+  if (cached) {
+    chatMessages = cached.messages;
+    chatCurEtag = cached.etag;
+    chatRenderMessages();
+  } else if (els.aiMessages) {
+    els.aiMessages.innerHTML = '<div class="ai-loading">加载中…</div>';
+  }
+
+  // Revalidate against OneDrive in the background; re-render only if changed.
+  let conv;
+  try {
+    const token = await getToken();
+    conv = await chatReadConv(token, id);
+  } catch (e) {
+    if (!cached && els.aiMessages) {
+      els.aiMessages.innerHTML = '<div class="ai-loading">载入失败：' + escapeHtml(e.message || String(e)) + "</div>";
+    }
+    return;
+  }
+  // Guard against a race: user may have opened another conversation meanwhile.
+  if (chatCurId !== id) return;
+  if (cached && conv.etag && cached.etag === conv.etag) return; // unchanged
+  chatMessages = conv.messages;
+  chatCurEtag = conv.etag;
+  chatRenderMessages();
 }
 function chatNew() {
   chatCurId = null;
@@ -8249,8 +8309,14 @@ async function chatPersistAfterTurn(firstUserText) {
 }
 
 // ---- mobile sidebar toggle -----------------------------------------------
+function chatSetSidebar(open) {
+  if (!els.aiSidebar) return;
+  els.aiSidebar.classList.toggle("open", open);
+  const bd = els.aiBackdrop || document.getElementById("aiBackdrop");
+  if (bd) bd.classList.toggle("show", open && window.innerWidth <= 700);
+}
 function chatCloseSidebarMobile() {
-  if (window.innerWidth <= 700) els.aiSidebar.classList.remove("open");
+  if (window.innerWidth <= 700) chatSetSidebar(false);
 }
 
 // ---- wiring --------------------------------------------------------------
@@ -8283,7 +8349,6 @@ function chatRenderModels(selected) {
   chatLastModel = want;
 }
 
-let chatWired = false;
 function chatWireEvents() {
   // Defensive: if the AI UI isn't present (e.g. an old cached index.html is
   // being served alongside a new app.js), skip wiring entirely so we never
@@ -8303,8 +8368,10 @@ function chatWireEvents() {
     });
   }
   if (els.aiToggleSidebar) {
-    els.aiToggleSidebar.onclick = () => els.aiSidebar.classList.toggle("open");
+    els.aiToggleSidebar.onclick = () => chatSetSidebar(!els.aiSidebar.classList.contains("open"));
   }
+  const bd = els.aiBackdrop || document.getElementById("aiBackdrop");
+  if (bd) bd.onclick = () => chatSetSidebar(false);
 
   // ---- Non-critical: model dropdown (built-in + saved custom + "自定义…") ----
   let savedModel = CHAT_MODELS[0];
