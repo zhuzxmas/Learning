@@ -17,7 +17,10 @@ Required environment variables (from GitHub Secrets):
   ONEDRIVE_REFRESH_TOKEN   initial refresh token (first-run fallback)
   DEEPSEEK_API_KEY         DeepSeek API key
 Optional:
-  SUMMARY_DAYS             look-back window in days (default 14)
+  SUMMARY_DAYS             look-back window in days (default 14; also used for
+                           the calendar look-back)
+  CAL_NAME                 name of the calendar to read (default "Celine-Nathan";
+                           empty string disables the calendar section)
   DEEPSEEK_MODEL           default "deepseek-v4-pro"
 """
 
@@ -33,7 +36,7 @@ from cryptography.fernet import Fernet
 AUTHORITY = "https://login.microsoftonline.com/consumers"
 TOKEN_URL = AUTHORITY + "/oauth2/v2.0/token"
 GRAPH = "https://graph.microsoft.com/v1.0"
-SCOPES = "offline_access Files.ReadWrite.All User.Read"
+SCOPES = "offline_access Files.ReadWrite.All User.Read Calendars.Read"
 
 # The two OneDrive shared folders (same links the SPA uses).
 BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM"
@@ -45,14 +48,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RT_ENC_PATH = os.path.join(HERE, "rt.enc")
 
 SUMMARY_DAYS = int(os.environ.get("SUMMARY_DAYS", "14"))
+CAL_NAME = os.environ.get("CAL_NAME", "Celine-Nathan").strip()
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 SYSTEM_PROMPT = (
-    "你是一位贴心的生活记录助手。以下是我最近 {days} 天的生活博客正文和 AI 对话记录。"
+    "你是一位贴心的生活记录助手。以下是我最近 {days} 天的生活博客正文、AI 对话记录，"
+    "以及同一时期日历里已经发生的日程记录。"
     "请用中文输出一份 Markdown 摘要，包含：\n"
-    "1. 本期概览（2-3 句）\n"
-    "2. 本期要点：把博客里发生的事、心情、值得记住的瞬间，与 AI 对话里我关心的问题、"
-    "结论、建议融合在一起，按时间/主题梳理成一条连贯的脉络（不要分博客/对话两栏）\n"
+    "1. 本期概览（4-5 句，覆盖本期涉及的主要主题）\n"
+    "2. 本期要点：把博客里发生的事、心情、值得记住的瞬间，AI 对话里我关心的问题、"
+    "结论、建议，以及日历里记录的活动与安排，全部融合在一起，按时间/主题梳理成一条连贯的脉络，"
+    "串成一个整体（不要按博客/对话/日历分栏）\n"
     "3. 待办 / 后续：从中抽取尚未完成或需要跟进的事项\n"
     "4. 一句话总结与鼓励\n"
     "不要编造未提供的信息；正文可能含 Markdown 图片语法，忽略图片。"
@@ -227,6 +233,115 @@ def collect_chats(token, days_cutoff):
     return parts
 
 
+# ---- collect upcoming calendar events -------------------------------------
+_WEEKDAY_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+
+def _fmt_local(iso):
+    """Parse an Outlook local dateTime like '2026-08-02T14:00:00.0000000'."""
+    s = (iso or "").split(".")[0].replace("Z", "")
+    try:
+        return dt.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        try:
+            return dt.datetime.strptime(s[:10], "%Y-%m-%d")
+        except Exception:
+            return None
+
+
+def _fmt_event(ev):
+    start = ev.get("start", {}) or {}
+    end = ev.get("end", {}) or {}
+    sd = _fmt_local(start.get("dateTime"))
+    ed = _fmt_local(end.get("dateTime"))
+    subject = (ev.get("subject") or "(无标题)").strip()
+    loc = ((ev.get("location") or {}).get("displayName") or "").strip()
+    note = (ev.get("bodyPreview") or "").strip().replace("\r", " ").replace("\n", " ")
+    if len(note) > 120:
+        note = note[:120] + "…"
+    if sd:
+        day = "%02d-%02d %s" % (sd.month, sd.day, _WEEKDAY_CN[sd.weekday()])
+    else:
+        day = "?"
+    if ev.get("isAllDay"):
+        when = "%s 全天" % day
+    elif sd and ed:
+        when = "%s %02d:%02d–%02d:%02d" % (day, sd.hour, sd.minute, ed.hour, ed.minute)
+    elif sd:
+        when = "%s %02d:%02d" % (day, sd.hour, sd.minute)
+    else:
+        when = day
+    line = "- %s %s" % (when, subject)
+    if loc:
+        line += " @%s" % loc
+    if note:
+        line += "（%s）" % note
+    return (start.get("dateTime") or "", line)
+
+
+def collect_calendar(token, cutoff_iso):
+    """Collect the last N days of events from the CAL_NAME calendar only."""
+    if not CAL_NAME:
+        return []
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    headers = {
+        "Authorization": "Bearer " + token,
+        # Ask Graph to return event local times in Beijing time.
+        "Prefer": 'outlook.timezone="China Standard Time"',
+    }
+
+    # 1. Find the target calendar by name (case-insensitive exact match).
+    cals = []
+    url = "%s/me/calendars?$select=id,name&$top=100" % GRAPH
+    while url:
+        r = requests.get(url, headers={"Authorization": "Bearer " + token})
+        if not r.ok:
+            print("WARN: cannot list calendars: %s %s" % (r.status_code, r.text[:300]))
+            return []
+        d = r.json()
+        cals.extend(d.get("value", []))
+        url = d.get("@odata.nextLink")
+
+    target = None
+    want = CAL_NAME.lower()
+    for cal in cals:
+        if (cal.get("name") or "").strip().lower() == want:
+            target = cal
+            break
+    if not target:
+        names = ", ".join((c.get("name") or "?") for c in cals)
+        print("WARN: calendar '%s' not found. Available: %s" % (CAL_NAME, names))
+        return []
+
+    cid = target["id"]
+    cname = target.get("name") or CAL_NAME
+
+    # 2. Fetch the past-window events (cutoff .. now) for that calendar.
+    events = []
+    url = ("%s/me/calendars/%s/calendarView"
+           "?startDateTime=%s&endDateTime=%s"
+           "&$select=subject,start,end,location,isAllDay,bodyPreview"
+           "&$orderby=start/dateTime&$top=100" % (GRAPH, cid, cutoff_iso, now_iso))
+    while url:
+        r = requests.get(url, headers=headers)
+        if r.status_code in (403, 404):
+            break
+        if not r.ok:
+            print("WARN: calendarView failed (%s): %s %s"
+                  % (cname, r.status_code, r.text[:200]))
+            break
+        d = r.json()
+        events.extend(d.get("value", []))
+        url = d.get("@odata.nextLink")
+
+    print("Found %d calendar events in '%s' (last %d days)."
+          % (len(events), cname, SUMMARY_DAYS))
+    if not events:
+        return []
+    rows = sorted((_fmt_event(e) for e in events), key=lambda t: t[0])
+    return ["### [日历] %s\n%s" % (cname, "\n".join(r[1] for r in rows))]
+
+
 # ---- DeepSeek -------------------------------------------------------------
 def summarize(corpus):
     key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
@@ -289,14 +404,15 @@ def main():
 
     blog_base, blog_parts = collect_blog(access_token, cutoff)
     chat_parts = collect_chats(access_token, cutoff)
-    print("Found %d recent blog posts, %d recent chats." %
-          (len(blog_parts), len(chat_parts)))
+    cal_parts = collect_calendar(access_token, cutoff)
+    print("Found %d recent blog posts, %d recent chats, %d calendar blocks." %
+          (len(blog_parts), len(chat_parts), len(cal_parts)))
 
-    if not blog_parts and not chat_parts:
+    if not blog_parts and not chat_parts and not cal_parts:
         print("No activity in the window. Nothing to summarize; exiting.")
         return
 
-    corpus = "\n\n".join(blog_parts + chat_parts)
+    corpus = "\n\n".join(blog_parts + chat_parts + cal_parts)
     # Safety cap so a huge window can't blow up the request.
     max_chars = 120000
     if len(corpus) > max_chars:

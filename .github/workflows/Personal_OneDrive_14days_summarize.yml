@@ -73,6 +73,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           # Optional overrides:
           # SUMMARY_DAYS: "14"
+          # CAL_NAME: "Celine-Nathan"   # calendar to read ("" disables it)
           # DEEPSEEK_MODEL: "deepseek-v4-pro"
           # LOG_PROMPT: "1"   # print the full prompt (blog+chat text) to the logs
         run: python "${{ steps.locate.outputs.script }}"

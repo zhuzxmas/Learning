@@ -40,7 +40,9 @@ DEVICECODE_URL = AUTHORITY + "/oauth2/v2.0/devicecode"
 TOKEN_URL = AUTHORITY + "/oauth2/v2.0/token"
 
 # offline_access -> refresh token; the rest match what the Action needs.
-SCOPES = "offline_access Files.ReadWrite.All User.Read"
+# Calendars.Read lets the summarizer read upcoming events from the account's
+# own calendars (the automation account owns the calendars we care about).
+SCOPES = "offline_access Files.ReadWrite.All User.Read Calendars.Read"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RT_ENC_PATH = os.path.join(HERE, "rt.enc")
