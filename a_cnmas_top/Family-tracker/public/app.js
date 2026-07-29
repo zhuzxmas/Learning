@@ -2818,6 +2818,7 @@ async function sbtLoadStock(code) {
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ lm: meta.lastModified, data }));
     } catch { /* quota/full — cache is best-effort */ }
+    setStatus(`${code} 明细已载入。`, "success", 2000);
   }
   return data;
 }
@@ -3029,7 +3030,7 @@ function sbtRenderSettings() {
     kl.className = "sbt-kline-link";
     kl.href = sbtKlineUrl(code) || "#";
     kl.target = "_blank"; kl.rel = "noopener";
-    kl.textContent = "下载 kline";
+    kl.textContent = `下载 kline (${cn}.txt)`;
     kl.title = `点开后「网页另存为」${cn}.txt 到 kline/ 文件夹`;
     const upd = document.createElement("button");
     upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
