@@ -344,7 +344,7 @@ def process_reports_hk(od, history_names, stock, proxies):
 def load_hk_notice_dates(od, stock, columns):
     """Build the 'Notice Date' row for an HK stock from the manual xlsx.
 
-    Reads history/H{code}_Notice_Date.xlsx (columns Notice_Date + Report_Title,
+    Reads H{code}_Notice_Date.xlsx (columns Notice_Date + Report_Title,
     e.g. Report_Title '2024年年报'), aligns each report period column to its
     disclosure date, and returns a 1-row DataFrame indexed by 'Notice Date'.
 
@@ -352,7 +352,7 @@ def load_hk_notice_dates(od, stock, columns):
     per-year rows fall back to the column's own period date so downstream price
     ranges still compute.
     """
-    fname = 'history/H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
+    fname = 'H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
     raw = od.get_bytes(fname)
     if not raw:
         print('!! {} missing — cannot build Notice Date row for {}; skipping.\n'
