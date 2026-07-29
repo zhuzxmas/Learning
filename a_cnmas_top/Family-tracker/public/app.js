@@ -3043,7 +3043,11 @@ function sbtRenderSettings() {
     const del = document.createElement("button");
     del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
     del.onclick = () => sbtRemoveStock(code);
-    row.appendChild(span); row.appendChild(kl); row.appendChild(upd); row.appendChild(del);
+    const dlLine = document.createElement("div");
+    dlLine.className = "sbt-dl-line";
+    dlLine.appendChild(kl); dlLine.appendChild(fn);
+    row.appendChild(span); row.appendChild(upd); row.appendChild(del);
+    row.appendChild(dlLine);
     c.appendChild(row);
   }
 }
