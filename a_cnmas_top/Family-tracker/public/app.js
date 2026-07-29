@@ -3146,8 +3146,9 @@ function sbtRenderSettings() {
     return;
   }
   for (const code of sbtCodes) {
-    const cn = sbtCodeToCn(code) || code;
-    const nm = (sbtStocks[cn] && sbtStocks[cn].stock_name) || "";
+     const cn = sbtCodeToCn(code) || code;
+     const nm = sbtNames[String(code).replace(/\D/g, "")]
+       || (sbtStocks[cn] && sbtStocks[cn].stock_name) || "";
     const row = document.createElement("div");
     row.className = "sbt-code-row";
     const span = document.createElement("span");
