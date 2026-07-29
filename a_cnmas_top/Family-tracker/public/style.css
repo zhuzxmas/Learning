@@ -1071,3 +1071,20 @@ td:nth-child(6) {
 }
 
 
+/* -------- 股票基本面 (StockBatchTracker) viewer -------- */
+.sbt-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.sbt-toolbar select { min-width: 200px; }
+#sbtCombinedTable, #sbtDividendTable, #sbtSummaryTable { font-size: 13px; }
+#sbtCombinedTable td.sbt-c, #sbtSummaryTable td.sbt-c { text-align: center; white-space: nowrap; }
+#sbtCombinedTable td.sbt-rowlabel { white-space: nowrap; font-weight: 500; }
+.sbt-check {
+  padding: 6px 10px; margin: 4px 0; border-radius: 6px;
+  font-family: monospace; font-size: 13px;
+}
+.sbt-check.sbt-pass { background: #e6f4ea; color: #137333; }
+.sbt-check.sbt-fail { background: #fce8e6; color: #c5221f; }
+
+

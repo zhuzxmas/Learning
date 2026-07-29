@@ -331,6 +331,47 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
     }
 
 
+def merge_with_existing(od, stock_cn, payload):
+    """Preserve prior good data when this run couldn't fetch part of it.
+
+    The per-stock output/{code}.json is the source of truth, but a run may fail
+    to produce some sections (e.g. kline/{code}.txt missing -> no combined table
+    / price ranges, or a transient dividend-host error -> empty dividends). Rather
+    than overwrite good data with nulls/empties, we merge the freshly built
+    payload over whatever is already on OneDrive: any section missing in the new
+    payload falls back to the stored one, flagged as carried-over.
+    """
+    try:
+        existing_raw = od.get_text('output/{}.json'.format(stock_cn))
+    except Exception:  # noqa: BLE001
+        existing_raw = None
+    if not existing_raw:
+        return payload
+    try:
+        old = json.loads(existing_raw)
+    except Exception:  # noqa: BLE001
+        return payload
+
+    stale = []
+    if payload.get('combined') is None and old.get('combined') is not None:
+        payload['combined'] = old['combined']
+        stale.append('combined')
+    new_l7 = payload.get('last_7_days_high_low')
+    if (new_l7 is None or new_l7 == '' or new_l7 == []) and old.get('last_7_days_high_low'):
+        payload['last_7_days_high_low'] = old['last_7_days_high_low']
+        stale.append('last_7_days_high_low')
+    if not payload.get('dividends') and old.get('dividends'):
+        payload['dividends'] = old['dividends']
+        stale.append('dividends')
+
+    if stale:
+        payload['carried_over'] = stale
+        payload['carried_over_from'] = old.get('generated')
+        print('   merged {} carried over from previous JSON for {}.\n'
+              .format(', '.join(stale), stock_cn))
+    return payload
+
+
 def render_html(payload, stock_output_combined, dividends_df):
     stock = payload['stock']
     stock_name = payload['stock_name']
@@ -451,6 +492,7 @@ def main():
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df)
+        payload = merge_with_existing(od, stock_cn, payload)
         od.put_text('output/{}.json'.format(stock_cn),
                     json.dumps(payload, ensure_ascii=False, indent=2),
                     content_type='application/json; charset=utf-8')

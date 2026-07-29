@@ -309,6 +309,19 @@ const els = {
   // --- stock mode ---
   modeBlogBtn: $("modeBlogBtn"),
   stockApp: $("stockApp"),
+  // --- 股票基本面 (StockBatchTracker) mode ---
+  stocksApp: $("stocksApp"),
+  sbtSelect: $("sbtSelect"),
+  sbtReloadBtn: $("sbtReloadBtn"),
+  sbtRecordCount: $("sbtRecordCount"),
+  sbtSummaryBody: $("sbtSummaryBody"),
+  sbtDetailCard: $("sbtDetailCard"),
+  sbtDetailTitle: $("sbtDetailTitle"),
+  sbtChecks: $("sbtChecks"),
+  sbtGenerated: $("sbtGenerated"),
+  sbtLast7: $("sbtLast7"),
+  sbtCombinedTable: $("sbtCombinedTable"),
+  sbtDividendTable: $("sbtDividendTable"),
   // --- 聊天 (chat) mode ---
   modeChatBtn: $("modeChatBtn"),
   aiApp: $("aiApp"),
@@ -2712,6 +2725,159 @@ function incSwitchTab(name) {
   if (name === "settings") incRenderHidden();
 }
 
+/* ------------------- 股票基本面 (StockBatchTracker) ---------------------- */
+/* Read-only viewer for the quarterly fundamentals batch. Reads
+   /me/drive/root:/Apps/StockBatchTracker/output/*.json (written by
+   finance_batch_personal.py) via Graph, using the signed-in account's own
+   OneDrive (same account that owns the folder). */
+const SBT_FOLDER_PATH = "/Apps/StockBatchTracker";
+let sbtLoaded = false;         // one-time load guard
+let sbtSummary = [];           // parsed _summary.json (list of records)
+let sbtStocks = {};            // code -> parsed output/{code}.json
+
+function sbtFolderBase() {
+  const p = SBT_FOLDER_PATH.replace(/^\/+/, "");
+  return `${GRAPH}/me/drive/root:/${encodeURI(p)}`;
+}
+
+// List *.json under the output/ subfolder.
+async function sbtListOutputs(token) {
+  const url = `${sbtFolderBase()}/output:/children?$select=name,lastModifiedDateTime&$top=200`;
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error("无法列出 output 文件夹：" + res.status + " " + (await res.text()));
+  const j = await res.json();
+  return (j.value || []).filter((f) => /\.json$/i.test(f.name || ""));
+}
+
+// Read + parse one JSON file (path relative to the StockBatchTracker folder).
+async function sbtReadJson(token, relPath) {
+  const url = `${sbtFolderBase()}/${relPath}:/content`;
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("读取失败 " + relPath + "：" + res.status);
+  try { return await res.json(); } catch { return null; }
+}
+
+async function sbtLoad(force) {
+  if (sbtLoaded && !force) { sbtRenderSummary(); return; }
+  setStatus("正在载入股票基本面数据…", "info");
+  const token = await getToken();
+
+  // Summary (optional; the per-stock files are the source of truth).
+  sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
+
+  // Per-stock output files.
+  const files = await sbtListOutputs(token);
+  sbtStocks = {};
+  for (const f of files) {
+    if (/^_/.test(f.name)) continue;           // skip _summary.json etc.
+    const data = await sbtReadJson(token, "output/" + f.name);
+    if (data && data.stock_cn) sbtStocks[data.stock_cn] = data;
+  }
+
+  sbtLoaded = true;
+  sbtPopulateSelect();
+  sbtRenderSummary();
+  const n = Object.keys(sbtStocks).length;
+  els.sbtRecordCount.textContent = n ? `${n} 只股票` : "";
+  setStatus(n ? `已载入 ${n} 只股票的基本面数据。` : "未找到 output/*.json。", n ? "success" : "error", 4000);
+}
+
+function sbtPopulateSelect() {
+  const codes = Object.keys(sbtStocks).sort();
+  const prev = els.sbtSelect.value;
+  els.sbtSelect.innerHTML = "";
+  for (const code of codes) {
+    const opt = document.createElement("option");
+    const nm = (sbtStocks[code] && sbtStocks[code].stock_name) || "";
+    opt.value = code;
+    opt.textContent = nm ? `${code} ${nm}` : code;
+    els.sbtSelect.appendChild(opt);
+  }
+  if (codes.length) {
+    els.sbtSelect.value = codes.includes(prev) ? prev : codes[0];
+    sbtRenderDetail(els.sbtSelect.value);
+  } else {
+    els.sbtDetailCard.classList.add("hidden");
+  }
+}
+
+function sbtRenderSummary() {
+  const rows = Array.isArray(sbtSummary) ? sbtSummary : [];
+  const yes = (v) => (String(v) === "True" || v === true) ? "✔" : "✘";
+  els.sbtSummaryBody.innerHTML = rows.map((r) =>
+    `<tr><td>${escapeHtml(r["Stock Number"] || "")}</td>` +
+    `<td class="sbt-c">${yes(r["利润表现好"])}</td>` +
+    `<td class="sbt-c">${yes(r["流动负债不高"])}</td>` +
+    `<td class="sbt-c">${yes(r["分红多"])}</td></tr>`
+  ).join("");
+}
+
+function sbtRenderDetail(code) {
+  const d = sbtStocks[code];
+  if (!d) { els.sbtDetailCard.classList.add("hidden"); return; }
+  els.sbtDetailCard.classList.remove("hidden");
+  els.sbtDetailTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`;
+  els.sbtGenerated.textContent = d.generated ? "生成时间: " + d.generated : "";
+
+  // Checks.
+  const checks = d.checks || {};
+  const order = ["profit", "liabilities", "dividends"];
+  els.sbtChecks.innerHTML = order.filter((k) => checks[k]).map((k) => {
+    const c = checks[k];
+    const cls = c.pass ? "sbt-pass" : "sbt-fail";
+    return `<div class="sbt-check ${cls}">${escapeHtml(c.text || "")}</div>`;
+  }).join("");
+
+  // Last N days high/low.
+  const l7 = d.last_7_days_high_low;
+  els.sbtLast7.textContent = (l7 !== null && l7 !== undefined && l7 !== "")
+    ? "近期高/低: " + (typeof l7 === "object" ? JSON.stringify(l7) : l7) : "";
+
+  // Combined fundamentals table (pandas orient='split': columns/index/data).
+  const cb = d.combined;
+  const cbHead = els.sbtCombinedTable.querySelector("thead");
+  const cbBody = els.sbtCombinedTable.querySelector("tbody");
+  if (cb && cb.columns && cb.index && cb.data) {
+    cbHead.innerHTML = "<tr><th>指标</th>" +
+      cb.columns.map((c) => `<th>${escapeHtml(String(c))}</th>`).join("") + "</tr>";
+    cbBody.innerHTML = cb.index.map((label, i) =>
+      `<tr><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
+      (cb.data[i] || []).map((v) =>
+        `<td class="sbt-c">${escapeHtml(v === null || v === undefined ? "" : String(v))}</td>`
+      ).join("") + "</tr>"
+    ).join("");
+  } else {
+    cbHead.innerHTML = "";
+    cbBody.innerHTML = "<tr><td class='muted'>无财务指标数据</td></tr>";
+  }
+
+  // Dividends.
+  const divs = Array.isArray(d.dividends) ? d.dividends : [];
+  const dHead = els.sbtDividendTable.querySelector("thead");
+  const dBody = els.sbtDividendTable.querySelector("tbody");
+  if (divs.length) {
+    dHead.innerHTML = "<tr><th>公告日期</th><th>股权登记日</th><th>分红方案</th></tr>";
+    dBody.innerHTML = divs.map((r) =>
+      `<tr><td>${escapeHtml(r.REPORT_DATE || "")}</td>` +
+      `<td>${escapeHtml(r.EQUITY_RECORD_DATE || "")}</td>` +
+      `<td>${escapeHtml(r.IMPL_PLAN_PROFILE || "")}</td></tr>`
+    ).join("");
+  } else {
+    dHead.innerHTML = "";
+    dBody.innerHTML = "<tr><td class='muted'>无分红记录</td></tr>";
+  }
+}
+
+function sbtWireEvents() {
+  els.sbtSelect.onchange = () => sbtRenderDetail(els.sbtSelect.value);
+  els.sbtReloadBtn.onclick = async () => {
+    try { await sbtLoad(true); }
+    catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
+  };
+}
+
 /* --------------------------- Mode switch --------------------------------- */
 async function setMode(next) {
   mode = next;
@@ -2724,12 +2890,13 @@ async function setMode(next) {
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeChatBtn.classList.toggle("active", next === "ai");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
-  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk);
+  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "stocks");
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
   els.stockApp.classList.toggle("hidden", !isStk);
+  els.stocksApp.classList.toggle("hidden", next !== "stocks");
   els.medicalApp.classList.toggle("hidden", !isMed);
   els.celineApp.classList.toggle("hidden", !isCel);
   els.borrowApp.classList.toggle("hidden", next !== "borrow");
@@ -2748,6 +2915,9 @@ async function setMode(next) {
   } else if (isStk) {
     try { await stkLoad(); }
     catch (e) { setStatus("股票数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "stocks") {
+    try { await sbtLoad(); }
+    catch (e) { setStatus("股票基本面数据载入失败：" + (e.message || e), "error"); }
   } else if (isMed) {
     try { await medLoad(); }
     catch (e) { setStatus("看病数据载入失败：" + (e.message || e), "error"); }
@@ -3810,6 +3980,10 @@ function stkWireEvents() {
   stkInitForm();
   stkFillFilters();
   els.stkFilterDate.value = todayStr();
+
+  // 股票基本面 (StockBatchTracker) viewer — read-only, loads lazily.
+  sbtWireEvents();
+
 
   // Medical module UI (data loads lazily when switching to 看病 mode).
   medWireEvents();
