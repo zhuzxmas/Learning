@@ -2751,6 +2751,7 @@ function incSwitchTab(name) {
  let sbtStocks = {};            // code -> parsed output/{code}.json (in-memory cache)
  let sbtFiles = {};             // code -> { name, lastModified } from output listing
  let sbtCodes = [];             // raw codes from stock_list.csv (settings editor)
+ let sbtNames = {};             // numeric-code -> Chinese name, parsed from _summary.json
  let sbtDriveBase = "";         // resolved /drives/{id}/items/{id} base (shared mode)
  let sbtOwnRootBase = "";       // resolved /me/drive/root:/... base (owner mode)
  
@@ -2818,8 +2819,9 @@ function incSwitchTab(name) {
   setStatus("正在载入股票基本面数据…", "info");
   const token = await getToken();
 
-  // Summary (optional; the per-stock files are the source of truth).
-  sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
+   // Summary (optional; the per-stock files are the source of truth).
+   sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
+   sbtBuildNames();
 
   // List per-stock output files, but DON'T download them all — we lazy-load
   // each stock's JSON only when it's selected, and cache it locally.
@@ -2870,17 +2872,43 @@ async function sbtLoadStock(code) {
   return data;
 }
 
-function sbtPopulateSelect() {
-  const codes = Object.keys(sbtFiles).sort();
-  const prev = els.sbtSelect.value;
-  els.sbtSelect.innerHTML = "";
-  for (const code of codes) {
-    const opt = document.createElement("option");
-    const nm = (sbtStocks[code] && sbtStocks[code].stock_name) || "";
-    opt.value = code;
-    opt.textContent = nm ? `${code} ${nm}` : code;
-    els.sbtSelect.appendChild(opt);
-  }
+ // Parse the Chinese names out of _summary.json. Each row's "Stock Number"
+ // looks like "{seq}--{stock}-{中文名}", e.g. "1--600519.ss-贵州茅台" or
+ // "34--01548.HK-金斯瑞". We key by the leading numeric code (before the dot) so
+ // it matches the dropdown's file code regardless of .ss/.SH suffix casing.
+ function sbtBuildNames() {
+   sbtNames = {};
+   for (const r of (Array.isArray(sbtSummary) ? sbtSummary : [])) {
+     const sn = String((r && r["Stock Number"]) || "");
+     const rest = sn.split("--").slice(1).join("--");   // drop the "{seq}--" prefix
+     if (!rest) continue;
+     const dash = rest.indexOf("-");
+     if (dash < 0) continue;
+     const stock = rest.slice(0, dash);
+     const name = rest.slice(dash + 1).trim();
+     const numeric = stock.split(".")[0].trim();
+     if (numeric && name) sbtNames[numeric] = name;
+   }
+ }
+
+ // Chinese name for a dropdown code: prefer the summary map (available upfront
+ // for all stocks), fall back to a loaded stock's own stock_name.
+ function sbtNameFor(code) {
+   const numeric = String(code).split(".")[0].trim();
+   return sbtNames[numeric] || (sbtStocks[code] && sbtStocks[code].stock_name) || "";
+ }
+
+ function sbtPopulateSelect() {
+   const codes = Object.keys(sbtFiles).sort();
+   const prev = els.sbtSelect.value;
+   els.sbtSelect.innerHTML = "";
+   for (const code of codes) {
+     const opt = document.createElement("option");
+     const nm = sbtNameFor(code);
+     opt.value = code;
+     opt.textContent = nm ? `${code} ${nm}` : code;
+     els.sbtSelect.appendChild(opt);
+   }
   if (codes.length) {
     els.sbtSelect.value = codes.includes(prev) ? prev : codes[0];
     sbtRenderDetail(els.sbtSelect.value).catch((e) =>
@@ -2901,7 +2929,14 @@ function sbtRenderSummary() {
   ).join("");
 }
 
-async function sbtRenderDetail(code) {
+ // Strip the tax parenthetical from a dividend-plan string, e.g.
+ // "10派3.00元(含税,扣税后2.70元)" -> "10派3.00元". Handles full/half-width
+ // parens and multiple occurrences.
+ function sbtStripTax(s) {
+   return String(s).replace(/[（(]\s*含税[^）)]*[）)]/g, "").trim();
+ }
+
+ async function sbtRenderDetail(code) {
   if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
   const d = await sbtLoadStock(code);
   if (!d) { els.sbtDetailCard.classList.add("hidden"); return; }
@@ -2933,16 +2968,23 @@ async function sbtRenderDetail(code) {
   const cb = d.combined;
   const cbHead = els.sbtCombinedTable.querySelector("thead");
   const cbBody = els.sbtCombinedTable.querySelector("tbody");
-  if (cb && cb.columns && cb.index && cb.data) {
-    cbHead.innerHTML = "<tr><th>指标</th>" +
-      cb.columns.map((c) => `<th>${escapeHtml(String(c))}</th>`).join("") + "</tr>";
-    cbBody.innerHTML = cb.index.map((label, i) =>
-      `<tr><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
-      (cb.data[i] || []).map((v) =>
-        `<td class="sbt-c">${escapeHtml(v === null || v === undefined ? "" : String(v))}</td>`
-      ).join("") + "</tr>"
-    ).join("");
-  } else {
+   if (cb && cb.columns && cb.index && cb.data) {
+     cbHead.innerHTML = "<tr><th>指标</th>" +
+       cb.columns.map((c) => `<th>${escapeHtml(String(c))}</th>`).join("") + "</tr>";
+     cbBody.innerHTML = cb.index.map((label, i) => {
+       // 每股派发股息 carries long plan text like "10派3.00元(含税,扣税后2.70元)";
+       // drop the tax parenthetical for display and let the cell wrap (.sbt-plan)
+       // so it doesn't force the whole column wide.
+       const isPlan = String(label) === "每股派发股息";
+       const cls = isPlan ? "sbt-c sbt-plan" : "sbt-c";
+       return `<tr><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
+         (cb.data[i] || []).map((v) => {
+           let s = (v === null || v === undefined) ? "" : String(v);
+           if (isPlan) s = sbtStripTax(s);
+           return `<td class="${cls}">${escapeHtml(s)}</td>`;
+         }).join("") + "</tr>";
+     }).join("");
+   } else {
     cbHead.innerHTML = "";
     cbBody.innerHTML = "<tr><td class='muted'>无财务指标数据</td></tr>";
   }
