@@ -1101,5 +1101,9 @@ td:nth-child(6) {
   color: #1a73e8; text-decoration: none;
 }
 .sbt-code-row .sbt-kline-link:hover { text-decoration: underline; }
+.sbt-code-row .sbt-fn-btn {
+  flex: 0 0 auto; font-family: monospace; font-size: 12px;
+  background: #f1f3f4; color: #202124; border-color: #dadce0;
+}
 
 

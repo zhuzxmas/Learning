@@ -3030,8 +3030,13 @@ function sbtRenderSettings() {
     kl.className = "sbt-kline-link";
     kl.href = sbtKlineUrl(code) || "#";
     kl.target = "_blank"; kl.rel = "noopener";
-    kl.textContent = `下载 kline (${cn}.txt)`;
+    kl.textContent = "下载 kline";
     kl.title = `点开后「网页另存为」${cn}.txt 到 kline/ 文件夹`;
+    const fn = document.createElement("button");
+    fn.type = "button"; fn.className = "btn btn-mini sbt-fn-btn";
+    fn.textContent = `${cn}.txt`;
+    fn.title = "点击复制文件名";
+    fn.onclick = () => sbtCopyFilename(`${cn}.txt`);
     const upd = document.createElement("button");
     upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
     upd.onclick = () => sbtUpdateStock(code);
@@ -3040,6 +3045,26 @@ function sbtRenderSettings() {
     del.onclick = () => sbtRemoveStock(code);
     row.appendChild(span); row.appendChild(kl); row.appendChild(upd); row.appendChild(del);
     c.appendChild(row);
+  }
+}
+
+// Copy a target kline filename to the clipboard (mobile-friendly).
+async function sbtCopyFilename(name) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(name);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = name;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setStatus(`已复制文件名：${name}`, "success", 2000);
+  } catch (e) {
+    setStatus("复制失败，请长按选择：" + name, "error", 4000);
   }
 }
 
