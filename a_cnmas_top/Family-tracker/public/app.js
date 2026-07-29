@@ -2936,6 +2936,20 @@ function sbtRenderSummary() {
    return String(s).replace(/[（(]\s*含税[^）)]*[）)]/g, "").trim();
  }
 
+ // Show only the date part (YYYY-MM-DD) of a dividend date value. Handles
+ // "2024-03-15 00:00:00" strings and epoch-millisecond timestamps.
+ function sbtDateOnly(v) {
+   if (v === null || v === undefined || v === "") return "";
+   const s = String(v).trim();
+   const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+   if (m) return m[0];
+   if (/^\d+$/.test(s)) {
+     const d = new Date(Number(s));
+     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+   }
+   return s.slice(0, 10);
+ }
+
  async function sbtRenderDetail(code) {
   if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
   const d = await sbtLoadStock(code);
@@ -2994,12 +3008,12 @@ function sbtRenderSummary() {
   const dHead = els.sbtDividendTable.querySelector("thead");
   const dBody = els.sbtDividendTable.querySelector("tbody");
   if (divs.length) {
-    dHead.innerHTML = "<tr><th>公告日期</th><th>股权登记日</th><th>分红方案</th></tr>";
-    dBody.innerHTML = divs.map((r) =>
-      `<tr><td>${escapeHtml(r.REPORT_DATE || "")}</td>` +
-      `<td>${escapeHtml(r.EQUITY_RECORD_DATE || "")}</td>` +
-      `<td>${escapeHtml(r.IMPL_PLAN_PROFILE || "")}</td></tr>`
-    ).join("");
+     dHead.innerHTML = "<tr><th>公告日期</th><th>股权登记日</th><th>分红方案</th></tr>";
+     dBody.innerHTML = divs.map((r) =>
+       `<tr><td>${escapeHtml(sbtDateOnly(r.REPORT_DATE))}</td>` +
+       `<td>${escapeHtml(sbtDateOnly(r.EQUITY_RECORD_DATE))}</td>` +
+       `<td>${escapeHtml(r.IMPL_PLAN_PROFILE || "")}</td></tr>`
+     ).join("");
   } else {
     dHead.innerHTML = "";
     dBody.innerHTML = "<tr><td class='muted'>无分红记录</td></tr>";
