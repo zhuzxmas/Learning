@@ -313,8 +313,12 @@ const els = {
   stocksApp: $("stocksApp"),
   sbtSelect: $("sbtSelect"),
   sbtReloadBtn: $("sbtReloadBtn"),
-  sbtSettingsBtn: $("sbtSettingsBtn"),
-  sbtSettings: $("sbtSettings"),
+  sbtTabDetailBtn: $("sbtTabDetailBtn"),
+  sbtTabSummaryBtn: $("sbtTabSummaryBtn"),
+  sbtTabSettingsBtn: $("sbtTabSettingsBtn"),
+  sbtTabDetail: $("sbtTabDetail"),
+  sbtTabSummary: $("sbtTabSummary"),
+  sbtTabSettings: $("sbtTabSettings"),
   sbtAddBtn: $("sbtAddBtn"),
   sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
@@ -2917,6 +2921,23 @@ async function sbtRenderDetail(code) {
   }
 }
 
+function sbtSwitchTab(name) {
+  const tabs = {
+    detail: { panel: els.sbtTabDetail, btn: els.sbtTabDetailBtn },
+    summary: { panel: els.sbtTabSummary, btn: els.sbtTabSummaryBtn },
+    settings: { panel: els.sbtTabSettings, btn: els.sbtTabSettingsBtn },
+  };
+  for (const k in tabs) {
+    const active = k === name;
+    if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
+    if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "settings") {
+    sbtLoadStockList().catch((e) =>
+      setStatus("载入股票清单失败：" + (e.message || e), "error"));
+  }
+}
+
 function sbtWireEvents() {
   els.sbtSelect.onchange = () => sbtRenderDetail(els.sbtSelect.value).catch((e) =>
     setStatus("载入明细失败：" + (e.message || e), "error"));
@@ -2924,14 +2945,9 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
-  els.sbtSettingsBtn.onclick = async () => {
-    const willShow = els.sbtSettings.classList.contains("hidden");
-    els.sbtSettings.classList.toggle("hidden", !willShow);
-    if (willShow) {
-      try { await sbtLoadStockList(); }
-      catch (e) { setStatus("载入股票清单失败：" + (e.message || e), "error"); }
-    }
-  };
+  els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
+  els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
+  els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
   els.sbtAddBtn.onclick = sbtAddStock;
 }
 

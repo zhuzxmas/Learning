@@ -590,47 +590,68 @@
 
       <!-- ============ STOCKS (基本面批处理) APP ============ -->
       <div id="stocksApp" class="hidden">
-        <div class="card">
-          <div class="sbt-toolbar">
-            <label for="sbtSelect">股票</label>
-            <select id="sbtSelect"></select>
-            <button type="button" class="btn btn-ghost" id="sbtReloadBtn">刷新</button>
-            <button type="button" class="btn btn-ghost" id="sbtSettingsBtn">设置</button>
-            <span id="sbtRecordCount" class="muted"></span>
-          </div>
-          <div id="sbtSettings" class="hidden sbt-settings">
-            <div class="sbt-settings-head">
-              <h3>股票清单设置</h3>
-              <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab-btn active" id="sbtTabDetailBtn">详情</button>
+          <button type="button" class="tab-btn" id="sbtTabSummaryBtn">汇总</button>
+          <button type="button" class="tab-btn" id="sbtTabSettingsBtn">设置</button>
+        </div>
+
+        <!-- 详情 -->
+        <div id="sbtTabDetail">
+          <div class="card">
+            <div class="sbt-toolbar">
+              <label for="sbtSelect">股票</label>
+              <select id="sbtSelect"></select>
             </div>
-            <p class="muted sbt-settings-hint">
-              添加后请先按下载说明取得该股的 kline 数据上传 OneDrive，再点该股「更新」触发个股批处理。
-              删除会同时移除该股的展示数据（output），kline/history 文件保留。
-            </p>
-            <div id="sbtCodeList"></div>
           </div>
-          <div id="sbtSummaryWrap">
-            <h2>汇总</h2>
-            <div class="table-wrap">
-              <table id="sbtSummaryTable">
-                <thead>
-                  <tr><th>股票</th><th>利润表现好</th><th>流动负债不高</th><th>分红多</th></tr>
-                </thead>
-                <tbody id="sbtSummaryBody"></tbody>
-              </table>
+          <div class="card" id="sbtDetailCard">
+            <h2 id="sbtDetailTitle">详情</h2>
+            <div id="sbtChecks"></div>
+            <div id="sbtGenerated" class="muted"></div>
+            <div id="sbtLast7" class="muted"></div>
+            <h3>财务指标</h3>
+            <div class="table-wrap"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
+            <h3>分红记录</h3>
+            <div class="table-wrap"><table id="sbtDividendTable"><thead></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+
+        <!-- 汇总 -->
+        <div id="sbtTabSummary" class="hidden">
+          <div class="card">
+            <div class="sbt-toolbar">
+              <button type="button" class="btn btn-ghost" id="sbtReloadBtn">刷新</button>
+              <span id="sbtRecordCount" class="muted"></span>
+            </div>
+            <div id="sbtSummaryWrap">
+              <h2>汇总</h2>
+              <div class="table-wrap">
+                <table id="sbtSummaryTable">
+                  <thead>
+                    <tr><th>股票</th><th>利润表现好</th><th>流动负债不高</th><th>分红多</th></tr>
+                  </thead>
+                  <tbody id="sbtSummaryBody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="card" id="sbtDetailCard">
-          <h2 id="sbtDetailTitle">详情</h2>
-          <div id="sbtChecks"></div>
-          <div id="sbtGenerated" class="muted"></div>
-          <div id="sbtLast7" class="muted"></div>
-          <h3>财务指标</h3>
-          <div class="table-wrap"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
-          <h3>分红记录</h3>
-          <div class="table-wrap"><table id="sbtDividendTable"><thead></thead><tbody></tbody></table></div>
+        <!-- 设置 -->
+        <div id="sbtTabSettings" class="hidden">
+          <div class="card">
+            <div id="sbtSettings" class="sbt-settings">
+              <div class="sbt-settings-head">
+                <h3>股票清单设置</h3>
+                <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
+              </div>
+              <p class="muted sbt-settings-hint">
+                添加后请先按下载说明取得该股的 kline 数据上传 OneDrive，再点该股「更新」触发个股批处理。
+                删除会同时移除该股的展示数据（output），kline/history 文件保留。
+              </p>
+              <div id="sbtCodeList"></div>
+            </div>
+          </div>
         </div>
       </div><!-- /#stocksApp -->
 
