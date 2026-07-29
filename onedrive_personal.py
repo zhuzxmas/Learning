@@ -28,6 +28,7 @@ import io
 import os
 import pickle
 import sys
+import time
 
 import requests
 from cryptography.fernet import Fernet
@@ -69,10 +70,16 @@ class OneDrivePersonal:
                 "(set them in config.cfg locally or as GitHub Secrets).")
         self._fernet = Fernet(enc_key.encode("utf-8"))
         self.access_token = None
+        self._refresh_token = None   # latest rotating RT, kept in memory
+        self._expiry = 0.0           # monotonic time when access_token goes stale
         self.authenticate()
 
     # ---- refresh-token handling ------------------------------------------
     def _load_refresh_token(self):
+        # Prefer the rotating token from the most recent in-process refresh so a
+        # mid-run re-auth doesn't replay an already-consumed (single-use) RT.
+        if self._refresh_token:
+            return self._refresh_token
         if os.path.exists(RT_ENC_PATH):
             try:
                 with open(RT_ENC_PATH, "rb") as fh:
@@ -107,7 +114,11 @@ class OneDrivePersonal:
                 "token refresh failed: %s %s" % (r.status_code, r.text))
         d = r.json()
         self.access_token = d["access_token"]
+        # Refresh a few minutes before the real expiry to avoid mid-call 401s.
+        expires_in = int(d.get("expires_in", 3600) or 3600)
+        self._expiry = time.monotonic() + max(60, expires_in - 300)
         new_rt = d.get("refresh_token", refresh_token)
+        self._refresh_token = new_rt or refresh_token   # keep rotating RT in memory
         if new_rt and new_rt != refresh_token:
             self._save_refresh_token(new_rt)
             if not self.rt_readonly:
@@ -116,6 +127,11 @@ class OneDrivePersonal:
             self._save_refresh_token(new_rt or refresh_token)
         print("Personal-OneDrive access token obtained.")
         return self.access_token
+
+    def _ensure_fresh(self):
+        """Re-authenticate if the current access token is near/after expiry."""
+        if not self.access_token or time.monotonic() >= self._expiry:
+            self.authenticate()
 
     # ---- Graph helpers (root-relative paths) -----------------------------
     def _headers(self, extra=None):
@@ -129,10 +145,22 @@ class OneDrivePersonal:
         full = "%s/%s" % (APP_ROOT, path.strip("/"))
         return "%s/me/drive/root:/%s:%s" % (GRAPH, full, suffix)
 
+    def _request(self, method, url, extra_headers=None, **kw):
+        """Send an authenticated Graph request, refreshing the token proactively
+        and retrying once on a 401 (in case the token lapsed mid-run)."""
+        self._ensure_fresh()
+        r = requests.request(method, url, headers=self._headers(extra_headers),
+                             proxies=self.proxies, **kw)
+        if r.status_code == 401:
+            # Token rejected despite our expiry estimate — force one re-auth+retry.
+            self.authenticate()
+            r = requests.request(method, url, headers=self._headers(extra_headers),
+                                 proxies=self.proxies, **kw)
+        return r
+
     def get_bytes(self, path):
         """Return file content as bytes, or None if it does not exist."""
-        r = requests.get(self._item_url(path, "/content"),
-                         headers=self._headers(), proxies=self.proxies)
+        r = self._request("GET", self._item_url(path, "/content"))
         if r.status_code == 404:
             return None
         if not r.ok:
@@ -145,10 +173,8 @@ class OneDrivePersonal:
         return None if b is None else b.decode(encoding, errors="replace")
 
     def put_bytes(self, path, data, content_type="application/octet-stream"):
-        r = requests.put(
-            self._item_url(path, "/content"),
-            headers=self._headers({"Content-Type": content_type}),
-            data=data, proxies=self.proxies)
+        r = self._request("PUT", self._item_url(path, "/content"),
+                          extra_headers={"Content-Type": content_type}, data=data)
         if not r.ok:
             raise RuntimeError(
                 "upload failed (%s): %s %s" % (path, r.status_code, r.text))
@@ -178,7 +204,7 @@ class OneDrivePersonal:
         url += "?$select=name,id,file,lastModifiedDateTime&$top=200"
         out = []
         while url:
-            r = requests.get(url, headers=self._headers(), proxies=self.proxies)
+            r = self._request("GET", url)
             if r.status_code == 404:
                 return []
             if not r.ok:
