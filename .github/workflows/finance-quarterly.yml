@@ -1,21 +1,28 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# Quarterly stock fundamentals batch — personal-OneDrive edition.
+# Runs finance_batch_personal.py, which stores everything on the user's personal
+# OneDrive (App/StockBatchTracker/) via a delegated refresh token. Price history
+# is read from pre-downloaded kline/{code}.txt files (the push2his kline API is
+# not reachable from cloud IPs); reports/dividends are still fetched live from
+# EastMoney's datacenter hosts.
 
 name: finance-quarterly action
 
 on:
   # schedule:
   #   - cron:  '22 8 * * 3'
-  #push:
-  #  branches: [ "main" ]
-  #pull_request:
-  #  branches: [ "main" ]
   workflow_dispatch:
   repository_dispatch:
     types: [finance-batch-stock-event]
 
+# Allow the rotated rt.enc to be committed back to the repo.
 permissions:
-  contents: read
+  contents: write
+
+# Share a single concurrency group with the OneDrive summarizer so the two
+# workflows can never run at the same time and clobber the shared rt.enc.
+concurrency:
+  group: onedrive-token
+  cancel-in-progress: false
 
 jobs:
   run-python-script:
@@ -28,8 +35,8 @@ jobs:
     - name: setup python 3.13.9
       uses: actions/setup-python@v6
       with:
-        python-version: '3.13.9'  # You can specify any available Python version here
-      
+        python-version: '3.13.9'
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -37,26 +44,20 @@ jobs:
 
     - name: run main file
       env:
-        client_id : ${{secrets.CLIENT_ID}}
-        site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
-        site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
-        site__id_zhuzxself : ${{secrets.SITE__ID_ZHUZXSELF}}
-        list__id_secret : ${{secrets.LIST__ID_SECRET}}
-        item_id : ${{secrets.ITEM_ID}}
-        team_id_zhuzxself : ${{secrets.team_id_zhuzxself}}
-        channel_id_Notification : ${{secrets.channel_id_Notification}}
-        message_id_Login_Notification : ${{secrets.message_id_Login_Notification}}
-        client_secret : ${{secrets.CLIENT_SECRET}}
-        tenant_id : ${{secrets.TENANT_ID}}
-        scope_list : ${{secrets.CLIENT_ID}}
-        wx_APPID : ${{secrets.WX_APPID}}
-        wx_SECRET : ${{secrets.WX_SECRET}}
-        template_id : ${{secrets.TEMPLATE_ID}}
-        openid : ${{secrets.OPENID}}
-        proxy_add : ${{secrets.PROXY_ADD}}
-        finance_section_id : ${{secrets.FINANCE_SECTION_ID}}
-        username : ${{secrets.USERNAME}}
-        deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
-        git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
-        aliyun_SECRET : ${{secrets.ALIYUN_SECRET}}
-      run: python -u 01.finance-batch-quarterly.py
+        ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+        TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+        ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+      run: python -u finance_batch_personal.py
+
+    - name: Commit rotated refresh token
+      run: |
+        rt="a_cnmas_top/Family-tracker/automation/rt.enc"
+        if ! git diff --quiet -- "$rt"; then
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$rt"
+          git commit -m "chore: rotate OneDrive refresh token [skip ci]"
+          git push
+        else
+          echo "rt.enc unchanged; nothing to commit."
+        fi

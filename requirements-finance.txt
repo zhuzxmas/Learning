@@ -9,3 +9,4 @@ dashscope==1.24.7
 pynacl
 pdf2image
 pillow_heif
+cryptography

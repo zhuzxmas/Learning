@@ -13,7 +13,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: onedrive-summary
+  # Shared with the finance-quarterly workflow so the two never run
+  # simultaneously and clobber the shared rt.enc refresh token.
+  group: onedrive-token
   cancel-in-progress: false
 
 jobs:

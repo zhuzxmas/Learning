@@ -45,30 +45,38 @@ if os.path.exists('./config.cfg'):
 
 
 else:  # to get this info from Github Secrets, for Github Action running application
-    client_id = os.environ['client_id']
-    site__id_personal_z = os.environ['site__id_personal_z']
-    site__id_cmmas = os.environ['site__id_cmmas']
-    site__id_zhuzxself = os.environ['site__id_zhuzxself']
-    list__id_secret = os.environ['list__id_secret']
-    item_id = os.environ['item_id']
-    team_id_zhuzxself = os.environ['team_id_zhuzxself']
-    channel_id_Notification = os.environ['channel_id_Notification']
-    message_id_Login_Notification = os.environ['message_id_Login_Notification']
-    client_secret = os.environ['client_secret']
-    tenant_id = os.environ['tenant_id']
-    finance_section_id = os.environ['finance_section_id']
-    username = os.environ['username']
-    wx_APPID = os.environ['wx_APPID']
-    wx_SECRET = os.environ['wx_SECRET']
-    template_id = os.environ['template_id']
-    openid = os.environ['openid']
-    proxy_add = os.environ['proxy_add']
-    deeplx_secret_key = os.environ['deeplx_secret_key']
-    aliyun_secret = os.environ['aliyun_SECRET']
+    # NOTE: use .get() (not [ ]) so this module can be imported even when only a
+    # subset of the legacy secrets is present — e.g. the personal-OneDrive stock
+    # batch (finance_batch_personal.py) only supplies the ONEDRIVE_* secrets and
+    # never calls the SharePoint/WeChat helpers below. Functions that actually
+    # need a given value will fail loudly only if/when they are called.
+    client_id = os.environ.get('client_id')
+    site__id_personal_z = os.environ.get('site__id_personal_z')
+    site__id_cmmas = os.environ.get('site__id_cmmas')
+    site__id_zhuzxself = os.environ.get('site__id_zhuzxself')
+    list__id_secret = os.environ.get('list__id_secret')
+    item_id = os.environ.get('item_id')
+    team_id_zhuzxself = os.environ.get('team_id_zhuzxself')
+    channel_id_Notification = os.environ.get('channel_id_Notification')
+    message_id_Login_Notification = os.environ.get('message_id_Login_Notification')
+    client_secret = os.environ.get('client_secret')
+    tenant_id = os.environ.get('tenant_id')
+    finance_section_id = os.environ.get('finance_section_id')
+    username = os.environ.get('username')
+    wx_APPID = os.environ.get('wx_APPID')
+    wx_SECRET = os.environ.get('wx_SECRET')
+    template_id = os.environ.get('template_id')
+    openid = os.environ.get('openid')
+    proxy_add = os.environ.get('proxy_add')
+    deeplx_secret_key = os.environ.get('deeplx_secret_key')
+    aliyun_secret = os.environ.get('aliyun_SECRET')
 
 config.read(['config1.cfg'])  # to get the scopes
-azure_settings_scope = config['azure1']
-scope_list = azure_settings_scope['scope_list'].replace(' ', '').split(',')
+if 'azure1' in config:
+    azure_settings_scope = config['azure1']
+    scope_list = azure_settings_scope['scope_list'].replace(' ', '').split(',')
+else:
+    scope_list = []
 # print( 'Scope List is: ', scope_list, '\n')
 
 proxies = {

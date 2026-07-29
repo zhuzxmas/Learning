@@ -795,6 +795,60 @@ def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
     return price_df
 
 
+def get_stock_price_from_kline_text(kline_text, stock_cn=''):
+    """Parse a manually-downloaded EastMoney kline response into a price DataFrame.
+
+    The EastMoney historical kline host (push2his) is not reliably reachable from
+    cloud / datacenter IPs, so the kline JSONP is downloaded in a browser and
+    saved to OneDrive as ``kline/{code}.txt``. This function takes that raw file
+    text and produces the exact same DataFrame that
+    ``get_stock_price_Raw_Data_EasMon`` used to return from the live API.
+
+    Accepts either the JSONP form ``quote_jp4({...});`` or bare JSON ``{...}``.
+    Returns an empty (correctly-columned) DataFrame if the text is missing/blank
+    or cannot be parsed.
+    """
+    columns = ["日期", "开盘", "收盘", "最高", "最低",
+               "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+    numeric_columns = ["开盘", "收盘", "最高", "最低",
+                       "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+
+    def _empty():
+        return pd.DataFrame([], columns=columns)
+
+    if not kline_text or not kline_text.strip():
+        print('No kline text supplied for {}; returning empty price frame.\n'.format(stock_cn))
+        return _empty()
+
+    text = kline_text.strip()
+    # Strip an optional JSONP wrapper: callback(...)  ->  ...
+    if '(' in text and text.rfind(')') > text.find('('):
+        start_index = text.find('(') + 1
+        end_index = text.rfind(')')
+        json_data = text[start_index:end_index]
+    else:
+        json_data = text
+
+    try:
+        price_range_raw_data = json.loads(json_data)
+        price_range_raw_data_list = price_range_raw_data['data']['klines']
+    except Exception as e:  # noqa: BLE001
+        print('Could not parse kline text for {} ({}: {}); returning empty frame.\n'.format(
+            stock_cn, type(e).__name__, e))
+        return _empty()
+
+    if not price_range_raw_data_list:
+        print('Kline text for {} contained no klines; returning empty frame.\n'.format(stock_cn))
+        return _empty()
+
+    parsed_data = [line.split(",") for line in price_range_raw_data_list]
+    price_df = pd.DataFrame(parsed_data, columns=columns)
+    price_df[numeric_columns] = price_df[numeric_columns].apply(pd.to_numeric)
+    price_df['日期'] = pd.to_datetime(price_df['日期'])
+    print('Parsed {} kline rows for {} from saved file.\n'.format(len(price_df), stock_cn))
+    return price_df
+
+
 def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
     # Generate a random UUID (version 4)
     random_uuid = uuid.uuid4()
