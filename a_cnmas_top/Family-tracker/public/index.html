@@ -595,7 +595,19 @@
             <label for="sbtSelect">股票</label>
             <select id="sbtSelect"></select>
             <button type="button" class="btn btn-ghost" id="sbtReloadBtn">刷新</button>
+            <button type="button" class="btn btn-ghost" id="sbtSettingsBtn">设置</button>
             <span id="sbtRecordCount" class="muted"></span>
+          </div>
+          <div id="sbtSettings" class="hidden sbt-settings">
+            <div class="sbt-settings-head">
+              <h3>股票清单设置</h3>
+              <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
+            </div>
+            <p class="muted sbt-settings-hint">
+              添加后请先按下载说明取得该股的 kline 数据上传 OneDrive，再点该股「更新」触发个股批处理。
+              删除会同时移除该股的展示数据（output），kline/history 文件保留。
+            </p>
+            <div id="sbtCodeList"></div>
           </div>
           <div id="sbtSummaryWrap">
             <h2>汇总</h2>

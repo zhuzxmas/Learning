@@ -47,6 +47,10 @@ jobs:
         ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
         TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
         ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+        # When triggered for a single stock via repository_dispatch
+        # (finance-batch-stock-event), client_payload.stock limits the run to
+        # that code. Empty on schedule/manual runs -> whole stock_list.csv.
+        STOCK_ONLY: ${{ github.event.client_payload.stock }}
       run: python -u finance_batch_personal.py
 
     - name: Commit rotated refresh token

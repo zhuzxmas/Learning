@@ -12,6 +12,10 @@
  *   2. Click "Edit code", DELETE the sample, PASTE this whole file, Deploy.
  *   3. Settings -> Variables -> "Add variable" under *Secrets*:
  *        Name:  DEEPSEEK_API_KEY   Value: <your DeepSeek API key>   (Encrypt)
+ *        Name:  GH_DISPATCH_TOKEN  Value: <GitHub fine-grained PAT>  (Encrypt)
+ *          (PAT scope: repo zhuzxmas/Learning, Contents: Read and write —
+ *           this also authorizes repository_dispatch. Used by POST /trigger-stock
+ *           to kick off the single-stock finance batch.)
  *   4. Settings -> Triggers -> Custom Domains -> Add  ->  api.cnmas.top
  *        (Cloudflare must be managing the cnmas.top DNS zone.)
  *   5. Done. The SPA talks to https://api.cnmas.top .
@@ -49,6 +53,12 @@ function corsHeaders(origin) {
     "Vary": "Origin",
   };
 }
+
+// GitHub repository_dispatch config for the single-stock finance batch trigger.
+// GH_DISPATCH_TOKEN (a fine-grained PAT with Contents:write on this repo, which
+// also authorizes dispatch) must be set as an encrypted Worker secret.
+const GH_DISPATCH_REPO = "zhuzxmas/Learning";
+const GH_DISPATCH_EVENT = "finance-batch-stock-event";
 
 function jsonError(status, message, origin) {
   return new Response(JSON.stringify({ error: message }), {
@@ -96,6 +106,46 @@ export default {
     const email = await authorize(token);
     if (!email) {
       return jsonError(403, "未授权：此账号无权使用 AI 对话。", origin);
+    }
+
+    // -------- Single-stock finance-batch trigger (GitHub repository_dispatch) --------
+    if (new URL(request.url).pathname === "/trigger-stock") {
+      let body;
+      try { body = await request.json(); } catch { body = null; }
+      const stock = body && String(body.stock || "").replace(/\D/g, "");
+      if (!stock || stock.length !== 6) {
+        return jsonError(400, "缺少合法的 6 位股票代码。", origin);
+      }
+      if (!env.GH_DISPATCH_TOKEN) {
+        return jsonError(500, "服务端未配置 GH_DISPATCH_TOKEN。", origin);
+      }
+      let gh;
+      try {
+        gh = await fetch(`https://api.github.com/repos/${GH_DISPATCH_REPO}/dispatches`, {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + env.GH_DISPATCH_TOKEN,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "family-tracker-worker",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          body: JSON.stringify({
+            event_type: GH_DISPATCH_EVENT,
+            client_payload: { stock },
+          }),
+        });
+      } catch (e) {
+        return jsonError(502, "无法连接 GitHub：" + ((e && e.message) || e), origin);
+      }
+      if (gh.status !== 204) {
+        let detail = ""; try { detail = await gh.text(); } catch {}
+        return jsonError(502, "GitHub 触发失败 " + gh.status + (detail ? "：" + detail.slice(0, 300) : ""), origin);
+      }
+      return new Response(JSON.stringify({ ok: true, stock }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      });
     }
 
     // Read the chat request body from the browser.

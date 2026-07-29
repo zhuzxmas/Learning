@@ -313,6 +313,10 @@ const els = {
   stocksApp: $("stocksApp"),
   sbtSelect: $("sbtSelect"),
   sbtReloadBtn: $("sbtReloadBtn"),
+  sbtSettingsBtn: $("sbtSettingsBtn"),
+  sbtSettings: $("sbtSettings"),
+  sbtAddBtn: $("sbtAddBtn"),
+  sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
   sbtSummaryBody: $("sbtSummaryBody"),
   sbtDetailCard: $("sbtDetailCard"),
@@ -2731,9 +2735,11 @@ function incSwitchTab(name) {
    finance_batch_personal.py) via Graph, using the signed-in account's own
    OneDrive (same account that owns the folder). */
 const SBT_FOLDER_PATH = "/Apps/StockBatchTracker";
+const SBT_TRIGGER_URL = CHAT_API_URL + "/trigger-stock";  // Worker endpoint -> GitHub dispatch
 let sbtLoaded = false;         // one-time load guard
 let sbtSummary = [];           // parsed _summary.json (list of records)
 let sbtStocks = {};            // code -> parsed output/{code}.json
+let sbtCodes = [];             // raw codes from stock_list.csv (settings editor)
 
 function sbtFolderBase() {
   const p = SBT_FOLDER_PATH.replace(/^\/+/, "");
@@ -2876,6 +2882,158 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
+  els.sbtSettingsBtn.onclick = async () => {
+    const willShow = els.sbtSettings.classList.contains("hidden");
+    els.sbtSettings.classList.toggle("hidden", !willShow);
+    if (willShow) {
+      try { await sbtLoadStockList(); }
+      catch (e) { setStatus("载入股票清单失败：" + (e.message || e), "error"); }
+    }
+  };
+  els.sbtAddBtn.onclick = sbtAddStock;
+}
+
+/* ---- settings: read/write stock_list.csv + trigger single-stock action --- */
+
+// Normalize a raw 6-digit code to the {code}.SH/.SZ form used for files.
+function sbtCodeToCn(raw) {
+  const code = String(raw).replace(/\D/g, "").padStart(6, "0");
+  if (code.length !== 6) return null;
+  return code[0] === "6" ? code + ".SH" : code + ".SZ";
+}
+
+// Read stock_list.csv -> array of raw code strings (BOM/header tolerant).
+async function sbtReadStockList(token) {
+  const url = `${sbtFolderBase()}/stock_list.csv:/content`;
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error("读取 stock_list.csv 失败：" + res.status);
+  let text = await res.text();
+  text = text.replace(/^\ufeff/, "");
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const codes = [];
+  for (const line of lines) {
+    // first CSV column, strip quotes/spaces
+    let first = line.split(",")[0].replace(/^"|"$/g, "").trim();
+    if (!first) continue;
+    if (/^title$/i.test(first)) continue;          // header row
+    codes.push(first.replace(/\s/g, ""));
+  }
+  return codes;
+}
+
+// Write the code array back as CSV (header + one code per line).
+async function sbtWriteStockList(token, codes) {
+  const url = `${sbtFolderBase()}/stock_list.csv:/content`;
+  const body = '"Title","Modified"\n' + codes.map((c) => `${c},`).join("\n") + "\n";
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "text/csv" },
+    body,
+  });
+  if (!res.ok) throw new Error("写入 stock_list.csv 失败：" + res.status + " " + (await res.text()));
+}
+
+// Delete a file under the StockBatchTracker folder (ignore 404).
+async function sbtDeleteFile(token, relPath) {
+  const url = `${sbtFolderBase()}/${relPath}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer " + token },
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error("删除 " + relPath + " 失败：" + res.status);
+  }
+}
+
+async function sbtLoadStockList() {
+  const token = await getToken();
+  sbtCodes = await sbtReadStockList(token);
+  sbtRenderSettings();
+}
+
+function sbtRenderSettings() {
+  const c = els.sbtCodeList;
+  c.innerHTML = "";
+  if (!sbtCodes.length) {
+    c.innerHTML = '<p class="muted">清单为空。</p>';
+    return;
+  }
+  for (const code of sbtCodes) {
+    const cn = sbtCodeToCn(code) || code;
+    const nm = (sbtStocks[cn] && sbtStocks[cn].stock_name) || "";
+    const row = document.createElement("div");
+    row.className = "sbt-code-row";
+    const span = document.createElement("span");
+    span.className = "sbt-code-label";
+    span.textContent = nm ? `${code}  ${nm}` : code;
+    const upd = document.createElement("button");
+    upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
+    upd.onclick = () => sbtUpdateStock(code);
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
+    del.onclick = () => sbtRemoveStock(code);
+    row.appendChild(span); row.appendChild(upd); row.appendChild(del);
+    c.appendChild(row);
+  }
+}
+
+async function sbtAddStock() {
+  const raw = (prompt("输入股票代码（6 位数字，如 600519）：") || "").trim();
+  if (!raw) return;
+  const code = raw.replace(/\D/g, "").padStart(6, "0");
+  if (code.length !== 6) { setStatus("代码格式不对，应为 6 位数字。", "error"); return; }
+  if (sbtCodes.includes(code)) { setStatus("该股票已在清单中。", "warn"); return; }
+  try {
+    const token = await getToken();
+    const next = sbtCodes.concat([code]);
+    await sbtWriteStockList(token, next);
+    sbtCodes = next;
+    sbtRenderSettings();
+    setStatus(`已加入清单：${code}。请先下载该股 kline，再点「更新」触发个股批处理。`, "success", 8000);
+  } catch (e) {
+    setStatus("添加失败：" + (e.message || e), "error");
+  }
+}
+
+async function sbtUpdateStock(code) {
+  if (!confirm(`触发个股批处理更新 ${code}？\n（请确认已下载该股 kline 数据）`)) return;
+  try {
+    const token = await getToken();
+    const res = await fetch(SBT_TRIGGER_URL, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: code }),
+    });
+    if (!res.ok) {
+      let d = ""; try { d = (await res.json()).error || ""; } catch {}
+      throw new Error(res.status + (d ? "：" + d : ""));
+    }
+    setStatus(`已提交 ${code} 的更新任务，几分钟后点「刷新」查看。`, "success", 8000);
+  } catch (e) {
+    setStatus("触发更新失败：" + (e.message || e), "error");
+  }
+}
+
+async function sbtRemoveStock(code) {
+  if (!confirm(`确定删除 ${code}？将从清单移除，并删除其展示数据。`)) return;
+  try {
+    const token = await getToken();
+    const next = sbtCodes.filter((c) => c !== code);
+    await sbtWriteStockList(token, next);
+    sbtCodes = next;
+    const cn = sbtCodeToCn(code);
+    if (cn) {
+      await sbtDeleteFile(token, "output/" + cn + ".json");
+      await sbtDeleteFile(token, "output/" + cn + ".html");
+      delete sbtStocks[cn];
+    }
+    sbtRenderSettings();
+    sbtPopulateSelect();
+    setStatus(`已删除 ${code}。`, "success", 5000);
+  } catch (e) {
+    setStatus("删除失败：" + (e.message || e), "error");
+  }
 }
 
 /* --------------------------- Mode switch --------------------------------- */
