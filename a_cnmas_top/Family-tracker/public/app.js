@@ -2738,7 +2738,8 @@ const SBT_FOLDER_PATH = "/Apps/StockBatchTracker";
 const SBT_TRIGGER_URL = CHAT_API_URL + "/trigger-stock";  // Worker endpoint -> GitHub dispatch
 let sbtLoaded = false;         // one-time load guard
 let sbtSummary = [];           // parsed _summary.json (list of records)
-let sbtStocks = {};            // code -> parsed output/{code}.json
+let sbtStocks = {};            // code -> parsed output/{code}.json (in-memory cache)
+let sbtFiles = {};             // code -> { name, lastModified } from output listing
 let sbtCodes = [];             // raw codes from stock_list.csv (settings editor)
 
 function sbtFolderBase() {
@@ -2773,25 +2774,56 @@ async function sbtLoad(force) {
   // Summary (optional; the per-stock files are the source of truth).
   sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
 
-  // Per-stock output files.
+  // List per-stock output files, but DON'T download them all — we lazy-load
+  // each stock's JSON only when it's selected, and cache it locally.
   const files = await sbtListOutputs(token);
-  sbtStocks = {};
+  sbtFiles = {};
   for (const f of files) {
-    if (/^_/.test(f.name)) continue;           // skip _summary.json etc.
-    const data = await sbtReadJson(token, "output/" + f.name);
-    if (data && data.stock_cn) sbtStocks[data.stock_cn] = data;
+    if (/^_/.test(f.name)) continue;             // skip _summary.json etc.
+    const cn = f.name.replace(/\.json$/i, "");
+    sbtFiles[cn] = { name: f.name, lastModified: f.lastModifiedDateTime || "" };
   }
+  if (force) sbtStocks = {};                      // drop in-memory cache on manual refresh
 
   sbtLoaded = true;
-  sbtPopulateSelect();
+  sbtPopulateSelect();                            // lazy-loads the selected stock only
   sbtRenderSummary();
-  const n = Object.keys(sbtStocks).length;
+  const n = Object.keys(sbtFiles).length;
   els.sbtRecordCount.textContent = n ? `${n} 只股票` : "";
-  setStatus(n ? `已载入 ${n} 只股票的基本面数据。` : "未找到 output/*.json。", n ? "success" : "error", 4000);
+  setStatus(n ? `已载入 ${n} 只股票（按需加载明细）。` : "未找到 output/*.json。", n ? "success" : "error", 4000);
+}
+
+// Lazy-load one stock's JSON, using a localStorage cache keyed by the file's
+// lastModified (so a re-run of the batch auto-invalidates the stale copy).
+async function sbtLoadStock(code) {
+  if (sbtStocks[code]) return sbtStocks[code];
+  const meta = sbtFiles[code];
+  if (!meta) return null;
+  const cacheKey = "sbt:" + meta.name;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (obj && obj.lm === meta.lastModified && obj.data) {
+        sbtStocks[code] = obj.data;
+        return obj.data;
+      }
+    }
+  } catch { /* ignore cache read errors */ }
+  setStatus(`正在载入 ${code} 明细…`, "info");
+  const token = await getToken();
+  const data = await sbtReadJson(token, "output/" + meta.name);
+  if (data) {
+    sbtStocks[code] = data;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ lm: meta.lastModified, data }));
+    } catch { /* quota/full — cache is best-effort */ }
+  }
+  return data;
 }
 
 function sbtPopulateSelect() {
-  const codes = Object.keys(sbtStocks).sort();
+  const codes = Object.keys(sbtFiles).sort();
   const prev = els.sbtSelect.value;
   els.sbtSelect.innerHTML = "";
   for (const code of codes) {
@@ -2803,7 +2835,8 @@ function sbtPopulateSelect() {
   }
   if (codes.length) {
     els.sbtSelect.value = codes.includes(prev) ? prev : codes[0];
-    sbtRenderDetail(els.sbtSelect.value);
+    sbtRenderDetail(els.sbtSelect.value).catch((e) =>
+      setStatus("载入明细失败：" + (e.message || e), "error"));
   } else {
     els.sbtDetailCard.classList.add("hidden");
   }
@@ -2820,12 +2853,19 @@ function sbtRenderSummary() {
   ).join("");
 }
 
-function sbtRenderDetail(code) {
-  const d = sbtStocks[code];
+async function sbtRenderDetail(code) {
+  if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
+  const d = await sbtLoadStock(code);
   if (!d) { els.sbtDetailCard.classList.add("hidden"); return; }
   els.sbtDetailCard.classList.remove("hidden");
   els.sbtDetailTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`;
   els.sbtGenerated.textContent = d.generated ? "生成时间: " + d.generated : "";
+
+  // Now that the name is known, enrich the dropdown option label.
+  if (d.stock_name) {
+    const opt = Array.from(els.sbtSelect.options).find((o) => o.value === code);
+    if (opt && !/\s/.test(opt.textContent.trim())) opt.textContent = `${code} ${d.stock_name}`;
+  }
 
   // Checks.
   const checks = d.checks || {};
@@ -2877,7 +2917,8 @@ function sbtRenderDetail(code) {
 }
 
 function sbtWireEvents() {
-  els.sbtSelect.onchange = () => sbtRenderDetail(els.sbtSelect.value);
+  els.sbtSelect.onchange = () => sbtRenderDetail(els.sbtSelect.value).catch((e) =>
+    setStatus("载入明细失败：" + (e.message || e), "error"));
   els.sbtReloadBtn.onclick = async () => {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
@@ -2900,6 +2941,23 @@ function sbtCodeToCn(raw) {
   const code = String(raw).replace(/\D/g, "").padStart(6, "0");
   if (code.length !== 6) return null;
   return code[0] === "6" ? code + ".SH" : code + ".SZ";
+}
+
+// Build the EastMoney kline download URL for a 6-digit code (mirrors
+// kline_manifest.build_kline_url). Open in a browser, then Save Page As
+// {code}.SH/.SZ.txt into the kline/ folder. push2his is unreachable from the
+// cloud, so this download stays manual — but the link needs no Python now.
+function sbtKlineUrl(raw) {
+  const code = String(raw).replace(/\D/g, "").padStart(6, "0");
+  if (code.length !== 6) return null;
+  const mkt = code[0] === "6" ? 1 : 0;
+  const d = new Date();
+  const end = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  return "https://push2his.eastmoney.com/api/qt/stock/kline/get" +
+    `?secid=${mkt}.${code}` +
+    "&fields1=f1,f2,f3,f4,f5,f6" +
+    "&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61" +
+    `&klt=101&fqt=1&end=${end}&lmt=1800&cb=quote_jp4`;
 }
 
 // Read stock_list.csv -> array of raw code strings (BOM/header tolerant).
@@ -2967,13 +3025,19 @@ function sbtRenderSettings() {
     const span = document.createElement("span");
     span.className = "sbt-code-label";
     span.textContent = nm ? `${code}  ${nm}` : code;
+    const kl = document.createElement("a");
+    kl.className = "sbt-kline-link";
+    kl.href = sbtKlineUrl(code) || "#";
+    kl.target = "_blank"; kl.rel = "noopener";
+    kl.textContent = "下载 kline";
+    kl.title = `点开后「网页另存为」${cn}.txt 到 kline/ 文件夹`;
     const upd = document.createElement("button");
     upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
     upd.onclick = () => sbtUpdateStock(code);
     const del = document.createElement("button");
     del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
     del.onclick = () => sbtRemoveStock(code);
-    row.appendChild(span); row.appendChild(upd); row.appendChild(del);
+    row.appendChild(span); row.appendChild(kl); row.appendChild(upd); row.appendChild(del);
     c.appendChild(row);
   }
 }
@@ -2990,7 +3054,7 @@ async function sbtAddStock() {
     await sbtWriteStockList(token, next);
     sbtCodes = next;
     sbtRenderSettings();
-    setStatus(`已加入清单：${code}。请先下载该股 kline，再点「更新」触发个股批处理。`, "success", 8000);
+    setStatus(`已加入清单：${code}。请点该行「下载 kline」另存为后，再点「更新」触发个股批处理。`, "success", 8000);
   } catch (e) {
     setStatus("添加失败：" + (e.message || e), "error");
   }
@@ -3027,6 +3091,8 @@ async function sbtRemoveStock(code) {
       await sbtDeleteFile(token, "output/" + cn + ".json");
       await sbtDeleteFile(token, "output/" + cn + ".html");
       delete sbtStocks[cn];
+      delete sbtFiles[cn];
+      try { localStorage.removeItem("sbt:" + cn + ".json"); } catch { /* ignore */ }
     }
     sbtRenderSettings();
     sbtPopulateSelect();

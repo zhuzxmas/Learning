@@ -11,9 +11,12 @@
 2. **添加股票**：点「＋ 添加股票」，输入 6 位代码（如 `600519`）→ 自动写入
    OneDrive 的 `Apps/StockBatchTracker/stock_list.csv`
    - 沪/深自动判断：6 开头→上海 `.SH`，其它→深圳 `.SZ`
-3. **下载该股 kline**：按 [`KLINE_UPDATE.md`](./KLINE_UPDATE.md) 生成清单、浏览器
-   下载 `{code}.txt` 上传到 `Apps/StockBatchTracker/kline/`
-4. **更新个股**：回设置面板，点该股的「更新」→ 触发一次只跑这只股票的批处理
+3. **下载该股 kline**：添加后该股会出现在设置列表里，直接点该行的
+   **「下载 kline」** 链接（浏览器新标签打开 EastMoney）→ **网页另存为**
+   `{code}.SH/.SZ.txt` 到 `Apps/StockBatchTracker/kline/`
+   - 链接由前端直接生成，单只股票**无需**再跑 `kline_manifest.py`
+   - 批量刷新价格时仍可用 `python kline_manifest.py --all`（见 `KLINE_UPDATE.md`）
+4. **更新个股**：点该股的「更新」→ 触发一次只跑这只股票的批处理
 5. 几分钟后点面板外的「刷新」→ 新股（含价格区间）出现在页面
 
 - **删除股票**：点该行「删除」并确认 → 从 `stock_list.csv` 移除，并删除它的
@@ -21,6 +24,9 @@
 
 > 说明：报表和分红是批处理运行时**云端实时抓取**的；只有 kline 价格需要你手动下载。
 > 所以「添加」后一定要先下载 kline，再点「更新」，否则该股只有报表/分红、没有价格。
+>
+> 展示优化：页面默认**只下载当前选中那只股票**的明细，切换下拉框选其它股票时
+> 才按需下载，并在浏览器本地缓存（localStorage，按文件修改时间自动失效）。
 
 ---
 

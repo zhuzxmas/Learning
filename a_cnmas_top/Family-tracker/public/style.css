@@ -1096,5 +1096,10 @@ td:nth-child(6) {
 }
 .sbt-code-row .sbt-code-label { flex: 1; font-family: monospace; }
 .sbt-code-row .btn-mini { flex: 0 0 auto; }
+.sbt-code-row .sbt-kline-link {
+  flex: 0 0 auto; font-size: 12px; white-space: nowrap;
+  color: #1a73e8; text-decoration: none;
+}
+.sbt-code-row .sbt-kline-link:hover { text-decoration: underline; }
 
 

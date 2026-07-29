@@ -21,6 +21,10 @@ LMT=1800 python kline_manifest.py  # 可选：控制取多少天，默认 1800
 
 #### 例：新增一只股票（如 贵州茅台 600519）
 
+> 最简单的方式是在 **a.cnmas.top →「股票基本面」→ 设置** 里点「＋ 添加股票」，
+> 然后直接点该股行的 **「下载 kline」** 链接下载——前端会自动生成链接，
+> **无需**再跑本脚本。下面是命令行方式，适合批量或无浏览器界面的场景。
+
 1. 先在 OneDrive 的 `Apps/StockBatchTracker/stock_list.csv` 末尾加一行代码：
 
    ```
@@ -71,7 +75,8 @@ LMT=1800 python kline_manifest.py  # 可选：控制取多少天，默认 1800
 
 | 场景 | 操作 |
 |------|------|
-| 新增股票 | `python kline_manifest.py`（不加 `--all`），只补新股 |
+| 新增单只股票 | a.cnmas.top 设置里「添加」后点该行「下载 kline」，无需脚本 |
+| 新增股票（命令行） | `python kline_manifest.py`（不加 `--all`），只补新股 |
 | 刷新股价到最近 | `python kline_manifest.py --all`，重下全部 |
 | 财务报表 / 分红 | 无需手动，云端实时抓取 |
 
