@@ -19,6 +19,41 @@ LMT=1800 python kline_manifest.py  # 可选：控制取多少天，默认 1800
 - `kline/_manifest.html` — 可点击的下载链接，每条都标注了要保存的文件名
 - `kline/_manifest.csv`  — code,filename,url（备查/脚本用）
 
+#### 例：新增一只股票（如 贵州茅台 600519）
+
+1. 先在 OneDrive 的 `Apps/StockBatchTracker/stock_list.csv` 末尾加一行代码：
+
+   ```
+   "Title","Modified"
+   603259
+   ...（原有的股票）...
+   600519      ← 新增这一行，只填 6 位代码
+   ```
+   > 脚本自动判断沪/深：6 开头→上海 .SH，其它→深圳 .SZ。
+
+2. 直接运行（不加 `--all`），脚本会自动识别"csv 里有、kline 里没有"的新股：
+
+   ```bash
+   python kline_manifest.py
+   ```
+
+   输出只会列出新股一条：
+
+   ```
+   Loaded 35 stock codes from stock_list.csv.
+   Found 34 existing kline files.
+
+   1 kline file(s) to download (end=20260729, lmt=1800):
+
+     600519.SH.txt
+       https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.600519&...
+   ```
+
+3. 打开 `kline/_manifest.html`，只下载这一条，另存为 `600519.SH.txt` 上传到 `kline/`。
+
+> 注意：命令里**不需要**输入股票代码；代码是加在 `stock_list.csv` 里的，
+> 脚本靠对比自动找出新股。
+
 ### 2. 浏览器里逐个下载
 
 1. 打开 OneDrive 里的 `kline/_manifest.html`
