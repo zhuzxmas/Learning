@@ -429,6 +429,11 @@ def calc_fcf_direct(df):
 
 def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
+    # Pre-bind so the bare-except fallback never returns undefined names.
+    stock_output_y = None
+    stock_name_from_year_income = ''
+    dps_map = {}
+
     url_easmon_income = url[0]
     url_easmon_balance = url[1]
 
@@ -629,6 +634,19 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
                                    stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
+        # HK STD_REPORT_DATE columns come as '2025-12-31 00:00:00'; truncate to
+        # the plain 'YYYY-MM-DD' report period used everywhere downstream.
+        stock_output_y.columns = [str(c)[:10] for c in stock_output_y.columns]
+
+        # Per-share cash dividend (HKD) lives on the main indicator report as
+        # DPS_HKD; keep a {period -> value} map for the dividend-row builder.
+        try:
+            if 'DPS_HKD' in df_income_stock.columns:
+                for idx, val in df_income_stock['DPS_HKD'].items():
+                    dps_map[str(idx)[:10]] = val
+        except Exception:  # noqa: BLE001
+            pass
+
         print('---------The Output Financial Report for this Stock is -----------: \n')
         print(f'{list(stock_output_y.columns)}')
         print('You Need to save the notice date to OneDrive [H01423]-abc.xlsx with [Notice_Date] and [Report_Title].\n')
@@ -641,9 +659,51 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         # # df_income_stock.T.to_excel('00.in.xlsx',encoding='utf-8')
         # # df_cash_flow.T.to_excel('00.ca.xlsx',encoding='utf-8')
         # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
-    except:
-        print('Data is not available for {} in EasMon.\n'.format(stock_hk))
-    return [stock_output_y, stock_name_from_year_income]
+    except Exception as _e:  # noqa: BLE001
+        print('Data is not available for {} in EasMon ({}).\n'.format(stock_hk, _e))
+    return [stock_output_y, stock_name_from_year_income, dps_map]
+
+
+def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
+    """Fetch HK dividend *plan descriptions* from EastMoney's F10 endpoint.
+
+    Unlike the A-share ``RPT_SHAREBONUS_DET`` feed, ``RPT_HKF10_INFO_DIVIDEND``
+    only carries a textual ``PLAN_EXPLAIN`` (e.g. "特别分配 ...") plus period
+    metadata — no numeric per-share amount (that comes from DPS_HKD on the main
+    indicator report). It also only exists for years the company actually paid.
+
+    Returns a list of dicts ``{'year': '2020', 'plan': '...'}`` (possibly empty).
+    Never raises — a missing/empty feed just yields ``[]``.
+    """
+    string_v = generate_random_string(17)
+    url = ('https://dat{}nter.eas{}ney.com/securities/api/data/v1/get'
+           '?reportName=RPT_HKF10_INFO_DIVIDEND&columns=ALL&quoteColumns='
+           '&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=50'
+           '&sortTypes=-1&sortColumns=NOTICE_DATE&source=F10&client=PC&v={}'
+           ).format('ace', 'tmo', stock_hk, string_v)
+    try:
+        try:
+            resp = requests.get(url, headers=headers_easmon)
+        except Exception:  # noqa: BLE001
+            resp = requests.get(url, headers=headers_easmon, proxies=proxies)
+        if resp.status_code != 200:
+            print('Failed to retrieve HK dividend data for {}: {}\n'.format(
+                stock_hk, resp.status_code))
+            return []
+        data = resp.json().get('result')
+        if not data or not data.get('data'):
+            print('No HK dividend records for {}.\n'.format(stock_hk))
+            return []
+        out = []
+        for rec in data['data']:
+            period = rec.get('ASSIGN_PERIOD') or rec.get('REPORT_DATE') or ''
+            year = str(period)[:4]
+            plan = rec.get('PLAN_EXPLAIN')
+            out.append({'year': year, 'plan': plan})
+        return out
+    except Exception as e:  # noqa: BLE001
+        print('HK dividend fetch failed for {} ({}); treating as none.\n'.format(stock_hk, e))
+        return []
 
 ################# to get the stock price for each year #####################################
 
@@ -857,7 +917,8 @@ def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
     # print('ut string used is: {}\n'.format(ut_string))
 
     stock_mkt = '116'
-    stock_number = stock_hk[0][1:]
+    # stock_hk is like '01548.HK' -> secid code is the part before '.HK' ('01548').
+    stock_number = str(stock_hk).split('.')[0]
 
     headers_easmon_price_range = {
         'Host': 'push2his.eas{}ney.com'.format('tmo'),

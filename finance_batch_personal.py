@@ -28,9 +28,11 @@ Local testing (behind the Ford proxy):
 
 import configparser
 import datetime
+import io
 import json
 import os
 import random
+import re
 import sys
 import time
 
@@ -105,6 +107,10 @@ def normalize_stock(code):
     code = str(code).replace(' ', '')
     if code == 'F':
         return 'F', 'F'
+    # Hong Kong: 'H01548' -> strip 'H', zero-pad to 5 digits, append '.HK'.
+    if code[:1] in ('H', 'h') and code[1:].isdigit():
+        hk = code[1:].zfill(5) + '.HK'
+        return hk, hk
     code = code.zfill(6)
     if code[0] == '6':
         return code + '.ss', code + '.SH'
@@ -270,6 +276,158 @@ def process_reports(od, history_names, stock, stock_cn, proxies):
                     print('No seasonly report available as of now for {}.\n'.format(stock_cn))
 
     return stock_output_yearly, stock_output_Seasonly, stock_name
+
+
+# ---- Hong Kong report handling (yearly only) ------------------------------
+def process_reports_hk(od, history_names, stock, proxies):
+    """HK equivalent of process_reports — yearly only, no monthly/seasonly.
+
+    The stored pkl holds ONLY the financial rows (no 'Notice Date' row); the
+    Notice Date row is (re)built each run from the manual xlsx in the batch
+    layer, since HK annual reports carry no disclosure date on EastMoney.
+
+    Returns (stock_output_yearly_or_None, stock_name, dps_map).
+    """
+    dps_map = {}
+    stock_name = ''
+    existing = find_history_name(history_names, stock, '-Y-')
+
+    def _fetch_fresh():
+        url_yearly = z_Func.Year_report_url_HK(day_one=day_one, stock_hk=stock)
+        out = z_Func.report_from_Eas_Mon_HK(url=url_yearly, proxies=proxies, stock_hk=stock)
+        return out[0], out[1], (out[2] if len(out) > 2 else {})
+
+    if existing:
+        cached = od.get_pickle('history/' + existing)
+        try:
+            stock_name = existing.split('-Y-', 1)[1].split('.pkl')[0]
+        except Exception:  # noqa: BLE001
+            pass
+        # Freshness: newest report column within ~365 days of today.
+        try:
+            newest = max(cached.columns)
+            newest_date = datetime.datetime.strptime(str(newest)[:10], '%Y-%m-%d').date()
+            fresh = (day_one - newest_date).days < 365
+        except Exception:  # noqa: BLE001
+            fresh = False
+
+        if fresh:
+            print('~~~ Yearly HK data in OneDrive is up to date for {}.\n'.format(stock))
+            return cached, stock_name, dps_map
+
+        print(':::: Updating Yearly HK data for {} ...\n'.format(stock))
+        fresh_df, fresh_name, dps_map = _fetch_fresh()
+        if fresh_df is None:
+            print('HK fetch returned no data for {}; using cached.\n'.format(stock))
+            return cached, stock_name, dps_map
+        stock_name = fresh_name or stock_name
+        df_merged = cached.copy()
+        df_merged.update(fresh_df)
+        new_cols = fresh_df.columns.difference(df_merged.columns)
+        if len(new_cols) > 0:
+            df_merged = pd.concat([df_merged, fresh_df[new_cols]], axis=1)
+        sorted_cols = pd.to_datetime(df_merged.columns).sort_values(ascending=False)
+        df_final = df_merged[sorted_cols.strftime('%Y-%m-%d')]
+        df_final.loc['每股利润增长率 x 100%'] = pd.to_numeric(
+            df_final.loc['稀释后 每年/季度每股收益 元'], errors='coerce').pct_change(-1).round(2)
+        _save_history(od, stock, stock_name, '-Y-', df_final)
+        return df_final, stock_name, dps_map
+
+    print('No cached yearly HK history for {}; fetching fresh.\n'.format(stock))
+    fresh_df, stock_name, dps_map = _fetch_fresh()
+    if fresh_df is None:
+        return None, stock_name, dps_map
+    _save_history(od, stock, stock_name, '-Y-', fresh_df)
+    return fresh_df, stock_name, dps_map
+
+
+def load_hk_notice_dates(od, stock, columns):
+    """Build the 'Notice Date' row for an HK stock from the manual xlsx.
+
+    Reads history/H{code}_Notice_Date.xlsx (columns Notice_Date + Report_Title,
+    e.g. Report_Title '2024年年报'), aligns each report period column to its
+    disclosure date, and returns a 1-row DataFrame indexed by 'Notice Date'.
+
+    Returns None if the xlsx is missing (caller should skip the stock). Missing
+    per-year rows fall back to the column's own period date so downstream price
+    ranges still compute.
+    """
+    fname = 'history/H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
+    raw = od.get_bytes(fname)
+    if not raw:
+        print('!! {} missing — cannot build Notice Date row for {}; skipping.\n'
+              .format(fname, stock))
+        return None
+    df_nd = pd.read_excel(io.BytesIO(raw))
+    df_nd.columns = [str(c).strip() for c in df_nd.columns]
+    if 'Notice_Date' not in df_nd.columns or 'Report_Title' not in df_nd.columns:
+        print('!! {} lacks Notice_Date/Report_Title columns; skipping {}.\n'
+              .format(fname, stock))
+        return None
+
+    year_to_notice = {}
+    for _, r in df_nd.iterrows():
+        m = re.search(r'(\d{4})', str(r['Report_Title']))
+        if not m:
+            continue
+        year_to_notice[m.group(1)] = str(r['Notice_Date'])[:10]
+
+    row = {}
+    for col in columns:
+        year = str(col)[:4]
+        row[col] = year_to_notice.get(year, str(col)[:10])
+    return pd.DataFrame([row], index=['Notice Date'])
+
+
+def build_dividend_rows_hk(stock_output_yearly, dps_map, plan_records):
+    """HK version of the 3 dividend rows.
+
+      * 每股派发现金股息       = DPS_HKD (HKD; blank when None, e.g. loss-makers)
+      * 每股派发股息           = PLAN_EXPLAIN text(s) matched by report year
+      * 每股派发股息/每股收益 占比 = DPS_HKD / 稀释后 EPS
+    Returns a 3-row DataFrame aligned to the report columns, or None if there is
+    nothing to add.
+    """
+    cols = [c for c in stock_output_yearly.columns]
+    try:
+        eps = pd.to_numeric(
+            stock_output_yearly.loc['稀释后 每年/季度每股收益 元'], errors='coerce')
+    except Exception:  # noqa: BLE001
+        eps = None
+
+    plans_by_year = {}
+    for rec in (plan_records or []):
+        yr = str(rec.get('year', ''))
+        if rec.get('plan'):
+            plans_by_year.setdefault(yr, []).append(str(rec['plan']))
+
+    cash, plans, ratio = {}, {}, {}
+    for col in cols:
+        year = str(col)[:4]
+        raw = (dps_map or {}).get(col)
+        if raw is None:
+            raw = (dps_map or {}).get(str(col)[:10])
+        try:
+            if raw is not None:
+                cash[col] = round(float(raw), 2)
+        except (TypeError, ValueError):
+            pass
+        if year in plans_by_year:
+            plans[col] = '; '.join(plans_by_year[year])
+        if col in cash and eps is not None:
+            ev = eps.get(col)
+            if ev is not None and pd.notna(ev) and ev != 0:
+                ratio[col] = round(cash[col] / ev, 2)
+
+    if not cash and not plans:
+        return None
+
+    rows = pd.DataFrame(index=list(DIVIDEND_ROWS), columns=cols, dtype=object)
+    for col in cols:
+        rows.at['每股派发现金股息', col] = cash.get(col)
+        rows.at['每股派发股息', col] = plans.get(col)
+        rows.at['每股派发股息/每股收益 占比', col] = ratio.get(col)
+    return rows
 
 
 def _save_history(od, stock, stock_name, marker, df_data):
@@ -518,6 +676,88 @@ def main():
 
         if stock == 'F':
             print('Ford (F) is not handled in the personal-OneDrive batch yet; skipping.\n')
+            continue
+
+        # ---- Hong Kong branch (yearly only, live price, xlsx Notice Date) ----
+        if str(stock).endswith('.HK'):
+            try:
+                stock_output_yearly, stock_name, dps_map = process_reports_hk(
+                    od, history_names, stock, proxies)
+            except Exception as e:  # noqa: BLE001
+                print('HK report processing failed for {} ({}: {}); skipping.\n'.format(
+                    stock, type(e).__name__, e))
+                continue
+            if stock_output_yearly is None:
+                print('No yearly HK data for {}; skipping.\n'.format(stock))
+                continue
+
+            # Notice Date row from the manual xlsx (required for price ranges).
+            notice_row = load_hk_notice_dates(od, stock, list(stock_output_yearly.columns))
+            if notice_row is None:
+                continue  # xlsx missing -> skip this stock (warning already printed)
+            # Drop any stale Notice Date row, then prepend the fresh one on top.
+            if 'Notice Date' in stock_output_yearly.index:
+                stock_output_yearly = stock_output_yearly.drop(index='Notice Date')
+            stock_output_yearly = pd.concat([notice_row, stock_output_yearly], axis=0)
+
+            # HK dividends: textual plans + DPS-based numeric rows.
+            plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
+            div_rows = build_dividend_rows_hk(stock_output_yearly, dps_map, plan_records)
+            if div_rows is not None:
+                keep = stock_output_yearly.drop(
+                    index=[r for r in DIVIDEND_ROWS if r in stock_output_yearly.index])
+                stock_output_yearly = pd.concat([keep, div_rows], axis=0)
+            try:
+                _save_history(od, stock, stock_name, '-Y-', stock_output_yearly)
+            except Exception as e:  # noqa: BLE001
+                print('Re-saving HK yearly failed for {} ({}: {}).\n'.format(
+                    stock, type(e).__name__, e))
+
+            dividends_df = None
+            if plan_records:
+                dividends_df = pd.DataFrame(plan_records)
+
+            # Live HK price fetch -> yearly price ranges.
+            stock_output_combined = stock_output_yearly
+            last_7_days = None
+            try:
+                stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon_HK(
+                    stock, proxies, limit_number='2000')
+            except Exception as e:  # noqa: BLE001
+                print('HK price fetch failed for {} ({}); no price ranges.\n'.format(stock, e))
+                stock_price_df = pd.DataFrame()
+            if len(stock_price_df) > 0:
+                try:
+                    stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(
+                        stock_price_df=stock_price_df, stock_output=stock_output_yearly,
+                        day_one=day_one)
+                    stock_output_combined = pd.concat(
+                        [stock_output_yearly, stock_price_yearly], axis=0)
+                except Exception as e:  # noqa: BLE001
+                    print('HK price-range build failed for {} ({}).\n'.format(stock, e))
+                try:
+                    last_7_days = z_Func.get_latest_7_days_stock_price_Based_on_EasMon(
+                        stock_price_df=stock_price_df, proxy_add=proxy_add)
+                except Exception:  # noqa: BLE001
+                    last_7_days = None
+
+            checks = evaluate_checks(stock_output_yearly, plan_records or [])
+            summary_rows.append([
+                '{}--{}-{}'.format(iii, stock, stock_name),
+                str(checks['profit'][0]), str(checks['liabilities'][0]),
+                str(checks['dividends'][0])])
+
+            payload = build_output(stock, stock_cn, stock_name, checks,
+                                   stock_output_combined, last_7_days, dividends_df)
+            payload = merge_with_existing(od, stock_cn, payload)
+            od.put_text('output/{}.json'.format(stock_cn),
+                        json.dumps(payload, ensure_ascii=False, indent=2),
+                        content_type='application/json; charset=utf-8')
+            html = render_html(payload, stock_output_combined, dividends_df)
+            od.put_text('output/{}.html'.format(stock_cn), html,
+                        content_type='text/html; charset=utf-8')
+            print('Wrote output/{}.json + .html\n'.format(stock_cn))
+            time.sleep(random.uniform(7, 13))
             continue
 
         try:
