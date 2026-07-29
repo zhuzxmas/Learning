@@ -281,6 +281,89 @@ def _save_history(od, stock, stock_name, marker, df_data):
     print('Saved history/{} to OneDrive.\n'.format(name))
 
 
+# ---- dividend rows (per-year, summed) -------------------------------------
+DIVIDEND_ROWS = ('每股派发现金股息', '每股派发股息', '每股派发股息/每股收益 占比')
+
+
+def build_dividend_rows(stock_output_yearly, stock_0_dividends):
+    """Return a 3-row DataFrame (aligned to the yearly report columns) holding
+    the per-year dividend figures, or None if there is nothing to add.
+
+    Rows (mirrors the legacy 01.finance-dividend-yearly.py, but *summed* when a
+    report year has multiple payout records, e.g. interim + final):
+      * 每股派发现金股息       = Σ PRETAX_BONUS_RMB / 10  (round 2)
+      * 每股派发股息           = the IMPL_PLAN_PROFILE plan texts joined by '; '
+      * 每股派发股息/每股收益 占比 = 每股派发现金股息 / 稀释后 EPS  (round 2)
+    Columns without any matching payout record stay NaN.
+    """
+    if stock_0_dividends is None or len(stock_0_dividends) == 0:
+        return None
+
+    cols = list(stock_output_yearly.columns)
+    try:
+        eps = pd.to_numeric(
+            stock_output_yearly.loc['稀释后 每年/季度每股收益 元'], errors='coerce')
+    except Exception:  # noqa: BLE001
+        eps = None
+
+    cash, plans, ratio = {}, {}, {}
+    for col in cols:
+        recs = [r for r in stock_0_dividends
+                if str(r.get('REPORT_DATE', '')).split(' ')[0] == col]
+        if not recs:
+            continue
+        total_cash = 0.0
+        got_cash = False
+        texts = []
+        for r in recs:
+            raw = r.get('PRETAX_BONUS_RMB')
+            try:
+                total_cash += float(raw) / 10.0
+                got_cash = True
+            except (TypeError, ValueError):
+                pass
+            plan = r.get('IMPL_PLAN_PROFILE')
+            if plan:
+                texts.append(str(plan))
+        if got_cash:
+            cash[col] = round(total_cash, 2)
+        if texts:
+            plans[col] = '; '.join(texts)
+        if got_cash and eps is not None:
+            eps_val = eps.get(col)
+            if eps_val is not None and pd.notna(eps_val) and eps_val != 0:
+                ratio[col] = round(total_cash / eps_val, 2)
+
+    if not cash and not plans:
+        return None
+
+    rows = pd.DataFrame(index=list(DIVIDEND_ROWS), columns=cols, dtype=object)
+    for col in cols:
+        rows.at['每股派发现金股息', col] = cash.get(col)
+        rows.at['每股派发股息', col] = plans.get(col)
+        rows.at['每股派发股息/每股收益 占比', col] = ratio.get(col)
+    return rows
+
+
+def apply_dividend_rows(stock_output_yearly, stock_0_dividends):
+    """Merge the 3 dividend rows into the yearly DataFrame (appended at the
+    bottom, overwriting any existing dividend rows). Returns the DataFrame
+    (unchanged on any failure)."""
+    try:
+        rows = build_dividend_rows(stock_output_yearly, stock_0_dividends)
+        if rows is None:
+            return stock_output_yearly
+        # Drop any pre-existing dividend rows so they land at the bottom in a
+        # stable order, then append the freshly computed ones.
+        keep = stock_output_yearly.drop(
+            index=[r for r in DIVIDEND_ROWS if r in stock_output_yearly.index])
+        return pd.concat([keep, rows], axis=0)
+    except Exception as e:  # noqa: BLE001
+        print('Dividend-row build failed; leaving yearly rows unchanged ({}: {}).\n'
+              .format(type(e).__name__, e))
+        return stock_output_yearly
+
+
 # ---- checks (profit / liabilities / dividends) ----------------------------
 def evaluate_checks(stock_output_yearly, stock_0_dividends):
     checks = {}
@@ -449,6 +532,30 @@ def main():
             print('No yearly data for {}; skipping.\n'.format(stock_cn))
             continue
 
+        # --- dividends (live datacenter host) ---
+        # Fetched up front so the per-year dividend rows can be merged into the
+        # yearly report (and re-saved) before it feeds the kline concat / output.
+        try:
+            stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies)
+        except Exception as e:  # noqa: BLE001
+            print('Dividend fetch failed for {} ({}); treating as none.\n'.format(stock_cn, e))
+            stock_0_dividends = []
+
+        # Recompute the 3 dividend rows every run (all years) and persist them.
+        updated_yearly = apply_dividend_rows(stock_output_yearly, stock_0_dividends)
+        if updated_yearly is not stock_output_yearly:
+            stock_output_yearly = updated_yearly
+            try:
+                _save_history(od, stock, stock_name, '-Y-', stock_output_yearly)
+            except Exception as e:  # noqa: BLE001
+                print('Re-saving yearly with dividend rows failed for {} ({}: {}).\n'
+                      .format(stock_cn, type(e).__name__, e))
+
+        dividends_df = None
+        if len(stock_0_dividends) > 0:
+            dividends_df = pd.DataFrame(stock_0_dividends)[
+                ['REPORT_DATE', 'EQUITY_RECORD_DATE', 'IMPL_PLAN_PROFILE']]
+
         # --- price history from the manually-downloaded kline file ---
         kline_text = od.get_text('kline/{}.txt'.format(stock_cn))
         if kline_text is None:
@@ -475,18 +582,6 @@ def main():
                 stock_price_df=stock_price_df, proxy_add=proxy_add)
         else:
             stock_output_combined = stock_output_yearly
-
-        # --- dividends (live datacenter host) ---
-        try:
-            stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies)
-        except Exception as e:  # noqa: BLE001
-            print('Dividend fetch failed for {} ({}); treating as none.\n'.format(stock_cn, e))
-            stock_0_dividends = []
-
-        dividends_df = None
-        if len(stock_0_dividends) > 0:
-            dividends_df = pd.DataFrame(stock_0_dividends)[
-                ['REPORT_DATE', 'EQUITY_RECORD_DATE', 'IMPL_PLAN_PROFILE']]
 
         checks = evaluate_checks(stock_output_yearly, stock_0_dividends)
         summary_rows.append([
