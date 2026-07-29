@@ -2738,22 +2738,63 @@ function incSwitchTab(name) {
    /me/drive/root:/Apps/StockBatchTracker/output/*.json (written by
    finance_batch_personal.py) via Graph, using the signed-in account's own
    OneDrive (same account that owns the folder). */
-const SBT_FOLDER_PATH = "/Apps/StockBatchTracker";
-const SBT_TRIGGER_URL = CHAT_API_URL + "/trigger-stock";  // Worker endpoint -> GitHub dispatch
-let sbtLoaded = false;         // one-time load guard
-let sbtSummary = [];           // parsed _summary.json (list of records)
-let sbtStocks = {};            // code -> parsed output/{code}.json (in-memory cache)
-let sbtFiles = {};             // code -> { name, lastModified } from output listing
-let sbtCodes = [];             // raw codes from stock_list.csv (settings editor)
-
-function sbtFolderBase() {
-  const p = SBT_FOLDER_PATH.replace(/^\/+/, "");
-  return `${GRAPH}/me/drive/root:/${encodeURI(p)}`;
-}
-
-// List *.json under the output/ subfolder.
-async function sbtListOutputs(token) {
-  const url = `${sbtFolderBase()}/output:/children?$select=name,lastModifiedDateTime&$top=200`;
+ const SBT_FOLDER_PATH = "/Apps/StockBatchTracker";
+ // SHARED-FOLDER MODE: paste the OneDrive share link of the owner's
+ // /Apps/StockBatchTracker folder here so OTHER accounts (e.g. Celine) can
+ // read the batch fundamentals. Leave "" to fall back to the signed-in user's
+ // own OneDrive (owner mode). Write actions (edit list / delete / trigger) stay
+ // owner-only and are hidden for non-owners regardless of this URL.
+ const SBT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgDnmqAG8melSIHDcgh7oDNMAfcU0DzrmSjQJ61eX5dFJp8?email=celine_mas%40outlook.com&e=2eMl0h";
+ const SBT_TRIGGER_URL = CHAT_API_URL + "/trigger-stock";  // Worker endpoint -> GitHub dispatch
+ let sbtLoaded = false;         // one-time load guard
+ let sbtSummary = [];           // parsed _summary.json (list of records)
+ let sbtStocks = {};            // code -> parsed output/{code}.json (in-memory cache)
+ let sbtFiles = {};             // code -> { name, lastModified } from output listing
+ let sbtCodes = [];             // raw codes from stock_list.csv (settings editor)
+ let sbtDriveBase = "";         // resolved /drives/{id}/items/{id} base (shared mode)
+ let sbtOwnRootBase = "";       // resolved /me/drive/root:/... base (owner mode)
+ 
+ // True only for the folder owner — gates all write actions (add/delete/trigger).
+ function sbtCanEdit() {
+   return userEmail() === "zhuzx2006@outlook.com";
+ }
+ 
+ // Resolve the folder base once. In shared mode we address children with the
+ // drive-item form `${base}:/child`; in owner mode with `${base}/child` (base
+ // already ends in `root:/Apps/StockBatchTracker`). sbtChildUrl() hides the
+ // difference so every caller uses one relative-path form.
+ async function sbtResolveFolder(token) {
+   if (sbtDriveBase || sbtOwnRootBase) return;
+   if (!SBT_FOLDER_SHARE_URL) {
+     const p = SBT_FOLDER_PATH.replace(/^\/+/, "");
+     sbtOwnRootBase = `${GRAPH}/me/drive/root:/${encodeURI(p)}`;
+     return;
+   }
+   const sid = encodeShareUrl(SBT_FOLDER_SHARE_URL);
+   const res = await fetch(
+     `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+     { headers: { Authorization: "Bearer " + token } }
+   );
+   if (!res.ok) throw new Error("无法访问股票基本面文件夹：" + res.status + " " + (await res.text()));
+   const item = await res.json();
+   const driveId = item.parentReference && item.parentReference.driveId;
+   sbtDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+ }
+ 
+ // Build a Graph URL for a child path (e.g. "output/_summary.json") + optional
+ // action suffix (e.g. ":/content", ":/children?...", or "" for the item).
+ function sbtChildUrl(rel, suffix) {
+   suffix = suffix || "";
+   const r = rel.replace(/^\/+/, "");
+   if (sbtDriveBase) return `${sbtDriveBase}:/${r}${suffix}`;
+   // owner mode: base ends in `root:/folder`; child join needs a leading `/`.
+   return `${sbtOwnRootBase}/${r}${suffix}`;
+ }
+ 
+ // List *.json under the output/ subfolder.
+ async function sbtListOutputs(token) {
+   await sbtResolveFolder(token);
+   const url = sbtChildUrl("output", ":/children?$select=name,lastModifiedDateTime&$top=200");
   const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
   if (res.status === 404) return [];
   if (!res.ok) throw new Error("无法列出 output 文件夹：" + res.status + " " + (await res.text()));
@@ -2762,16 +2803,18 @@ async function sbtListOutputs(token) {
 }
 
 // Read + parse one JSON file (path relative to the StockBatchTracker folder).
-async function sbtReadJson(token, relPath) {
-  const url = `${sbtFolderBase()}/${relPath}:/content`;
+ async function sbtReadJson(token, relPath) {
+   await sbtResolveFolder(token);
+   const url = sbtChildUrl(relPath, ":/content");
   const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("读取失败 " + relPath + "：" + res.status);
   try { return await res.json(); } catch { return null; }
 }
 
-async function sbtLoad(force) {
-  if (sbtLoaded && !force) { sbtRenderSummary(); return; }
+ async function sbtLoad(force) {
+   sbtApplyPerms();
+   if (sbtLoaded && !force) { sbtRenderSummary(); return; }
   setStatus("正在载入股票基本面数据…", "info");
   const token = await getToken();
 
@@ -2921,8 +2964,9 @@ async function sbtRenderDetail(code) {
   }
 }
 
-function sbtSwitchTab(name) {
-  const tabs = {
+ function sbtSwitchTab(name) {
+   if (name === "settings" && !sbtCanEdit()) name = "detail";
+   const tabs = {
     detail: { panel: els.sbtTabDetail, btn: els.sbtTabDetailBtn },
     summary: { panel: els.sbtTabSummary, btn: els.sbtTabSummaryBtn },
     settings: { panel: els.sbtTabSettings, btn: els.sbtTabSettingsBtn },
@@ -2945,11 +2989,19 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
-  els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
-  els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
-  els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
-  els.sbtAddBtn.onclick = sbtAddStock;
-}
+   els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
+   els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
+   els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
+   els.sbtAddBtn.onclick = sbtAddStock;
+ }
+ 
+ // Read-only vs. owner: hide the write-oriented 设置 tab for non-owners (add /
+ // update-trigger / delete all live there; their /me/drive has no folder anyway).
+ // Called from sbtLoad(), i.e. AFTER sign-in — at boot `account` is still null.
+ function sbtApplyPerms() {
+   if (!els.sbtTabSettingsBtn) return;
+   els.sbtTabSettingsBtn.classList.toggle("hidden", !sbtCanEdit());
+ }
 
 /* ---- settings: read/write stock_list.csv + trigger single-stock action --- */
 
@@ -2978,8 +3030,9 @@ function sbtKlineUrl(raw) {
 }
 
 // Read stock_list.csv -> array of raw code strings (BOM/header tolerant).
-async function sbtReadStockList(token) {
-  const url = `${sbtFolderBase()}/stock_list.csv:/content`;
+ async function sbtReadStockList(token) {
+   await sbtResolveFolder(token);
+   const url = sbtChildUrl("stock_list.csv", ":/content");
   const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
   if (res.status === 404) return [];
   if (!res.ok) throw new Error("读取 stock_list.csv 失败：" + res.status);
@@ -2998,8 +3051,9 @@ async function sbtReadStockList(token) {
 }
 
 // Write the code array back as CSV (header + one code per line).
-async function sbtWriteStockList(token, codes) {
-  const url = `${sbtFolderBase()}/stock_list.csv:/content`;
+ async function sbtWriteStockList(token, codes) {
+   await sbtResolveFolder(token);
+   const url = sbtChildUrl("stock_list.csv", ":/content");
   const body = '"Title","Modified"\n' + codes.map((c) => `${c},`).join("\n") + "\n";
   const res = await fetch(url, {
     method: "PUT",
@@ -3010,8 +3064,9 @@ async function sbtWriteStockList(token, codes) {
 }
 
 // Delete a file under the StockBatchTracker folder (ignore 404).
-async function sbtDeleteFile(token, relPath) {
-  const url = `${sbtFolderBase()}/${relPath}`;
+ async function sbtDeleteFile(token, relPath) {
+   await sbtResolveFolder(token);
+   const url = sbtChildUrl(relPath, "");
   const res = await fetch(url, {
     method: "DELETE",
     headers: { Authorization: "Bearer " + token },
