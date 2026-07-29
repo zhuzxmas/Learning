@@ -420,6 +420,10 @@ def main():
         stock_code = stock_code[:int(limit)]
         print('STOCK_LIMIT -> first {} codes.\n'.format(limit))
 
+    # A partial run (single/limited stocks) must NOT clobber the full summary;
+    # merge its rows into the existing output/_summary.json instead of replacing.
+    partial_run = bool(only) or limit.isdigit()
+
     history_names = [it['name'] for it in od.list_children('history') if 'file' in it]
     print('Found {} existing history files.\n'.format(len(history_names)))
 
@@ -504,8 +508,35 @@ def main():
         time.sleep(random.uniform(7, 13))
 
     # --- summary ---
-    summary_df = pd.DataFrame(
-        summary_rows, columns=['Stock Number', '利润表现好', '流动负债不高', '分红多'])
+    summary_cols = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
+
+    def _summary_key(row):
+        # 'Stock Number' looks like '{iii}--{stock}-{name}', stock e.g. 600875.ss
+        sn = str(row.get('Stock Number', '') if isinstance(row, dict) else row[0])
+        return sn.split('--', 1)[-1].split('-', 1)[0]
+
+    new_rows = [dict(zip(summary_cols, r)) for r in summary_rows]
+
+    if partial_run:
+        # Merge: keep existing rows for stocks we did NOT touch this run, then
+        # add the freshly computed ones (so a single-stock update no longer
+        # wipes the whole summary).
+        existing = od.get_bytes('output/_summary.json')
+        kept = []
+        if existing:
+            try:
+                touched = {_summary_key(r) for r in new_rows}
+                for r in json.loads(existing.decode('utf-8')):
+                    if _summary_key(r) not in touched:
+                        kept.append(r)
+            except Exception as e:  # noqa: BLE001
+                print('WARN: could not merge existing _summary.json ({}); '
+                      'writing only this run\'s rows.\n'.format(e))
+        merged = kept + new_rows
+        summary_df = pd.DataFrame(merged, columns=summary_cols)
+    else:
+        summary_df = pd.DataFrame(summary_rows, columns=summary_cols)
+
     if len(summary_df) > 0:
         summary_df = summary_df.sort_values(
             by=['利润表现好', '流动负债不高', '分红多'], ascending=False)
