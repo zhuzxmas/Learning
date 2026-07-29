@@ -4,3 +4,4 @@ config.cfg
 *.csv
 HUAWEI_HEALTH_20240916201455
 *.pyc
+migrate_apply.log

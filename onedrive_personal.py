@@ -195,6 +195,17 @@ class OneDrivePersonal:
         pickle.dump(obj, buf)
         return self.put_bytes(path, buf.getvalue())
 
+    def delete_path(self, path):
+        """Delete a file or folder (recursively) at APP_ROOT/path.
+
+        Returns True on success (or if already absent), raises on other errors.
+        """
+        r = self._request("DELETE", self._item_url(path))
+        if r.status_code in (204, 404):
+            return True
+        raise RuntimeError(
+            "delete failed (%s): %s %s" % (path, r.status_code, r.text))
+
     def list_children(self, subpath=""):
         """List children (names + ids) of APP_ROOT/subpath; [] if missing."""
         if subpath:
