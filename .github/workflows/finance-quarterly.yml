@@ -61,7 +61,21 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$rt"
           git commit -m "chore: rotate OneDrive refresh token [skip ci]"
-          git push
+          # main may have advanced while the batch ran (other commits). Only
+          # rt.enc is local and no other token-writer runs concurrently (see the
+          # concurrency group), so rebase onto the latest main and retry.
+          pushed=""
+          for i in 1 2 3 4 5; do
+            if git pull --rebase --autostash origin main && git push; then
+              pushed="yes"; break
+            fi
+            echo "push attempt $i failed; retrying after a short pause..."
+            sleep $(( (RANDOM % 5) + 3 ))
+          done
+          if [ -z "$pushed" ]; then
+            echo "::error::Could not push rotated rt.enc after 5 attempts."
+            exit 1
+          fi
         else
           echo "rt.enc unchanged; nothing to commit."
         fi
