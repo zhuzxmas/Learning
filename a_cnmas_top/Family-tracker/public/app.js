@@ -3278,8 +3278,9 @@ async function setMode(next) {
   els.spendingApp.classList.toggle("hidden", !isSpend);
   els.incomeApp.classList.toggle("hidden", !isInc);
   els.stockApp.classList.toggle("hidden", !isStk);
-  els.stocksApp.classList.toggle("hidden", next !== "stocks");
-  els.medicalApp.classList.toggle("hidden", !isMed);
+   els.stocksApp.classList.toggle("hidden", next !== "stocks");
+   document.querySelector("main")?.classList.toggle("sbt-wide", next === "stocks");
+   els.medicalApp.classList.toggle("hidden", !isMed);
   els.celineApp.classList.toggle("hidden", !isCel);
   els.borrowApp.classList.toggle("hidden", next !== "borrow");
   els.investApp.classList.toggle("hidden", next !== "invest");
