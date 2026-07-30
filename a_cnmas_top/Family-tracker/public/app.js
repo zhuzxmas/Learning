@@ -99,6 +99,9 @@ const INCOME_BASE_TITLES = [
   "Ford AA Plan", "Ford储蓄计划", "Ford弹性福利", "Ford股票权益",
 ];
 const INCOME_BASE_PAYEES = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
+// Adding an income of this title auto-deposits half of 实际收入 into Celine's
+// piggy bank (celine-income.json). One-time on add only; see maybeAddCelineSubsidy.
+const NANJING_SUBSIDY_TITLE = "南京人才安居";
 
 /* --------------------------- STOCK CONFIG -------------------------------- */
 // Stock files live in a dedicated folder. By default we reuse the income
@@ -2402,6 +2405,7 @@ async function incOnSubmit(e) {
   incRender();
   try {
     await incPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    if (!isEdit) await maybeAddCelineSubsidy(rec);
     incResetForm();
     setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
   } catch (err) {
@@ -5275,6 +5279,34 @@ async function celOnSubmit(e) {
     setStatus("保存出错：" + (err.message || err), "error");
   } finally {
     els.celAddBtn.disabled = false;
+  }
+}
+
+// Auto-deposit half of a 南京人才安居 subsidy's 实际收入 into the piggy bank.
+// One-time on income add (not linked to later edits/deletes). Loads Celine data
+// first so the write carries the real eTag + full record set (a null-eTag PUT
+// would overwrite existing records).
+async function maybeAddCelineSubsidy(incRec) {
+  if (!incRec || incRec.title !== NANJING_SUBSIDY_TITLE) return;
+  const half = round2((Number(incRec.netAmount) || 0) / 2);
+  if (half <= 0) return;
+  try {
+    if (!celineLoaded) await celLoad();
+    const ym = (incRec.date || todayStr()).slice(0, 7);
+    const rec = {
+      id: uuid(),
+      date: incRec.date || todayStr(),
+      amount: half,
+      note: `南京人才安居补贴 一半 (${ym})`,
+      createdBy: (account && (account.name || account.username)) || "",
+      modified: new Date().toISOString(),
+    };
+    celineRecords.push(rec);
+    celRender();
+    await celPersist({ type: "add", rec });
+    setStatus(`已将 ${fmtAmount(half)} 存入 Celine 存钱罐。`, "ok", 4000);
+  } catch (err) {
+    setStatus("存钱罐自动记账失败：" + (err.message || err), "warn");
   }
 }
 
