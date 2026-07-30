@@ -700,7 +700,13 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
             period = rec.get('ASSIGN_PERIOD') or rec.get('REPORT_DATE') or ''
             year = str(period)[:4]
             plan = rec.get('PLAN_EXPLAIN')
-            out.append({'year': year, 'plan': plan})
+            out.append({
+                'year': year,
+                'plan': plan,
+                'notice_date': str(rec.get('NOTICE_DATE') or '')[:10],
+                'record_date': str(rec.get('EQUITY_RECORD_DATE')
+                                   or rec.get('EX_DIVIDEND_DATE') or '')[:10],
+            })
         return out
     except Exception as e:  # noqa: BLE001
         print('HK dividend fetch failed for {} ({}); treating as none.\n'.format(stock_hk, e))

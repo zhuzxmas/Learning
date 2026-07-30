@@ -706,6 +706,8 @@ def main():
 
             # HK dividends: textual plans + DPS-based numeric rows.
             plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
+            print('HK dividend records for {}: {}.\n'.format(
+                stock, len(plan_records or [])))
             div_rows = build_dividend_rows_hk(stock_output_yearly, dps_map, plan_records)
             if div_rows is not None:
                 keep = stock_output_yearly.drop(
@@ -719,7 +721,13 @@ def main():
 
             dividends_df = None
             if plan_records:
-                dividends_df = pd.DataFrame(plan_records)
+                # Normalise to the same 3 columns A-shares use so the web/HTML
+                # dividend table renders (公告日期/股权登记日/分红方案).
+                dividends_df = pd.DataFrame([{
+                    'REPORT_DATE': r.get('notice_date') or r.get('year') or '',
+                    'EQUITY_RECORD_DATE': r.get('record_date') or '',
+                    'IMPL_PLAN_PROFILE': r.get('plan') or '',
+                } for r in plan_records])
 
             # Live HK price fetch -> yearly price ranges.
             stock_output_combined = stock_output_yearly
