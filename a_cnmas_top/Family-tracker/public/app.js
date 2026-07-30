@@ -1086,7 +1086,14 @@ async function loadRecords() {
   await resolveFolder(token);
   await loadCustomCats(token);
   rebuildLevel1();
-  resetForm(); // recompute visible defaults now that hiddenCats is loaded
+  // Recompute visible defaults now that hiddenCats is loaded — but ONLY when the
+  // form is still pristine. Records load asynchronously, so the user may already
+  // be typing a record; resetForm() would wipe their in-progress input (e.g. a
+  // just-entered amount). Category dropdowns are already repopulated by
+  // rebuildLevel1() above, so skipping the reset keeps their selections intact.
+  if (!els.editId.value && !els.amount.value && !els.note.value.trim()) {
+    resetForm();
+  }
   const cutoff = monthCutoff();
 
   // TRAFFIC-SAVING: by default only download the small hot file (current month).
