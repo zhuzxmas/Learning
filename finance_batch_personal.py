@@ -486,8 +486,13 @@ def build_dividend_rows(stock_output_yearly, stock_0_dividends):
 
     cash, plans, ratio = {}, {}, {}
     for col in cols:
+        # Match by fiscal *year*, not exact report date: interim payouts carry
+        # REPORT_DATE YYYY-06-30 while the yearly column is YYYY-12-31, so an
+        # exact match would silently drop mid-year dividends. Grouping by year
+        # lets interim + final be summed together below.
+        year = str(col)[:4]
         recs = [r for r in stock_0_dividends
-                if str(r.get('REPORT_DATE', '')).split(' ')[0] == col]
+                if str(r.get('REPORT_DATE', '')).split(' ')[0][:4] == year]
         if not recs:
             continue
         total_cash = 0.0
