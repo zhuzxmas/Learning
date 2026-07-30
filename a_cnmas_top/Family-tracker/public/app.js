@@ -3231,7 +3231,9 @@ async function sbtAddStock() {
 }
 
 async function sbtUpdateStock(code) {
-  if (!confirm(`触发个股批处理更新 ${code}？\n（请确认已下载该股 kline 数据）`)) return;
+  const isHk = /^[Hh]\d+$/.test(String(code).trim());
+  const tip = isHk ? "" : "\n（请确认已下载该股 kline 数据）";
+  if (!confirm(`触发个股批处理更新 ${code}？${tip}`)) return;
   try {
     const token = await getToken();
     const res = await fetch(SBT_TRIGGER_URL, {
