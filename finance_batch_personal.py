@@ -348,22 +348,27 @@ def load_hk_notice_dates(od, stock, columns):
     e.g. Report_Title '2024年年报'), aligns each report period column to its
     disclosure date, and returns a 1-row DataFrame indexed by 'Notice Date'.
 
-    Returns None if the xlsx is missing (caller should skip the stock). Missing
-    per-year rows fall back to the column's own period date so downstream price
-    ranges still compute.
+    Never returns None: if the xlsx is missing or malformed, falls back to using
+    each column's own period date so the stock is still processed (price ranges
+    just use fiscal period-end instead of disclosure date). A warning is printed
+    so the operator knows to upload the xlsx for precise dates.
     """
+    def _fallback():
+        return pd.DataFrame(
+            [{col: str(col)[:10] for col in columns}], index=['Notice Date'])
+
     fname = 'H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
     raw = od.get_bytes(fname)
     if not raw:
-        print('!! {} missing — cannot build Notice Date row for {}; skipping.\n'
+        print('!! {} missing — 使用期末日期作为 Notice Date（上传该文件可获得精确披露日）：{}。\n'
               .format(fname, stock))
-        return None
+        return _fallback()
     df_nd = pd.read_excel(io.BytesIO(raw))
     df_nd.columns = [str(c).strip() for c in df_nd.columns]
     if 'Notice_Date' not in df_nd.columns or 'Report_Title' not in df_nd.columns:
-        print('!! {} lacks Notice_Date/Report_Title columns; skipping {}.\n'
+        print('!! {} lacks Notice_Date/Report_Title columns — 使用期末日期作为 Notice Date：{}。\n'
               .format(fname, stock))
-        return None
+        return _fallback()
 
     year_to_notice = {}
     for _, r in df_nd.iterrows():
@@ -691,10 +696,9 @@ def main():
                 print('No yearly HK data for {}; skipping.\n'.format(stock))
                 continue
 
-            # Notice Date row from the manual xlsx (required for price ranges).
+            # Notice Date row from the manual xlsx (falls back to period-end
+            # dates when the xlsx is missing, so the stock is never skipped).
             notice_row = load_hk_notice_dates(od, stock, list(stock_output_yearly.columns))
-            if notice_row is None:
-                continue  # xlsx missing -> skip this stock (warning already printed)
             # Drop any stale Notice Date row, then prepend the fresh one on top.
             if 'Notice Date' in stock_output_yearly.index:
                 stock_output_yearly = stock_output_yearly.drop(index='Notice Date')

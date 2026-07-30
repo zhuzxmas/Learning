@@ -649,8 +649,9 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         print('---------The Output Financial Report for this Stock is -----------: \n')
         print(f'{list(stock_output_y.columns)}')
-        print('You Need to save the notice date to OneDrive [H01423]-abc.xlsx with [Notice_Date] and [Report_Title].\n')
-        print('---------------  Content in the []  is a Must....-------------\n')
+        _nd = 'H{}_Notice_Date.xlsx'.format(str(stock_hk).split('.')[0])
+        print('如需精确 Notice Date，请在 OneDrive Apps/StockBatchTracker/ 保存 {}（列：Notice_Date、Report_Title）。\n'.format(_nd))
+        print('---------------  括号内容为必填列名 -------------\n')
 
         # notice_date_df = pd.DataFrame(
         #     notification_date_list, index=stock_output_y.columns, columns=['Notice Date']).T
