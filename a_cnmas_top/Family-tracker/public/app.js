@@ -3206,10 +3206,17 @@ async function sbtCopyFilename(name) {
 }
 
 async function sbtAddStock() {
-  const raw = (prompt("输入股票代码（6 位数字，如 600519）：") || "").trim();
+  const raw = (prompt("输入股票代码（A股6位如 600519；港股加 H 前缀如 H02018）：") || "").trim();
   if (!raw) return;
-  const code = raw.replace(/\D/g, "").padStart(6, "0");
-  if (code.length !== 6) { setStatus("代码格式不对，应为 6 位数字。", "error"); return; }
+  let code;
+  if (/^[Hh]\d+$/.test(raw)) {
+    code = "H" + raw.slice(1).padStart(5, "0");         // 港股：H02018
+  } else if (/\.HK$/i.test(raw)) {
+    code = "H" + raw.replace(/\D/g, "").padStart(5, "0");
+  } else {
+    code = raw.replace(/\D/g, "").padStart(6, "0");
+    if (code.length !== 6) { setStatus("代码格式不对，应为 6 位数字或 H+港股代码。", "error"); return; }
+  }
   if (sbtCodes.includes(code)) { setStatus("该股票已在清单中。", "warn"); return; }
   try {
     const token = await getToken();
