@@ -112,9 +112,17 @@ export default {
     if (new URL(request.url).pathname === "/trigger-stock") {
       let body;
       try { body = await request.json(); } catch { body = null; }
-      const stock = body && String(body.stock || "").replace(/\D/g, "");
-      if (!stock || stock.length !== 6) {
-        return jsonError(400, "缺少合法的 6 位股票代码。", origin);
+      let stock = body ? String(body.stock || "").trim() : "";
+      // HK codes look like H02018 (or 02018.HK); A-shares are 6 digits.
+      if (/^[Hh]\d+$/.test(stock)) {
+        stock = "H" + stock.slice(1).padStart(5, "0");
+      } else if (/\.HK$/i.test(stock)) {
+        stock = "H" + stock.replace(/\D/g, "").padStart(5, "0");
+      } else {
+        stock = stock.replace(/\D/g, "");
+        if (stock.length !== 6) {
+          return jsonError(400, "缺少合法的股票代码（A股6位数字或 H+港股代码）。", origin);
+        }
       }
       if (!env.GH_DISPATCH_TOKEN) {
         return jsonError(500, "服务端未配置 GH_DISPATCH_TOKEN。", origin);
