@@ -650,7 +650,11 @@
                 ② 上传到 <b>个人版 OneDrive → <code>Apps/StockBatchTracker/kline/</code></b>；
                 ③ 再点该股「更新」触发个股批处理。<br>
                 删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），
-                <code>kline/</code>、<code>history/</code> 文件保留。
+                <code>kline/</code>、<code>history/</code> 文件保留。<br>
+                ⚠️ 若不更新 kline 的后果：<br>
+                · 股价相关指标（近期高/低、股价区间、与「市盈率15对应股价」的比较）会缺失或停留在旧价格；<br>
+                · 财务基本面数据（营收/利润/EPS 等）不受影响，仍会正常刷新；<br>
+                · 港股无需下载 kline，价格在批处理中实时获取。
               </p>
               <div id="sbtCodeList"></div>
             </div>

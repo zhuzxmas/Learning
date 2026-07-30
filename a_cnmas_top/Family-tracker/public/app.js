@@ -2975,10 +2975,19 @@ function sbtRenderSummary() {
     if (opt && !/\s/.test(opt.textContent.trim())) opt.textContent = `${code} ${d.stock_name}`;
   }
 
+  // Price-range data gaps: years whose 后一年股价范围 is genuinely missing
+  // because the downloaded kline doesn't cover that window. Prompt the user to
+  // download a complete kline so the batch can self-heal those cells.
+  const gaps = Array.isArray(d.price_range_gaps) ? d.price_range_gaps : [];
+  const gapBanner = gaps.length
+    ? `<div class="sbt-gap-banner">⚠️ 以下年份的「后一年股价范围」缺失（当前 kline 未覆盖该时段）：` +
+      `${gaps.map((g) => escapeHtml(String(g))).join("、")}。请下载完整 kline 后再更新，批处理会自动补全。</div>`
+    : "";
+
   // Checks.
   const checks = d.checks || {};
   const order = ["profit", "liabilities", "dividends"];
-  els.sbtChecks.innerHTML = order.filter((k) => checks[k]).map((k) => {
+  els.sbtChecks.innerHTML = gapBanner + order.filter((k) => checks[k]).map((k) => {
     const c = checks[k];
     const cls = c.pass ? "sbt-pass" : "sbt-fail";
     return `<div class="sbt-check ${cls}">${escapeHtml(c.text || "")}</div>`;
@@ -3246,7 +3255,7 @@ async function sbtAddStock() {
 
 async function sbtUpdateStock(code) {
   const isHk = /^[Hh]\d+$/.test(String(code).trim());
-  const tip = isHk ? "" : "\n（请确认已下载该股 kline 数据）";
+  const tip = isHk ? "" : "\n\n请确认已下载最新 kline 数据，否则：\n· 股价相关指标将停留在旧价格\n· 仅财务基本面会刷新";
   if (!confirm(`触发个股批处理更新 ${code}？${tip}`)) return;
   try {
     const token = await getToken();

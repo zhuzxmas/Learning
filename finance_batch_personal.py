@@ -638,6 +638,103 @@ def merge_with_existing(od, stock_cn, payload):
     return payload
 
 
+PRICE_RANGE_ROW = '后一年股价范围'
+
+
+def _is_valid_range(v):
+    """True if a stored price-range cell holds a real min-max (not nan/empty)."""
+    if v is None:
+        return False
+    s = str(v).strip()
+    if s == '' or s.lower() == 'nan-nan' or 'nan' in s.lower():
+        return False
+    return True
+
+
+def load_old_price_ranges(od, stock_cn):
+    """Return ({col_label: stored_range}, newest_col_label) from the prior
+    output/{code}.json's combined table, restricted to the price-range row.
+
+    newest_col_label is the last column of the stored combined (used to detect
+    the 'just-closed' transition column). Returns ({}, None) on any failure.
+    """
+    try:
+        raw = od.get_text('output/{}.json'.format(stock_cn))
+    except Exception:  # noqa: BLE001
+        raw = None
+    if not raw:
+        return {}, None
+    try:
+        old = json.loads(raw)
+        combined = old.get('combined')
+        if not combined:
+            return {}, None
+        cols = combined.get('columns') or []
+        index = combined.get('index') or []
+        data = combined.get('data') or []
+        if PRICE_RANGE_ROW not in index:
+            return {}, (str(cols[-1]) if cols else None)
+        row = data[index.index(PRICE_RANGE_ROW)]
+        ranges = {str(cols[j]): row[j] for j in range(min(len(cols), len(row)))}
+        newest = str(cols[-1]) if cols else None
+        return ranges, newest
+    except Exception:  # noqa: BLE001
+        return {}, None
+
+
+def apply_price_range_preservation(stock_price_yearly, stock_output_yearly,
+                                   stock_price_df, old_ranges, old_newest):
+    """Freeze closed-year price ranges, recompute the open (and just-closed
+    transition) column, auto-fill missing closed years when kline covers the
+    window, and record genuine gaps.
+
+    Mutates/returns a copy of the yearly price-range row and a list of gap
+    period labels. Columns follow Notice-Date order: i==0 is the open column.
+    """
+    row = stock_price_yearly.copy()
+    gaps = []
+    try:
+        notice = list(stock_output_yearly.loc['Notice Date'])
+    except Exception:  # noqa: BLE001
+        return row, gaps
+    cols = list(row.columns)
+    try:
+        kline_min = pd.to_datetime(stock_price_df['日期'].min())
+    except Exception:  # noqa: BLE001
+        kline_min = None
+
+    for i, col in enumerate(cols):
+        label = str(col)
+        fresh = row.iloc[0, i]
+        # window start for this column = its own Notice Date
+        try:
+            win_start = pd.to_datetime(notice[i])
+        except Exception:  # noqa: BLE001
+            win_start = None
+        covered = (kline_min is not None and win_start is not None
+                   and win_start >= kline_min and _is_valid_range(fresh))
+
+        if i == 0:
+            # open column: always take the fresh (still-changing) value
+            continue
+        if old_newest is not None and label == old_newest:
+            # transition column: previously open, now just closed -> one final
+            # full recompute, then it will be frozen on future runs
+            continue
+
+        old_val = old_ranges.get(label)
+        if _is_valid_range(old_val):
+            # closed year with good stored value -> freeze it
+            row.iloc[0, i] = old_val
+        elif covered:
+            # missing/invalid old value but kline fully covers -> auto-fill
+            pass  # keep fresh
+        else:
+            # genuine gap: keep whatever placeholder, flag for the user
+            gaps.append(label)
+    return row, gaps
+
+
 def render_html(payload, stock_output_combined, dividends_df):
     stock = payload['stock']
     stock_name = payload['stock_name']
@@ -837,9 +934,14 @@ def main():
 
         stock_output_combined = None
         last_7_days = None
+        price_range_gaps = []
         if len(stock_price_df) > 0:
             stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(
                 stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
+            old_ranges, old_newest = load_old_price_ranges(od, stock_cn)
+            stock_price_yearly, price_range_gaps = apply_price_range_preservation(
+                stock_price_yearly, stock_output_yearly, stock_price_df,
+                old_ranges, old_newest)
             stock_output_yearly_f = pd.concat([stock_output_yearly, stock_price_yearly], axis=0)
             try:
                 stock_price_Seasonly = z_Func.get_stock_price_range_Based_on_EasMon(
@@ -863,6 +965,7 @@ def main():
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df)
+        payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload)
         od.put_text('output/{}.json'.format(stock_cn),
                     json.dumps(payload, ensure_ascii=False, indent=2),

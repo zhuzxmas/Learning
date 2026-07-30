@@ -1120,6 +1120,11 @@ td:nth-child(6) {
 }
 .sbt-check.sbt-pass { background: #e6f4ea; color: #137333; }
 .sbt-check.sbt-fail { background: #fce8e6; color: #c5221f; }
+.sbt-gap-banner {
+  padding: 8px 12px; margin: 4px 0 8px; border-radius: 6px;
+  background: #fef7e0; color: #7a5c00; border: 1px solid #f9d675;
+  font-size: 13px; line-height: 1.4;
+}
 
 .sbt-settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sbt-settings-hint { font-size: 12px; margin: 6px 0 10px; }
