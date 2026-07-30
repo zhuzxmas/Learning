@@ -401,22 +401,37 @@ def build_dividend_rows_hk(stock_output_yearly, dps_map, plan_records):
         eps = None
 
     plans_by_year = {}
+    amt_by_year = {}
     for rec in (plan_records or []):
         yr = str(rec.get('year', ''))
         if rec.get('plan'):
             plans_by_year.setdefault(yr, []).append(str(rec['plan']))
+        amt = rec.get('amount')
+        if amt is not None:
+            try:
+                amt_by_year[yr] = round(amt_by_year.get(yr, 0.0) + float(amt), 4)
+            except (TypeError, ValueError):
+                pass
+    if amt_by_year:
+        print('HK cash-div by fiscal year: {}'.format(amt_by_year))
 
     cash, plans, ratio = {}, {}, {}
     for col in cols:
         year = str(col)[:4]
-        raw = (dps_map or {}).get(col)
-        if raw is None:
-            raw = (dps_map or {}).get(str(col)[:10])
-        try:
-            if raw is not None:
-                cash[col] = round(float(raw), 2)
-        except (TypeError, ValueError):
-            pass
+        # Prefer the summed per-fiscal-year cash parsed from PLAN_EXPLAIN
+        # (interim + final); fall back to the annual DPS_HKD when a year has
+        # no parsed amount.
+        if year in amt_by_year:
+            cash[col] = round(amt_by_year[year], 2)
+        else:
+            raw = (dps_map or {}).get(col)
+            if raw is None:
+                raw = (dps_map or {}).get(str(col)[:10])
+            try:
+                if raw is not None:
+                    cash[col] = round(float(raw), 2)
+            except (TypeError, ValueError):
+                pass
         if year in plans_by_year:
             plans[col] = '; '.join(plans_by_year[year])
         if col in cash and eps is not None:

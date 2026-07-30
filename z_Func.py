@@ -700,9 +700,21 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
             period = rec.get('ASSIGN_PERIOD') or rec.get('REPORT_DATE') or ''
             year = str(period)[:4]
             plan = rec.get('PLAN_EXPLAIN')
+            # RPT_HKF10_INFO_DIVIDEND carries no numeric per-share field; the
+            # cash amount only exists inside PLAN_EXPLAIN text such as
+            # "每股派港币0.35元". Parse it out (None when not a cash payout).
+            amount = None
+            if plan:
+                m = re.search(r'派[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*元', str(plan))
+                if m:
+                    try:
+                        amount = float(m.group(1))
+                    except (TypeError, ValueError):
+                        amount = None
             out.append({
                 'year': year,
                 'plan': plan,
+                'amount': amount,
                 'notice_date': str(rec.get('NOTICE_DATE') or '')[:10],
                 'record_date': str(rec.get('EQUITY_RECORD_DATE')
                                    or rec.get('EX_DIVIDEND_DATE') or '')[:10],
