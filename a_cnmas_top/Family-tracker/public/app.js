@@ -3063,7 +3063,10 @@ function sbtWireEvents() {
 
 // Normalize a raw 6-digit code to the {code}.SH/.SZ form used for files.
 function sbtCodeToCn(raw) {
-  const code = String(raw).replace(/\D/g, "").padStart(6, "0");
+  const s = String(raw).trim();
+  // Hong Kong: 'H01548' -> '01548.HK' (mirrors normalize_stock in Python).
+  if (/^[Hh]\d+$/.test(s)) return s.slice(1).padStart(5, "0") + ".HK";
+  const code = s.replace(/\D/g, "").padStart(6, "0");
   if (code.length !== 6) return null;
   return code[0] === "6" ? code + ".SH" : code + ".SZ";
 }
@@ -3147,6 +3150,8 @@ function sbtRenderSettings() {
   }
   for (const code of sbtCodes) {
      const cn = sbtCodeToCn(code) || code;
+     // HK stocks fetch prices live in the batch — no manual kline file needed.
+     const isHk = /^[Hh]\d+$/.test(String(code).trim());
      const nm = sbtNames[String(code).replace(/\D/g, "")]
        || (sbtStocks[cn] && sbtStocks[cn].stock_name) || "";
     const row = document.createElement("div");
@@ -3175,7 +3180,7 @@ function sbtRenderSettings() {
     dlLine.className = "sbt-dl-line";
     dlLine.appendChild(kl); dlLine.appendChild(fn);
     row.appendChild(span); row.appendChild(upd); row.appendChild(del);
-    row.appendChild(dlLine);
+    if (!isHk) row.appendChild(dlLine);
     c.appendChild(row);
   }
 }
