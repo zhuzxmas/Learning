@@ -3002,7 +3002,10 @@ function sbtRenderSummary() {
        // so it doesn't force the whole column wide.
        const isPlan = String(label) === "每股派发股息";
        const cls = isPlan ? "sbt-c sbt-plan" : "sbt-c";
-       return `<tr><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
+       // Emphasise the two decision rows (EPS and the 15x-PE fair price).
+       const hl = label === "稀释后 每年/季度每股收益 元"
+         || label === "市盈率15对应股价 元";
+       return `<tr class="${hl ? "sbt-hl" : ""}"><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
          (cb.data[i] || []).map((v) => {
            let s = (v === null || v === undefined) ? "" : String(v);
            if (isPlan) s = sbtStripTax(s);
