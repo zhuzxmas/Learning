@@ -2944,7 +2944,7 @@ function sbtRenderSummary() {
  // "10派3.00元(含税,扣税后2.70元)" -> "10派3.00元". Handles full/half-width
  // parens and multiple occurrences.
  function sbtStripTax(s) {
-   return String(s).replace(/[（(]\s*含税[^）)]*[）)]/g, "").trim();
+   return String(s).replace(/[（(]\s*含税[^）)]*[）)]/g, "").replace(/元/g, "").trim();
  }
 
  // Show only the date part (YYYY-MM-DD) of a dividend date value. Handles
