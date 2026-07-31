@@ -1384,14 +1384,11 @@ function updateMedCatLock() {
 
 // Reflect the "data not loaded yet" state on the add button so a user can still
 // type early (per the pristine-guard) but can't submit before load finishes.
+// The label is left unchanged to avoid a flicker; only the disabled (greyed)
+// state signals loading.
 function updateAddBtnLoadingState() {
-  if (!spendingLoaded) {
-    els.addBtn.disabled = true;
-    els.addBtn.textContent = "载入中…";
-  } else {
-    els.addBtn.textContent = els.editId.value ? "保存修改" : "添加到列表";
-    updateMedCatLock(); // restores disabled state based on category selection
-  }
+  els.addBtn.title = spendingLoaded ? "" : "数据载入中…";
+  updateMedCatLock(); // disabled state accounts for !spendingLoaded
 }
 
 // Set the three dropdowns to specific values (used when editing).
