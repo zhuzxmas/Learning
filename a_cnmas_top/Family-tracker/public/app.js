@@ -1097,6 +1097,7 @@ async function loadRecords() {
   if (!els.editId.value && !els.amount.value && !els.note.value.trim()) {
     resetForm();
   }
+  updateAddBtnLoadingState();   // show "载入中…" / disable submit until loaded
   const cutoff = monthCutoff();
 
   // TRAFFIC-SAVING: by default only download the small hot file (current month).
@@ -1210,6 +1211,7 @@ async function ensureArchive() {
 function finishLoad() {
   syncRecords();
   spendingLoaded = true;
+  updateAddBtnLoadingState();   // re-enable submit now that data is loaded
   setStatus("已载入 " + records.length + " 条记录。", "ok", 2000);
   render();
   renderHiddenList();
@@ -1264,6 +1266,18 @@ async function persist(op) {
 
     for (const b of buckets) {
       if (b === "hot") {
+        // Safeguard: if we have no eTag for the hot file, this session never
+        // successfully read it. Writing currentRecords now (possibly empty)
+        // with no If-Match would blow away the server's month data. Re-read
+        // first and merge our op onto the real server list before writing.
+        if (etagHot === null) {
+          const cur = await readFile(token, HOT_FILE);
+          if (cur.exists) {
+            currentRecords = applyOpToBucket(cur.list, op, "hot", cutoff);
+            etagHot = cur.etag;
+            syncRecords();
+          }
+        }
         etagHot = await writeFile(
           token, HOT_FILE, () => currentRecords, etagHot,
           (fresh) => { currentRecords = applyOpToBucket(fresh, op, "hot", cutoff); syncRecords(); }
@@ -1364,8 +1378,20 @@ function updateMedCatLock() {
     els.iCat.value === "日常生活" &&
     els.iiCat.value === "看病" &&
     els.iiiCat.value === "看病";
-  els.addBtn.disabled = locked;
+  els.addBtn.disabled = locked || !spendingLoaded;
   els.medCatHint.classList.toggle("hidden", !locked);
+}
+
+// Reflect the "data not loaded yet" state on the add button so a user can still
+// type early (per the pristine-guard) but can't submit before load finishes.
+function updateAddBtnLoadingState() {
+  if (!spendingLoaded) {
+    els.addBtn.disabled = true;
+    els.addBtn.textContent = "载入中…";
+  } else {
+    els.addBtn.textContent = els.editId.value ? "保存修改" : "添加到列表";
+    updateMedCatLock(); // restores disabled state based on category selection
+  }
 }
 
 // Set the three dropdowns to specific values (used when editing).
@@ -1616,6 +1642,13 @@ function resetForm() {
 
 async function onSubmitForm(e) {
   e.preventDefault();
+  // Guard: never save before OneDrive data has finished loading. Otherwise the
+  // in-memory buckets are still empty and persist() would overwrite the hot
+  // file (this month) with just this one record. See loadRecords/persist.
+  if (!spendingLoaded) {
+    setStatus("数据尚未载入完成，请稍候再保存。", "warn");
+    return;
+  }
   const isEdit = !!els.editId.value;
   const rec = {
     id: els.editId.value || uuid(),
@@ -1703,6 +1736,10 @@ function startEdit(id) {
 }
 
 async function deleteRecord(id) {
+  if (!spendingLoaded) {
+    setStatus("数据尚未载入完成，请稍候再操作。", "warn");
+    return false;
+  }
   const r = records.find((x) => x.id === id);
   if (!r) return false;
   if (!confirm(`确定删除这条记录吗？\n${r.date} ${r.i_cat}/${r.ii_cat}/${r.iii_cat} ${fmtAmount(r.amount)}`))
