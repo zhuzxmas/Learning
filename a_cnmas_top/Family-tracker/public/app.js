@@ -855,10 +855,20 @@ function encodeShareUrl(u) {
   return "u!" + b64.replace(/=+$/, "").replace(/\//g, "_").replace(/\+/g, "-");
 }
 
-// First day of the current month, "YYYY-MM-01" — the hot/cold cutoff.
+// Hot/cold cutoff = the 1st of the month, with a grace window: during days
+// 1..CUTOFF_GRACE_DAY-1 we fall back to the PREVIOUS month's 1st so last
+// month's tail stays visible by default; from the 7th on we use the current
+// month's 1st. Returns "YYYY-MM-01".
+const CUTOFF_GRACE_DAY = 7;
 function monthCutoff() {
   const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+  let y = d.getFullYear();
+  let m = d.getMonth();            // 0-based current month
+  if (d.getDate() < CUTOFF_GRACE_DAY) {  // grace window -> previous month
+    m -= 1;
+    if (m < 0) { m = 11; y -= 1; }
+  }
+  return y + "-" + String(m + 1).padStart(2, "0") + "-01";
 }
 function isHotDate(date, cutoff) { return (date || "") >= cutoff; }
 
