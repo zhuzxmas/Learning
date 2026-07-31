@@ -2404,6 +2404,7 @@ function incResetForm() {
 
 async function incOnSubmit(e) {
   e.preventDefault();
+  if (!incomeLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.incEditId.value;
   const rec = {
     id: els.incEditId.value || uuid(),
@@ -2474,6 +2475,7 @@ function incStartEdit(id) {
 }
 
 async function incDelete(id) {
+  if (!incomeLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = incomeRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条收入记录吗？\n${r.date} ${r.title} ${r.payee} ${fmtAmount(r.netAmount)}`)) return;
@@ -3774,6 +3776,7 @@ function stkResetForm() {
 
 async function stkOnSubmit(e) {
   e.preventDefault();
+  if (!stockLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.stkEditId.value;
   const code = els.stkCode.value;
   const price = stkNum(els.stkPrice);
@@ -3865,6 +3868,7 @@ function stkStartEdit(id) {
 }
 
 async function stkDelete(id) {
+  if (!stockLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = stockRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条交易记录吗？\n${r.date} ${r.code} ${r.account} ${fmtAmount(r.total)}`)) return;
@@ -4752,6 +4756,7 @@ function medResetForm() {
 
 async function medOnSubmit(e) {
   e.preventDefault();
+  if (!medicalLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.medEditId.value;
   const personal = round2(medNum(els.medPersonal));
   const insurance = round2(medNum(els.medInsurance));
@@ -4815,6 +4820,7 @@ function medStartEdit(id) {
 }
 
 async function medDelete(id) {
+  if (!medicalLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = medicalRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条看病记录吗？\n${r.date} ${r.title} ${fmtAmount(r.total)}`)) return;
@@ -5292,6 +5298,7 @@ function celResetForm() {
 
 async function celOnSubmit(e) {
   e.preventDefault();
+  if (!celineLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.celEditId.value;
   const mag = Math.abs(parseFloat(els.celAmount.value));
   if (isNaN(mag) || mag === 0) { setStatus("请输入金额。", "warn"); return; }
@@ -5373,6 +5380,7 @@ function celStartEdit(id) {
 }
 
 async function celDelete(id) {
+  if (!celineLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = celineRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条记录吗？\n${r.date} ${fmtAmount(r.amount)}`)) return;
@@ -5760,6 +5768,7 @@ function brwResetForm() {
 
 async function brwOnSubmit(e) {
   e.preventDefault();
+  if (!borrowLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.brwEditId.value;
   const mag = Math.abs(parseFloat(els.brwAmount.value));
   if (isNaN(mag) || mag === 0) { setStatus("请输入金额。", "warn"); return; }
@@ -5817,6 +5826,7 @@ function brwStartEdit(id) {
 }
 
 async function brwDelete(id) {
+  if (!borrowLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = borrowRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条借还款记录吗？\n${r.date} ${r.person} ${fmtAmount(r.amount)}`)) return;
@@ -6058,6 +6068,7 @@ function invResetForm() {
 
 async function invOnSubmit(e) {
   e.preventDefault();
+  if (!investLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.invEditId.value;
   const term = invOptNum(els.invTerm);
   const rec = {
@@ -6117,6 +6128,7 @@ function invStartEdit(id) {
 }
 
 async function invDelete(id) {
+  if (!investLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = investRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条理财记录吗？\n${r.date} ${r.name} ${fmtAmount(r.amount)}`)) return;
@@ -6462,6 +6474,7 @@ function svcResetForm() {
 
 async function svcOnSubmit(e) {
   e.preventDefault();
+  if (!storedLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.svcEditId.value;
   const mag = Math.abs(parseFloat(els.svcAmount.value));
   if (isNaN(mag)) { setStatus("请输入金额变动。", "warn"); return; }
@@ -6522,6 +6535,7 @@ function svcStartEdit(id) {
 }
 
 async function svcDelete(id) {
+  if (!storedLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = storedCards.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条储值卡记录吗？\n${r.date || ""} ${r.card} ${fmtAmount(r.amount)}`)) return;
@@ -6835,6 +6849,7 @@ function vehResetForm() {
 
 async function vehOnSubmit(e) {
   e.preventDefault();
+  if (!vehicleLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.vehEditId.value;
   const rec = {
     id: els.vehEditId.value || uuid(),
@@ -6893,6 +6908,7 @@ function vehStartEdit(id) {
 }
 
 async function vehDelete(id) {
+  if (!vehicleLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = vehicleRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条保养记录吗？\n${r.date} ${r.vehicle} ${fmtAmount(r.cost)}`)) return;
@@ -7358,6 +7374,7 @@ function hwResetForm() {
 
 async function hwOnSubmit(e) {
   e.preventDefault();
+  if (!healthLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.hwEditId.value;
   const w = parseFloat(els.hwWeight.value);
   if (isNaN(w)) { setStatus("请输入体重。", "warn"); return; }
@@ -7419,6 +7436,7 @@ function hwStartEdit(id) {
 }
 
 async function hwDelete(id) {
+  if (!healthLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = weightRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条体重记录吗？\n${r.date} ${r.person} ${r.weight}kg`)) return;
@@ -7742,6 +7760,7 @@ function hbOptInt(el) {
 
 async function hbOnSubmit(e) {
   e.preventDefault();
+  if (!healthLoaded) { setStatus("数据尚未载入完成，请稍候再保存。", "warn"); return; }
   const isEdit = !!els.hbEditId.value;
   const sys = parseFloat(els.hbSystolic.value);
   const dia = parseFloat(els.hbDiastolic.value);
@@ -7801,6 +7820,7 @@ function hbStartEdit(id) {
 }
 
 async function hbDelete(id) {
+  if (!healthLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = bpRecords.find((x) => x.id === id);
   if (!r) return;
   if (!confirm(`确定删除这条血压记录吗？\n${r.date} ${r.person} ${r.systolic}/${r.diastolic}`)) return;
