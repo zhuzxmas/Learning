@@ -184,6 +184,19 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
 }
 .savebar .spacer { flex: 1; }
 .status { font-size: 14px; color: var(--gray); }
+/* Status shown in the fixed top banner: give the text its own solid pill so it
+   floats clearly above page content instead of overlapping it. */
+#statusMsg.status {
+  background: var(--card);
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-width: 92vw;
+  pointer-events: auto;
+}
+#statusMsg.status.ok { background: #ecfdf3; }
+#statusMsg.status.error { background: #fef2f2; }
+#statusMsg.status.warn { background: #fffbeb; }
 .status.ok { color: var(--green-dark); }
 .status.error { color: var(--red); }
 .status.warn { color: #b45309; }
