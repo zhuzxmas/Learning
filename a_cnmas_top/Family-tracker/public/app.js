@@ -9230,7 +9230,12 @@ function chatWireEvents() {
   chatRenderModels(savedModel);
   els.aiModel.onchange = () => {
     if (els.aiModel.value === "__custom__") {
-      const name = (prompt("输入模型名称，例如 deepseek-v5-pro：") || "").trim();
+      const name = (prompt(
+        "输入模型名称：\n\n" +
+        "• DeepSeek 模型：直接填模型 ID，如 deepseek-v5-pro\n" +
+        "• 百炼(阿里云 DashScope)模型：加 Qwen- 前缀，如 Qwen-qwen-max\n\n" +
+        "注意：Qwen- 前缀是路由标记（走百炼），去掉前缀后须与百炼控制台的真实模型 ID 完全一致。"
+      ) || "").trim();
       if (name) {
         // Re-adding: un-hide a previously removed built-in, or store a new custom.
         const removed = chatGetRemovedModels();
