@@ -15,7 +15,13 @@ on:
     types: [ms-powre-automate-event]
 
 permissions:
-  contents: read
+  contents: write
+
+# Share a single concurrency group with the OneDrive summarizer / finance batch
+# so the workflows can never run at the same time and clobber the shared rt.enc.
+concurrency:
+  group: onedrive-token
+  cancel-in-progress: false
 
 jobs:
   run-python-script:
@@ -58,14 +64,17 @@ jobs:
         username : ${{secrets.USERNAME}}
         deeplx_secret_key : ${{secrets.DEEPLX_SECRET_KEY}}
         git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
-        aliyun_SECRET : ${{secrets.ALIYUN_SECRET}}
+        aliyun_SECRET : ${{ secrets.ALIYUN_SECRET }}
+        ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+        TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+        ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
       id: run_script
       run: |
         # Create a temp file to store full output
         LOG_FILE=$(mktemp)
     
         # Run script, show live output, AND save to file
-        python -u 03.OneDrive-BingPic.py 2>&1 | tee "$LOG_FILE"
+        python -u 03.OneDrive-BingPic-Personal_OneDrive.py 2>&1 | tee "$LOG_FILE"
     
         # Capture last 3 lines from the log file
         TRUNCATED=$(tail -n 3 "$LOG_FILE")
@@ -77,7 +86,34 @@ jobs:
     
         # Optional: clean up
         rm -f "$LOG_FILE"
-      
+
+    - name: Commit rotated refresh token
+      run: |
+        rt="a_cnmas_top/Family-tracker/automation/rt.enc"
+        if ! git diff --quiet -- "$rt"; then
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$rt"
+          git commit -m "chore: rotate OneDrive refresh token [skip ci]"
+          # main may have advanced while the run went on (other commits). Only
+          # rt.enc is local and no other token-writer runs concurrently (see the
+          # concurrency group), so rebase onto the latest main and retry.
+          pushed=""
+          for i in 1 2 3 4 5; do
+            if git pull --rebase --autostash origin main && git push; then
+              pushed="yes"; break
+            fi
+            echo "push attempt $i failed; retrying after a short pause..."
+            sleep $(( (RANDOM % 5) + 3 ))
+          done
+          if [ -z "$pushed" ]; then
+            echo "::error::Could not push rotated rt.enc after 5 attempts."
+            exit 1
+          fi
+        else
+          echo "rt.enc unchanged; nothing to commit."
+        fi
+
     - name: Notify Power Automate (Success)
       if: success()
       run: |

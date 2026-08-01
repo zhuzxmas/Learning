@@ -183,6 +183,22 @@ class OneDrivePersonal:
     def put_text(self, path, text, content_type="text/plain; charset=utf-8"):
         return self.put_bytes(path, text.encode("utf-8"), content_type)
 
+    def upload_to_path(self, root_path, data, content_type="application/octet-stream"):
+        """Upload bytes to a path relative to the OneDrive *root* (NOT APP_ROOT).
+
+        Unlike put_bytes (which is scoped to APP_ROOT), this targets an arbitrary
+        drive-root path such as "Pictures/life.live/Bing.WallPaper/foo.jpg".
+        Missing parent folders are created automatically by Graph. Reuses the
+        same token-refresh / proxy / 401-retry machinery as every other call.
+        """
+        url = "%s/me/drive/root:/%s:/content" % (GRAPH, root_path.strip("/"))
+        r = self._request("PUT", url,
+                          extra_headers={"Content-Type": content_type}, data=data)
+        if not r.ok:
+            raise RuntimeError(
+                "upload failed (%s): %s %s" % (root_path, r.status_code, r.text))
+        return r.json()
+
     def get_pickle(self, path):
         """Load a pickled object from OneDrive, or None if the file is absent."""
         b = self.get_bytes(path)
