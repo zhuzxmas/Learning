@@ -110,6 +110,7 @@ const NANJING_SUBSIDY_TITLE = "南京人才安居";
 const STOCK_FOLDER_SHARE_URL = INCOME_FOLDER_SHARE_URL;
 const STOCK_RECORDS_FILE = "stock-records.json";
 const STOCK_META_FILE = "stock-meta.json"; // {codes:{custom,hidden}, accounts:{custom,hidden}, fees}
+const STOCK_CSV_FILE = "stock-records.csv"; // human-readable mirror of stock-records.json, for viewing in Excel
 
 /* --------------------------- MEDICAL CONFIG ------------------------------ */
 // Medical records live in their own dedicated shared folder (both accounts
@@ -3700,6 +3701,13 @@ async function stkPersist(op) {
     }
   );
   setStatus("已保存。", "ok", 3000);
+  // Best-effort: refresh the Excel-friendly CSV mirror. Never let an export
+  // failure surface as a save failure — the JSON above is the source of truth.
+  try {
+    await stkWriteExport(token);
+  } catch (e) {
+    setStatus("交易已保存，但 Excel(CSV) 同步失败：" + (e.message || e), "warn", 6000);
+  }
 }
 
 /* ---------------------------- Stock form --------------------------------- */
@@ -5251,6 +5259,45 @@ async function xtWriteJson(token, name, getData, etag, applyOnConflict, onMerge)
     throw new Error("保存失败(" + name + ")：" + res.status + " " + (await res.text()));
   }
   throw new Error("保存冲突，重试多次仍失败(" + name + ")。");
+}
+
+/* -------- Excel-friendly CSV mirror of stock-records.json --------------- */
+// Every save (add/edit/delete) also rewrites stock-records.csv so the data can
+// be opened directly in Excel. It's a derived file: always fully regenerated
+// from stockRecords and overwritten (no If-Match — only this writer touches it).
+function stkCsvCell(v) {
+  const s = (v === null || v === undefined) ? "" : String(v);
+  // Quote fields containing comma, quote, CR or LF; escape embedded quotes.
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function stkBuildCsv() {
+  const headers = [
+    "日期", "代码名称", "账户", "价格", "股数", "汇率",
+    "成交金额", "佣金", "印花税", "过户费", "总金额", "记录人", "修改时间",
+  ];
+  const rows = stockRecords.slice().sort((a, b) =>
+    String(a.date || "").localeCompare(String(b.date || "")));
+  const lines = [headers.map(stkCsvCell).join(",")];
+  for (const r of rows) {
+    lines.push([
+      r.date, r.code, r.account, r.price, r.shares, r.fx,
+      r.amount, r.commission, r.stampTax, r.transferFee, r.total,
+      r.createdBy, r.modified,
+    ].map(stkCsvCell).join(","));
+  }
+  // Leading BOM so Excel reads the UTF-8 Chinese correctly.
+  return "\uFEFF" + lines.join("\r\n") + "\r\n";
+}
+async function stkWriteExport(token) {
+  const { content } = stkFileUrls(STOCK_CSV_FILE);
+  const res = await fetch(content, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "text/csv" },
+    body: stkBuildCsv(),
+  });
+  if (!res.ok) {
+    throw new Error("导出 CSV 失败：" + res.status + " " + (await res.text()));
+  }
 }
 
 /* ========================================================================= *
