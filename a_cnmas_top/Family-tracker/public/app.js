@@ -147,7 +147,15 @@ const CHAT_API_URL = "https://api.cnmas.top";
 const CHAT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgB5autcGzJOSKCznhJ1X0n3AVgMO_Xx2FjWRhpgk4vP1ag?email=celine_mas%40outlook.com&e=Lsf6a0";
 const CHAT_INDEX_FILE = "chat-index.json";
 // Model choices shown in the dropdown. Default is the first.
-const CHAT_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"];
+// A "Qwen-" prefix marks an Aliyun Bailian (DashScope) model; the front-end
+// strips the prefix to get the real model name and tells the Worker to route to
+// Bailian (see chatSend). Non-prefixed entries go to DeepSeek official.
+const CHAT_MODELS = [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+  "Qwen-deepseek-v4-flash-0731",
+  "Qwen-deepseek-v4-pro",
+];
 
 // Default fee rates (editable in the stock Settings tab, stored in stock-meta.json).
 // Rates are plain decimals (0.0001 = 万一); commMin is a flat 元 floor.
@@ -8958,8 +8966,15 @@ async function chatSend() {
     chatScrollBottom();
 
     const token = await getToken();
+    // A "Qwen-" prefix in the dropdown value marks an Aliyun Bailian model.
+    // Strip it to get the real model name and tell the Worker which provider to
+    // use; the Worker translates the thinking params for Bailian.
+    const selVal = els.aiModel.value || CHAT_MODELS[0];
+    let provider = "deepseek", modelName = selVal;
+    if (selVal.startsWith("Qwen-")) { provider = "bailian"; modelName = selVal.slice(5); }
     const body = {
-      model: els.aiModel.value || CHAT_MODELS[0],
+      model: modelName,
+      provider,
       messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
       stream: true,
     };

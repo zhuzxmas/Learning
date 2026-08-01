@@ -12,6 +12,10 @@
  *   2. Click "Edit code", DELETE the sample, PASTE this whole file, Deploy.
  *   3. Settings -> Variables -> "Add variable" under *Secrets*:
  *        Name:  DEEPSEEK_API_KEY   Value: <your DeepSeek API key>   (Encrypt)
+ *        Name:  BAILIAN_API_KEY    Value: <your Aliyun Bailian key> (Encrypt)
+ *          (Only needed for the "Qwen-*" models. The browser sends
+ *           provider:"bailian" and this Worker proxies to DashScope's
+ *           OpenAI-compatible endpoint, translating the thinking params.)
  *        Name:  GH_DISPATCH_TOKEN  Value: <GitHub fine-grained PAT>  (Encrypt)
  *          (PAT scope: repo zhuzxmas/Learning, Contents: Read and write —
  *           this also authorizes repository_dispatch. Used by POST /trigger-stock
@@ -41,6 +45,8 @@ const ALLOWED_ORIGINS = [
 ];
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+// Aliyun Bailian (DashScope) OpenAI-compatible endpoint, default workspace.
+const BAILIAN_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 const GRAPH_ME = "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,otherMails";
 
 function corsHeaders(origin) {
@@ -86,6 +92,35 @@ async function authorize(token) {
   if (Array.isArray(me.otherMails)) candidates.push(...me.otherMails);
   const lc = candidates.map((e) => String(e).toLowerCase());
   return lc.find((e) => ALLOWED_EMAILS.includes(e)) || null;
+}
+
+// Resolve which upstream (URL + API key) to use and rewrite the request body
+// for that provider. The browser sends `provider:"bailian"` for "Qwen-*" models.
+//   - DeepSeek official: pass the body through unchanged (thinking:{type:...}).
+//   - Bailian (DashScope OpenAI-compatible): the thinking switch is a top-level
+//     boolean `enable_thinking`, NOT `thinking:{type:...}`. Translate it.
+// Returns { url, key, body } or { error } when the provider key is missing.
+function resolveUpstream(payload, env) {
+  const provider = String(payload && payload.provider || "deepseek").toLowerCase();
+  // Never forward our internal routing field to the upstream API.
+  const body = { ...payload };
+  delete body.provider;
+
+  if (provider === "bailian") {
+    if (!env.BAILIAN_API_KEY) {
+      return { error: "服务端未配置 BAILIAN_API_KEY。" };
+    }
+    // Translate DeepSeek-style thinking control -> Bailian enable_thinking.
+    const wantThink = body.thinking && body.thinking.type === "enabled";
+    delete body.thinking;
+    body.enable_thinking = !!wantThink;
+    // reasoning_effort only makes sense when thinking is on.
+    if (!wantThink) delete body.reasoning_effort;
+    return { url: BAILIAN_URL, key: env.BAILIAN_API_KEY, body };
+  }
+
+  // Default: DeepSeek official, body unchanged.
+  return { url: DEEPSEEK_URL, key: env.DEEPSEEK_API_KEY, body };
 }
 
 export default {
@@ -187,18 +222,28 @@ export default {
       const writer = writable.getWriter();
       const enc = new TextEncoder();
       try {
+        // Pick upstream (DeepSeek official or Bailian) and rewrite the body.
+        const up = resolveUpstream(payload, env);
+        if (up.error) {
+          await writer.write(enc.encode("data: " + JSON.stringify({ error: up.error }) + "\n\n"));
+          await writer.write(enc.encode("data: [DONE]\n\n"));
+          await writer.close();
+          return;
+        }
+        const providerName = String(payload.provider || "deepseek").toLowerCase() === "bailian" ? "百炼" : "DeepSeek";
+
         let dsRes;
         try {
-          dsRes = await fetch(DEEPSEEK_URL, {
+          dsRes = await fetch(up.url, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": "Bearer " + env.DEEPSEEK_API_KEY,
+              "Authorization": "Bearer " + up.key,
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(up.body),
           });
         } catch (e) {
-          const msg = "无法连接 DeepSeek：" + ((e && e.message) || e);
+          const msg = "无法连接 " + providerName + "：" + ((e && e.message) || e);
           await writer.write(enc.encode("data: " + JSON.stringify({ error: msg }) + "\n\n"));
           await writer.write(enc.encode("data: [DONE]\n\n"));
           await writer.close();
@@ -208,14 +253,14 @@ export default {
         if (!dsRes.ok || !dsRes.body) {
           let detail = "";
           try { detail = await dsRes.text(); } catch {}
-          const msg = "DeepSeek 返回错误 " + dsRes.status + (detail ? "：" + detail.slice(0, 500) : "");
+          const msg = providerName + " 返回错误 " + dsRes.status + (detail ? "：" + detail.slice(0, 500) : "");
           await writer.write(enc.encode("data: " + JSON.stringify({ error: msg }) + "\n\n"));
           await writer.write(enc.encode("data: [DONE]\n\n"));
           await writer.close();
           return;
         }
 
-        // Passthrough: copy DeepSeek's SSE bytes straight to the browser.
+        // Passthrough: copy the upstream SSE bytes straight to the browser.
         const reader = dsRes.body.getReader();
         while (true) {
           const { done, value } = await reader.read();
