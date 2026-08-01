@@ -146,6 +146,9 @@ const CHAT_API_URL = "https://api.cnmas.top";
 // "Chats" in OneDrive, share it, and drop the link below):
 const CHAT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgB5autcGzJOSKCznhJ1X0n3AVgMO_Xx2FjWRhpgk4vP1ag?email=celine_mas%40outlook.com&e=Lsf6a0";
 const CHAT_INDEX_FILE = "chat-index.json";
+// User-defined custom model names are synced across devices in this file
+// (stored in the same Chats folder). Shape: { "custom": ["Qwen-xxx", ...] }.
+const CHAT_MODELS_FILE = "chat-models.json";
 // Model choices shown in the dropdown. Default is the first.
 // A "Qwen-" prefix marks an Aliyun Bailian (DashScope) model; the front-end
 // strips the prefix to get the real model name and tells the Worker to route to
@@ -8654,6 +8657,7 @@ function blogWireEvents() {
 var chatDriveBase = "";
 var chatConvs = [];          // index entries [{id,title,updated}]
 var chatIndexEtag = null;
+var chatModelsEtag = null;   // eTag for chat-models.json (custom models sync)
 var chatLoaded = false;
 var chatCurId = null;        // id of the open conversation
 var chatMessages = [];       // messages of the open conversation [{role,content,reasoning}]
@@ -8797,6 +8801,19 @@ async function chatLoad() {
   chatIndexEtag = idx.etag;
   chatLoaded = true;
   chatRenderList();
+  // Merge cross-device custom models (best-effort; falls back to local-only).
+  try {
+    const cloud = await chatReadCustomModelsFile(token);
+    chatModelsEtag = cloud.etag;
+    const local = chatGetCustomModels();
+    const merged = cloud.custom.slice();
+    local.forEach((m) => { if (!merged.includes(m)) merged.push(m); });
+    // If the cloud was missing anything we had locally, push our additions up.
+    const needUp = local.some((m) => !cloud.custom.includes(m));
+    chatSaveCustomModels(merged);
+    chatRenderModels(chatLastModel);
+    if (needUp) { chatSyncCustomModelsUp(token, "merge").catch((e) => console.warn("custom-model sync up:", e)); }
+  } catch (e) { console.warn("custom-model sync (load) failed:", e); }
   // Always start on a fresh new conversation; existing ones are in the sidebar.
   chatNew();
   setStatus("已载入 " + chatConvs.length + " 个对话。", "ok", 1500);
@@ -9088,6 +9105,58 @@ function chatGetCustomModels() {
 function chatSaveCustomModels(arr) {
   try { localStorage.setItem("chatCustomModels", JSON.stringify(arr)); } catch {}
 }
+
+// ---- custom-model cross-device sync (OneDrive chat-models.json) ----------
+// Only the user-defined custom models are synced. The selected model and any
+// hidden built-ins stay device-local. localStorage remains the instant-open
+// cache; the cloud file is the cross-device source of truth.
+async function chatReadCustomModelsFile(token) {
+  const res = await fetch(chatContentUrl(CHAT_MODELS_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { custom: [], etag: null };
+  if (!res.ok) throw new Error("载入自定义模型失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const custom = (data && Array.isArray(data.custom)) ? data.custom.filter((m) => typeof m === "string") : [];
+  return { custom, etag: res.headers.get("ETag") };
+}
+// Push the local custom-model list to the cloud.
+//   mode "merge"   : cloud ∪ local  (used on add / initial load) — never loses
+//                    a model another device just added.
+//   mode "replace" : local wins outright (used on delete) — otherwise a merge
+//                    would resurrect the just-deleted model from the cloud.
+// Writes the resolved list back to both localStorage and the cloud file.
+async function chatSyncCustomModelsUp(token, mode) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let fresh;
+    try { fresh = await chatReadCustomModelsFile(token); } catch { fresh = { custom: [], etag: chatModelsEtag }; }
+    const local = chatGetCustomModels();
+    let resolved;
+    if (mode === "replace") {
+      resolved = local.slice();
+    } else { // merge
+      resolved = fresh.custom.slice();
+      local.forEach((m) => { if (!resolved.includes(m)) resolved.push(m); });
+    }
+    // Keep localStorage in step with what we're about to persist.
+    chatSaveCustomModels(resolved);
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (fresh.etag) headers["If-Match"] = fresh.etag;
+    const res = await fetch(chatContentUrl(CHAT_MODELS_FILE), {
+      method: "PUT", headers, body: JSON.stringify({ custom: resolved }),
+    });
+    if (res.ok) { const it = await res.json(); chatModelsEtag = it.eTag; return resolved; }
+    if (res.status === 412) { chatModelsEtag = null; continue; } // conflict: re-read and retry
+    throw new Error("保存自定义模型失败：" + res.status);
+  }
+  throw new Error("保存自定义模型冲突，重试多次仍失败。");
+}
+// Fire-and-forget wrapper for the sync-up (used from the sync onchange handler).
+function chatPushCustomModels(mode) {
+  getToken()
+    .then((token) => chatSyncCustomModelsUp(token, mode))
+    .catch((e) => console.warn("custom-model sync up (" + mode + "):", e));
+}
+
 // Built-in models the user has chosen to hide from the dropdown.
 function chatGetRemovedModels() {
   try {
@@ -9167,7 +9236,10 @@ function chatWireEvents() {
         const removed = chatGetRemovedModels();
         if (removed.includes(name)) chatSaveRemovedModels(removed.filter((m) => m !== name));
         const arr = chatGetCustomModels();
-        if (!CHAT_MODELS.includes(name) && !arr.includes(name)) { arr.push(name); chatSaveCustomModels(arr); }
+        if (!CHAT_MODELS.includes(name) && !arr.includes(name)) {
+          arr.push(name); chatSaveCustomModels(arr);
+          chatPushCustomModels("merge");   // sync the new model across devices
+        }
         chatRenderModels(name);
       } else {
         chatRenderModels(chatLastModel);   // cancelled: revert
@@ -9182,6 +9254,7 @@ function chatWireEvents() {
         const custom = chatGetCustomModels();
         if (custom.includes(name)) {
           chatSaveCustomModels(custom.filter((m) => m !== name));
+          chatPushCustomModels("replace");   // sync the deletion across devices
         } else {
           const removed = chatGetRemovedModels();
           if (!removed.includes(name)) { removed.push(name); chatSaveRemovedModels(removed); }
