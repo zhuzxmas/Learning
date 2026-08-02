@@ -9017,7 +9017,10 @@ function chatRenderMessages() {
   const box = els.aiMessages;
   box.innerHTML = "";
   if (!chatMessages.length) {
-    box.innerHTML = '<div class="ai-empty">向 DeepSeek 提问吧 👋</div>';
+    box.innerHTML =
+      '<div class="ai-empty">向 DeepSeek 提问吧 👋' +
+      '<div class="ai-empty-note">Qwen- 开头为阿里云免费模型<br>其余为收费模型</div>' +
+      '</div>';
     return;
   }
   chatMessages.forEach((m) => box.appendChild(chatBubble(m)));
