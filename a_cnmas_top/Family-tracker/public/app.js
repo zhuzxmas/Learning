@@ -349,6 +349,7 @@ const els = {
   modeChatBtn: $("modeChatBtn"),
   aiApp: $("aiApp"),
   aiConvList: $("aiConvList"),
+  aiConvSearch: $("aiConvSearch"),
   aiNewChatBtn: $("aiNewChatBtn"),
   aiMessages: $("aiMessages"),
   aiInput: $("aiInput"),
@@ -8712,6 +8713,7 @@ var chatCurEtag = null;      // eTag of chats/<id>.json (optimistic concurrency)
 var chatSending = false;     // guard against concurrent sends
 var chatLastModel = "";      // last valid model selection (for revert on cancel)
 var chatWired = false;       // idempotency guard for chatWireEvents()
+var chatSearchQuery = "";    // lower-cased sidebar title filter (title-only search)
 
 // ---- local content cache (instant re-open) -------------------------------
 // Caches each conversation's messages + eTag in localStorage so re-opening is
@@ -8874,22 +8876,56 @@ function chatRenderList() {
     box.innerHTML = '<p class="muted" style="padding:8px;">还没有对话，点“新对话”开始。</p>';
     return;
   }
-  chatConvs.forEach((c) => {
+  const q = chatSearchQuery;
+  const list = q
+    ? chatConvs.filter((c) => (c.title || "").toLowerCase().includes(q))
+    : chatConvs;
+  if (!list.length) {
+    box.innerHTML = '<p class="muted" style="padding:8px;">无匹配对话。</p>';
+    return;
+  }
+  list.forEach((c) => {
     const item = document.createElement("div");
     item.className = "ai-conv-item" + (c.id === chatCurId ? " active" : "");
     const t = document.createElement("span");
     t.className = "ai-conv-title";
     t.textContent = c.title || "新对话";
     t.onclick = () => chatOpen(c.id);
+    const ren = document.createElement("button");
+    ren.className = "ai-conv-rename";
+    ren.textContent = "✎";
+    ren.title = "重命名对话";
+    ren.onclick = (e) => { e.stopPropagation(); chatRename(c.id); };
     const del = document.createElement("button");
     del.className = "ai-conv-del";
     del.textContent = "×";
     del.title = "删除对话";
     del.onclick = (e) => { e.stopPropagation(); chatDelete(c.id); };
     item.appendChild(t);
+    item.appendChild(ren);
     item.appendChild(del);
     box.appendChild(item);
   });
+}
+
+// Rename a conversation. The title lives only in the index (chat-index.json),
+// so we mutate chatConvs and persist via chatWriteIndex — chatWriteConv (the
+// per-conversation messages file) is not involved. `updated` is left untouched
+// so the sort order stays stable.
+async function chatRename(id) {
+  const c = chatConvs.find((x) => x.id === id);
+  if (!c) return;
+  const name = (prompt("重命名对话：", c.title || "新对话") || "").trim();
+  if (!name || name === c.title) return;
+  c.title = name.slice(0, 60);
+  chatRenderList();
+  if (id === chatCurId) els.aiTitle.textContent = c.title;
+  try {
+    await chatWriteIndex(await getToken());
+    setStatus("已重命名。", "ok", 2000);
+  } catch (e) {
+    setStatus("重命名同步失败：" + (e.message || e), "warn", 5000);
+  }
 }
 
 // ---- open / new / delete -------------------------------------------------
@@ -9259,6 +9295,12 @@ function chatWireEvents() {
   // (model dropdown / localStorage), so the 发送 button is always usable. ----
   if (els.aiSendBtn) els.aiSendBtn.onclick = () => chatSend();
   if (els.aiNewChatBtn) els.aiNewChatBtn.onclick = () => chatNew();
+  if (els.aiConvSearch) {
+    els.aiConvSearch.oninput = () => {
+      chatSearchQuery = els.aiConvSearch.value.trim().toLowerCase();
+      chatRenderList();
+    };
+  }
   if (els.aiInput) {
     els.aiInput.addEventListener("keydown", (e) => {
       // Enter sends; Shift+Enter makes a newline.
