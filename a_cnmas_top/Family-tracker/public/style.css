@@ -377,6 +377,9 @@ td:nth-child(6) {
   font-size: 14px;
 }
 .filter-bar input[type="text"] { min-width: 0; }
+/* 股票明细：股票选择器 + 账户选择器始终同一行（含 iPhone） */
+.filter-bar-inline { flex-wrap: nowrap; }
+.filter-bar-inline select { flex: 1 1 0; min-width: 0; }
 /* The three cascading category selects sit horizontally in one row, and
    wrap onto a second line only on very narrow phones. */
 .cat-filter-row {
