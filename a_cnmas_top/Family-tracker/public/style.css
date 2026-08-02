@@ -307,19 +307,11 @@ td:nth-child(6) {
 /* Narrow screens: stack each spending record onto two lines (line 1 = 日期/
    分类/操作, line 2 = 金额/备注) so no horizontal scrolling is needed. */
 @media (max-width: 640px) {
-  /* Use >=16px font on all form controls so iOS Safari doesn't auto-zoom the
-     page when a field is focused. */
-  .field input, .field select, .field textarea,
-  .filter-bar input[type="date"],
-  .filter-bar input[type="text"],
-  .filter-bar select {
-    font-size: 16px;
-  }
-  /* Chat controls define their own font later in the stylesheet (equal
-     specificity), so !important is required to win the cascade here. */
-  .ai-composer textarea,
-  .ai-conv-search,
-  .ai-model {
+  /* Blanket rule: force >=16px on EVERY input/select/textarea on mobile so iOS
+     Safari never auto-zooms the page on focus. !important is required because
+     some controls define their own font later in the stylesheet with equal
+     specificity (e.g. .ai-composer textarea { font: inherit }). */
+  input, select, textarea {
     font-size: 16px !important;
   }
   #tabList .table-wrap { overflow-x: hidden; }
