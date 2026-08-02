@@ -1,0 +1,51 @@
+name: OneDrive-Personal-PDF-Scan
+
+# Every 30 minutes during Beijing 07:00-24:00 (skip 00:00-07:00).
+# GitHub cron is UTC and Beijing = UTC+8, so the allowed window
+# (Beijing 07:00-23:59) maps to UTC 23:00-15:59 -> hours 0-15 and 23.
+on:
+  schedule:
+    - cron: "0,30 0-15,23 * * *"
+  workflow_dispatch: {}
+
+# Read-only: this workflow rotates its refresh token via the GitHub Secrets API
+# (not via a committed rt.enc), so it never pushes to the repo.
+permissions:
+  contents: read
+
+# Own group (NOT the shared 'onedrive-token'): serialises this workflow with
+# itself so two runs can't race the Secret rotation, while staying fully
+# independent from the summarizer / finance / wallpaper workflows.
+concurrency:
+  group: onedrive-token-pdf
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Poppler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-finance.txt
+
+      - name: Run PDF scanner
+        env:
+          ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+          ONEDRIVE_REFRESH_TOKEN_PDF: ${{ secrets.ONEDRIVE_REFRESH_TOKEN_PDF }}
+          GH_PAT_SECRETS: ${{ secrets.GH_PAT_SECRETS }}
+          # GITHUB_REPOSITORY is provided automatically by Actions.
+        run: python -u 04.OneDrive-Personal-PDF-Scan.py
