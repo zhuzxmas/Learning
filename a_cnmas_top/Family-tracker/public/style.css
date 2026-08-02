@@ -1016,11 +1016,25 @@ td:nth-child(6) {
   font-size: 18px; line-height: 1; padding: 0 2px;
 }
 .ai-conv-del:hover { color: #c0392b; }
-.ai-conv-rename {
+.ai-conv-more {
   border: none; background: transparent; color: #999; cursor: pointer;
-  font-size: 14px; line-height: 1; padding: 0 2px;
+  font-size: 20px; line-height: 1; padding: 0 4px;
 }
-.ai-conv-rename:hover { color: #2d6cdf; }
+.ai-conv-more:hover { color: #2d6cdf; }
+.ai-conv-menu {
+  position: fixed; z-index: 60; min-width: 140px;
+  background: #fff; border: 1px solid #d5d8de; border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.14); padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ai-conv-menu-item {
+  appearance: none; border: none; background: transparent; cursor: pointer;
+  text-align: left; padding: 8px 12px; border-radius: 6px; font-size: 14px;
+  color: #222;
+}
+.ai-conv-menu-item:hover { background: #eceef2; }
+.ai-conv-menu-del { color: #c0392b; }
+.ai-conv-menu-del:hover { background: #fbe9e7; }
 .ai-conv-search {
   width: 100%; box-sizing: border-box; margin-bottom: 6px;
   padding: 7px 10px; border: 1px solid #d5d8de; border-radius: 8px;

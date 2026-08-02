@@ -350,6 +350,7 @@ const els = {
   aiApp: $("aiApp"),
   aiConvList: $("aiConvList"),
   aiConvSearch: $("aiConvSearch"),
+  aiConvMenu: $("aiConvMenu"),
   aiNewChatBtn: $("aiNewChatBtn"),
   aiMessages: $("aiMessages"),
   aiInput: $("aiInput"),
@@ -8714,6 +8715,7 @@ var chatSending = false;     // guard against concurrent sends
 var chatLastModel = "";      // last valid model selection (for revert on cancel)
 var chatWired = false;       // idempotency guard for chatWireEvents()
 var chatSearchQuery = "";    // lower-cased sidebar title filter (title-only search)
+var chatMenuId = null;       // conversation id the ⋯ popup menu currently targets
 
 // ---- local content cache (instant re-open) -------------------------------
 // Caches each conversation's messages + eTag in localStorage so re-opening is
@@ -8891,21 +8893,40 @@ function chatRenderList() {
     t.className = "ai-conv-title";
     t.textContent = c.title || "新对话";
     t.onclick = () => chatOpen(c.id);
-    const ren = document.createElement("button");
-    ren.className = "ai-conv-rename";
-    ren.textContent = "✎";
-    ren.title = "重命名对话";
-    ren.onclick = (e) => { e.stopPropagation(); chatRename(c.id); };
-    const del = document.createElement("button");
-    del.className = "ai-conv-del";
-    del.textContent = "×";
-    del.title = "删除对话";
-    del.onclick = (e) => { e.stopPropagation(); chatDelete(c.id); };
+    const more = document.createElement("button");
+    more.className = "ai-conv-more";
+    more.textContent = "⋯";
+    more.title = "更多";
+    more.onclick = (e) => { e.stopPropagation(); chatOpenConvMenu(c.id, more); };
     item.appendChild(t);
-    item.appendChild(ren);
-    item.appendChild(del);
+    item.appendChild(more);
     box.appendChild(item);
   });
+}
+
+// Position and show the shared ⋯ popup menu (重命名 / 删除) next to the button
+// that was clicked. A single fixed-position element is reused for every row so
+// it is never clipped by the scrollable list's overflow.
+function chatOpenConvMenu(id, anchorEl) {
+  chatMenuId = id;
+  const menu = els.aiConvMenu;
+  if (!menu) return;
+  const r = anchorEl.getBoundingClientRect();
+  menu.classList.remove("hidden");
+  // Measure now that it's visible, then clamp within the viewport.
+  const mw = menu.offsetWidth || 140;
+  const mh = menu.offsetHeight || 80;
+  let left = r.right - mw;
+  if (left < 6) left = 6;
+  let top = r.bottom + 4;
+  if (top + mh > window.innerHeight - 6) top = r.top - mh - 4; // flip up near bottom
+  if (top < 6) top = 6;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+}
+function chatCloseConvMenu() {
+  if (els.aiConvMenu) els.aiConvMenu.classList.add("hidden");
+  chatMenuId = null;
 }
 
 // Rename a conversation. The title lives only in the index (chat-index.json),
@@ -9300,6 +9321,25 @@ function chatWireEvents() {
       chatSearchQuery = els.aiConvSearch.value.trim().toLowerCase();
       chatRenderList();
     };
+  }
+  if (els.aiConvMenu) {
+    els.aiConvMenu.querySelectorAll(".ai-conv-menu-item").forEach((it) => {
+      it.onclick = (e) => {
+        e.stopPropagation();
+        const id = chatMenuId;
+        const act = it.dataset.act;
+        chatCloseConvMenu();
+        if (!id) return;
+        if (act === "rename") chatRename(id);
+        else if (act === "delete") chatDelete(id);
+      };
+    });
+    // Close on outside-click, list scroll, or window resize.
+    document.addEventListener("click", (e) => {
+      if (!els.aiConvMenu.contains(e.target)) chatCloseConvMenu();
+    });
+    if (els.aiConvList) els.aiConvList.addEventListener("scroll", chatCloseConvMenu);
+    window.addEventListener("resize", chatCloseConvMenu);
   }
   if (els.aiInput) {
     els.aiInput.addEventListener("keydown", (e) => {
