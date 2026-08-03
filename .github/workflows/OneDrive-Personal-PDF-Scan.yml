@@ -3,9 +3,10 @@ name: OneDrive-Personal-PDF-Scan
 # Every 30 minutes during Beijing 07:00-24:00 (skip 00:00-07:00).
 # GitHub cron is UTC and Beijing = UTC+8, so the allowed window
 # (Beijing 07:00-23:59) maps to UTC 23:00-15:59 -> hours 0-15 and 23.
+# update to run at hours 15 and minutes 30 UTC, so 23:30 Beijing Time.
 on:
   schedule:
-    - cron: "0,30 0-15,23 * * *"
+    - cron: "30 15 * * *"
   workflow_dispatch: {}
 
 # Read-only: this workflow rotates its refresh token via the GitHub Secrets API
