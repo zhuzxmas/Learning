@@ -716,6 +716,17 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
         for rec in data['data']:
             period = rec.get('ASSIGN_PERIOD') or rec.get('REPORT_DATE') or ''
             year = str(period)[:4]
+            # ASSIGN_PERIOD is sometimes a text label (e.g. "特别分配" for a
+            # special distribution) rather than a date, which would make the
+            # fiscal year "特别分配" and never match any report column. Fall back
+            # to a real date field so the payout maps to its actual year.
+            if not year.isdigit():
+                for k in ('REPORT_DATE', 'NOTICE_DATE', 'EQUITY_RECORD_DATE',
+                          'EX_DIVIDEND_DATE'):
+                    v = str(rec.get(k) or '')
+                    if v[:4].isdigit():
+                        year = v[:4]
+                        break
             plan = rec.get('PLAN_EXPLAIN')
             # RPT_HKF10_INFO_DIVIDEND carries no numeric per-share field; the
             # cash amount only exists inside PLAN_EXPLAIN text such as
