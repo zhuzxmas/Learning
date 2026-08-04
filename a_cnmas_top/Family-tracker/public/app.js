@@ -3167,9 +3167,17 @@ function sbtCodeToCn(raw) {
 // {code}.SH/.SZ.txt into the kline/ folder. push2his is unreachable from the
 // cloud, so this download stays manual — but the link needs no Python now.
 function sbtKlineUrl(raw) {
-  const code = String(raw).replace(/\D/g, "").padStart(6, "0");
-  if (code.length !== 6) return null;
-  const mkt = code[0] === "6" ? 1 : 0;
+  const s = String(raw).trim();
+  let mkt, code;
+  if (/^[Hh]\d+$/.test(s)) {
+    // Hong Kong: 'H01548' -> secid 116.01548 (mirrors get_stock_price_..._HK).
+    code = s.slice(1).padStart(5, "0");
+    mkt = 116;
+  } else {
+    code = s.replace(/\D/g, "").padStart(6, "0");
+    if (code.length !== 6) return null;
+    mkt = code[0] === "6" ? 1 : 0;
+  }
   const d = new Date();
   const end = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   return "https://push2his.eastmoney.com/api/qt/stock/kline/get" +
@@ -3241,8 +3249,6 @@ function sbtRenderSettings() {
   }
   for (const code of sbtCodes) {
      const cn = sbtCodeToCn(code) || code;
-     // HK stocks fetch prices live in the batch — no manual kline file needed.
-     const isHk = /^[Hh]\d+$/.test(String(code).trim());
      const nm = sbtNames[String(code).replace(/\D/g, "")]
        || (sbtStocks[cn] && sbtStocks[cn].stock_name) || "";
     const row = document.createElement("div");
@@ -3271,7 +3277,7 @@ function sbtRenderSettings() {
     dlLine.className = "sbt-dl-line";
     dlLine.appendChild(kl); dlLine.appendChild(fn);
     row.appendChild(span); row.appendChild(upd); row.appendChild(del);
-    if (!isHk) row.appendChild(dlLine);
+    row.appendChild(dlLine);
     c.appendChild(row);
   }
 }
@@ -3322,8 +3328,7 @@ async function sbtAddStock() {
 }
 
 async function sbtUpdateStock(code) {
-  const isHk = /^[Hh]\d+$/.test(String(code).trim());
-  const tip = isHk ? "" : "\n\n请确认已下载最新 kline 数据，否则：\n· 股价相关指标将停留在旧价格\n· 仅财务基本面会刷新";
+  const tip = "\n\n请确认已下载最新 kline 数据，否则：\n· 股价相关指标将停留在旧价格\n· 仅财务基本面会刷新";
   if (!confirm(`触发个股批处理更新 ${code}？${tip}`)) return;
   try {
     const token = await getToken();
