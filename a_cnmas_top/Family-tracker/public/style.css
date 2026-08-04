@@ -20,6 +20,10 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 15px;
+  /* 禁用移动端文本自动放大（font boosting）：否则长文本（如特别分红方案）
+     会被 WebKit/Blink 自动放大，无视 CSS 字号。 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .hidden { display: none !important; }
