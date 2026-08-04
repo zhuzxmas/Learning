@@ -755,7 +755,7 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
 ################# to get the stock price for each year #####################################
 
 
-def request_easmon_kline_with_retry(url, headers, proxies=None, warmup_url=None, max_retries=5, timeout=30):
+def request_easmon_kline_with_retry(url, headers, proxies=None, warmup_url=None, max_retries=5, timeout=30, url_rebuild=None):
     """Request the EastMoney kline API with a warm-up + exponential backoff.
 
     EastMoney's historical kline host (push2his) sits behind a "checkuser" WAF:
@@ -772,8 +772,15 @@ def request_easmon_kline_with_retry(url, headers, proxies=None, warmup_url=None,
     challenge may need re-passing.
 
     Returns the successful Response, or None if every attempt fails.
+
+    When ``url_rebuild`` is supplied it must be a ``callable(attempt) -> url``;
+    each attempt then targets a freshly built URL (used by the HK price fetch to
+    vary the kline ``lmt`` per attempt). Defaults to None -> the fixed ``url`` is
+    reused every attempt, so existing callers are unaffected.
     """
     for attempt in range(1, max_retries + 1):
+        if url_rebuild is not None:
+            url = url_rebuild(attempt)
         try:
             session = requests.Session()
             if warmup_url:
@@ -956,7 +963,7 @@ def get_stock_price_from_kline_text(kline_text, stock_cn=''):
     return price_df
 
 
-def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
+def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='1760'):
     # Generate a random UUID (version 4)
     random_uuid = uuid.uuid4()
     # Convert to string without hyphens
@@ -986,12 +993,26 @@ def get_stock_price_Raw_Data_EasMon_HK(stock_hk, proxies, limit_number='210'):
     # Get today's date and format it as YYYYMMDD
     today_str = datetime.datetime.now().strftime("%Y%m%d")
 
-    url_price_range = 'https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt={}&fqt={}&end={}&lmt={}&cb=_jp1'.format(
-        'sh2his', 'tmon', stock_mkt, stock_number, ut_string, klt_code, fqt_code, today_str, limit_number)
+    def _build_url(attempt):
+        # Attempt 1 uses the requested limit (default 1760); any retry uses a
+        # fresh random lmt in [1700, 1800] and a fresh uuid, in case a specific
+        # kline count trips the upstream. Retry count/backoff stay as-is (the
+        # helper's max_retries=5).
+        lmt = str(limit_number) if attempt == 1 else str(random.randint(1700, 1800))
+        ut = str(uuid.uuid4()).replace('-', '')
+        return ('https://pu{}.eas{}ey.com/api/qt/stock/kline/get?secid={}.{}&ut={}'
+                '&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6'
+                '&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61'
+                '&klt={}&fqt={}&end={}&lmt={}&cb=_jp1').format(
+            'sh2his', 'tmon', stock_mkt, stock_number, ut,
+            klt_code, fqt_code, today_str, lmt)
+
+    url_price_range = _build_url(1)
 
 
     response_price = request_easmon_kline_with_retry(
-        url_price_range, headers_easmon_price_range, proxies=proxies)
+        url_price_range, headers_easmon_price_range, proxies=proxies,
+        url_rebuild=_build_url)
     if response_price is not None and response_price.status_code == 200:
         # Process the response data here
         print('Got the response from Eas Mon for {} Price Range.\n'.format(stock_hk))

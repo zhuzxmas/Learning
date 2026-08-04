@@ -903,7 +903,7 @@ def main():
             last_7_days = None
             try:
                 stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon_HK(
-                    stock, proxies, limit_number='2000')
+                    stock, proxies, limit_number='1760')
             except Exception as e:  # noqa: BLE001
                 print('HK price fetch failed for {} ({}); no price ranges.\n'.format(stock, e))
                 stock_price_df = pd.DataFrame()
