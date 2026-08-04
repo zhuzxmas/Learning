@@ -310,6 +310,23 @@ def _split_hk_periods(df):
     return _pick(annual_cols), _pick(season_cols)
 
 
+def _hk_display_interim(yearly_df, seasonly_df):
+    """展示层过滤：中期/季度侧只保留最新年报之后的那一期 06-30 半年报。
+    丢弃 03-31/09-30 及更早的 06-30。无符合项返回 None。pkl 缓存不受影响。"""
+    if seasonly_df is None or seasonly_df.shape[1] == 0:
+        return None
+    interim_cols = [c for c in seasonly_df.columns if str(c).endswith('-06-30')]
+    if not interim_cols:
+        return None
+    latest = pd.to_datetime(interim_cols).max()
+    if yearly_df is not None and yearly_df.shape[1] > 0:
+        latest_annual = pd.to_datetime(list(yearly_df.columns)).max()
+        if latest <= latest_annual:   # 半年报未领先于最新年报 -> 不显示
+            return None
+    col = latest.strftime('%Y-%m-%d')
+    return _recompute_growth_hk(seasonly_df[[col]].copy())
+
+
 PRICE_RANGE_ROW_LABEL = '后一年股价范围'
 
 
@@ -883,6 +900,12 @@ def main():
             if stock_output_yearly is None and stock_output_seasonly is None:
                 print('No HK data for {}; skipping.\n'.format(stock))
                 continue
+
+            # Display-layer filter: keep only the single most recent 06-30 interim
+            # (if it post-dates the latest annual); drop quarterlies + older
+            # interims. pkl cache stays full.
+            stock_output_seasonly = _hk_display_interim(
+                stock_output_yearly, stock_output_seasonly)
 
             # HK dividends: textual plans + DPS-based numeric rows (fetched once).
             plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
