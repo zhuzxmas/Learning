@@ -374,6 +374,16 @@ def process_reports_hk(od, history_names, stock, proxies):
         except Exception:  # noqa: BLE001
             fresh = False
 
+        # One-time upgrade: a cache created before the quarterly/interim feature
+        # holds only annual (-12-31) columns. Even when its newest annual column
+        # is still "fresh", force a re-fetch so interim/quarterly columns get
+        # merged in (via the merge path below, which preserves existing data).
+        # Once any interim column is present this is a no-op, so we don't re-fetch
+        # on every run.
+        has_interim = any(not str(c).endswith('-12-31') for c in cached.columns)
+        if fresh and not has_interim:
+            fresh = False
+
         if fresh:
             print('~~~ HK data in OneDrive is up to date for {}.\n'.format(stock))
             return _finish(cached)

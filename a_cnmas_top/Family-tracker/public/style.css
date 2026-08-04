@@ -1124,6 +1124,8 @@ td:nth-child(6) {
 /* Compact the fundamentals table so more columns fit without horizontal
    scrolling (landscape phone / desktop). */
 #sbtCombinedTable { font-size: 12px; }
+/* 分红明细表与财务指标表字号统一（避免分红方案列字体偏大）。 */
+#sbtDividendTable { font-size: 12px; }
 #sbtCombinedTable th, #sbtCombinedTable td { padding: 4px 6px; }
 /* Center the period headers so they line up with the centered data cells. */
 #sbtCombinedTable th { text-align: center; }
