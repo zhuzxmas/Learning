@@ -116,10 +116,15 @@ def Year_report_url_HK(day_one= day_one, stock_hk = '02359.HK'):
     # stock_hk = '02359.HK'
 
     if (stock_hk[-2:] == 'HK'):
-        url_easmon_main = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&pageNumber=1&pageSize=9&sortTypes=-1&sortColumns=STD_REPORT_DATE&source=F10&client=PC&v={}'.format(
-            'ace', 'tmo', report_name_main, stock_hk, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v1)
-        url_easmon_balance = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&pageNumber=1&pageSize=&sortTypes=-1%2C1&sortColumns=REPORT_DATE%2CSTD_ITEM_CODE&source=F10&client=PC&v={}'.format(
-            'ace', 'tmo', report_name_balance, stock_hk, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v2)
+        # No REPORT_DATE filter: pull *all* disclosed periods (annual 12-31 +
+        # interim 06-30 + quarterly 03-31/09-30 where the issuer reports them).
+        # The batch/parser later splits them by DATE_TYPE_CODE (001=annual,
+        # 002=interim, 003=Q1, 004=Q3). pageSize is enlarged to cover several
+        # years of quarterly rows (main) and their per-item balance rows.
+        url_easmon_main = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=40&sortTypes=-1&sortColumns=STD_REPORT_DATE&source=F10&client=PC&v={}'.format(
+            'ace', 'tmo', report_name_main, stock_hk, string_v1)
+        url_easmon_balance = 'https://dat{}nter.eas{}ney.com/securities/api/data/v1/get?reportName={}&columns=ALL&quoteColumns=&filter=(SECUCODE%3D%22{}%22)&pageNumber=1&pageSize=2000&sortTypes=-1%2C1&sortColumns=REPORT_DATE%2CSTD_ITEM_CODE&source=F10&client=PC&v={}'.format(
+            'ace', 'tmo', report_name_balance, stock_hk, string_v2)
 
 
     return [url_easmon_main, url_easmon_balance]
@@ -381,19 +386,19 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
     return [stock_output_y, stock_name_from_year_income]
 
 def fetch_cashflow_data_HK(proxies, stock_hk="02359.HK", day_one = day_one):
-    """获取东方财富现金流量表数据"""
-    current_year = day_one.year
-    # Generate last 8 year-end dates (Dec 31 of previous years)
-    years = [f"{year}-12-31" for year in range(current_year - 1, current_year - 9, -1)]
-    print('查看的自由现金流年份包含：',years)
-    
+    """获取东方财富现金流量表数据（全部报告期：年报+中期+季度）。"""
+    # No REPORT_DATE filter: pull every disclosed period so interim/quarterly
+    # FCF is available too. The parser aligns each period by REPORT_DATE.
+    print('查看的自由现金流：全部报告期（年报/中期/季度）')
+
     url = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
     params = {
         "reportName": "RPT_HKF10_FN_CASHFLOW_PC",
         "columns": "SECUCODE,REPORT_DATE,STD_ITEM_CODE,STD_ITEM_NAME,AMOUNT",
-        "filter": f'(SECUCODE="{stock_hk}")(REPORT_DATE in ({",".join([f"\'{y}\'" for y in years])}))',
+        "filter": f'(SECUCODE="{stock_hk}")',
         "sortColumns": "REPORT_DATE,STD_ITEM_CODE",
         "sortTypes": "-1,1",
+        "pageSize": "2000",
         "source": "F10", "client": "PC"
     }
     try:
@@ -433,6 +438,9 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
     stock_output_y = None
     stock_name_from_year_income = ''
     dps_map = {}
+    # {period 'YYYY-MM-DD' -> DATE_TYPE_CODE}: 001=annual, 002=interim(H1),
+    # 003=Q1, 004=Q3. Lets the batch split yearly vs seasonly columns.
+    date_type_map = {}
 
     url_easmon_income = url[0]
     url_easmon_balance = url[1]
@@ -647,6 +655,15 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         except Exception:  # noqa: BLE001
             pass
 
+        # Report-type per period, used downstream to split annual (001) from
+        # interim/quarterly (002/003/004) columns.
+        try:
+            if 'DATE_TYPE_CODE' in df_income_stock.columns:
+                for idx, val in df_income_stock['DATE_TYPE_CODE'].items():
+                    date_type_map[str(idx)[:10]] = str(val)
+        except Exception:  # noqa: BLE001
+            pass
+
         print('---------The Output Financial Report for this Stock is -----------: \n')
         print(f'{list(stock_output_y.columns)}')
         _nd = 'H{}_Notice_Date.xlsx'.format(str(stock_hk).split('.')[0])
@@ -662,7 +679,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         # df_balance_sheet.T.to_excel('00.ba.xlsx',encoding='utf-8')
     except Exception as _e:  # noqa: BLE001
         print('Data is not available for {} in EasMon ({}).\n'.format(stock_hk, _e))
-    return [stock_output_y, stock_name_from_year_income, dps_map]
+    return [stock_output_y, stock_name_from_year_income, dps_map, date_type_map]
 
 
 def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):

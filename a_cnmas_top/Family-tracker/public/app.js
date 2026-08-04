@@ -3063,8 +3063,16 @@ function sbtRenderSummary() {
   const cbHead = els.sbtCombinedTable.querySelector("thead");
   const cbBody = els.sbtCombinedTable.querySelector("tbody");
    if (cb && cb.columns && cb.index && cb.data) {
+     // Hide fully-empty columns: a report-period column with no value in ANY
+     // row (e.g. an HK quarter the issuer never disclosed) is dropped entirely.
+     const isEmptyCell = (v) =>
+       v === null || v === undefined || String(v).trim() === "";
+     const visibleCols = cb.columns
+       .map((_, j) => j)
+       .filter((j) => cb.index.some((_, i) =>
+         !isEmptyCell((cb.data[i] || [])[j])));
      cbHead.innerHTML = "<tr><th>指标</th>" +
-       cb.columns.map((c) => `<th>${escapeHtml(String(c))}</th>`).join("") + "</tr>";
+       visibleCols.map((j) => `<th>${escapeHtml(String(cb.columns[j]))}</th>`).join("") + "</tr>";
      cbBody.innerHTML = cb.index.map((label, i) => {
        // 每股派发股息 carries long plan text like "10派3.00元(含税,扣税后2.70元)";
        // drop the tax parenthetical for display and let the cell wrap (.sbt-plan)
@@ -3075,8 +3083,8 @@ function sbtRenderSummary() {
        const hl = label === "稀释后 每年/季度每股收益 元"
          || label === "市盈率15对应股价 元";
        return `<tr class="${hl ? "sbt-hl" : ""}"><td class="sbt-rowlabel">${escapeHtml(String(label))}</td>` +
-         (cb.data[i] || []).map((v) => {
-           let s = (v === null || v === undefined) ? "" : String(v);
+         visibleCols.map((j) => {
+           let s = isEmptyCell((cb.data[i] || [])[j]) ? "" : String((cb.data[i] || [])[j]);
            if (isPlan) s = sbtStripTax(s);
            return `<td class="${cls}">${escapeHtml(s)}</td>`;
          }).join("") + "</tr>";
