@@ -45,7 +45,8 @@ def build_kline_url(stock_cn, lmt=LMT, end=None):
     """Reconstruct the EastMoney kline API URL for an A-share code.
 
     Mirrors z_Func.get_stock_price_Raw_Data_EasMon: SH -> market 1, SZ -> 0,
-    daily candles (klt=101), forward-adjusted (fqt=1), JSONP callback quote_jp4
+    HK -> market 116 (mirrors get_stock_price_Raw_Data_EasMon_HK), daily candles
+    (klt=101), forward-adjusted (fqt=1), JSONP callback quote_jp4
     (finance_batch_personal strips the callback wrapper when parsing).
     """
     if end is None:
@@ -54,6 +55,8 @@ def build_kline_url(stock_cn, lmt=LMT, end=None):
         code, mkt = stock_cn[:6], 1
     elif stock_cn.endswith(".SZ"):
         code, mkt = stock_cn[:6], 0
+    elif stock_cn.endswith(".HK"):
+        code, mkt = stock_cn.split(".")[0], 116
     else:
         return None
     return (

@@ -899,14 +899,16 @@ def main():
                     'IMPL_PLAN_PROFILE': r.get('plan') or '',
                 } for r in plan_records])
 
-            # Live HK price fetch (once) -> per-period price ranges.
+            # HK price history from the manually-downloaded kline file (same
+            # strategy as A-shares: push2his is not reachable from cloud IPs, so
+            # the kline JSONP is saved to OneDrive as kline/{code}.txt).
             last_7_days = None
-            try:
-                stock_price_df = z_Func.get_stock_price_Raw_Data_EasMon_HK(
-                    stock, proxies, limit_number='1760')
-            except Exception as e:  # noqa: BLE001
-                print('HK price fetch failed for {} ({}); no price ranges.\n'.format(stock, e))
-                stock_price_df = pd.DataFrame()
+            kline_text = od.get_text('kline/{}.txt'.format(stock))
+            if kline_text is None:
+                print('!! kline/{}.txt missing — run the kline manifest pre-step. '
+                      'Skipping price ranges for this stock.\n'.format(stock))
+            stock_price_df = z_Func.get_stock_price_from_kline_text(
+                kline_text or '', stock_cn=stock)
             if len(stock_price_df) > 0:
                 try:
                     last_7_days = z_Func.get_latest_7_days_stock_price_Based_on_EasMon(
