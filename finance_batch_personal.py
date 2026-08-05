@@ -327,6 +327,34 @@ def _hk_display_interim(yearly_df, seasonly_df):
     return _recompute_growth_hk(seasonly_df[[col]].copy())
 
 
+DISPLAY_MIN_YEAR = 2018
+
+
+def _filter_display_years(df, min_year=DISPLAY_MIN_YEAR):
+    """展示层：财务指标表只保留报告期年份 >= min_year 的列（含 2018）。
+    列名非日期或无法解析年份的列一律保留（稳妥），行不受影响。
+    A股/港股通用。原始 pkl 不受影响。"""
+    if df is None or df.shape[1] == 0:
+        return df
+    keep = []
+    for c in df.columns:
+        s = str(c)
+        # 期望形如 'YYYY-MM-DD'；非日期形态或解析失败的列保留，避免误删。
+        if len(s) >= 5 and s[4:5] == '-':
+            try:
+                yr = int(s[:4])
+            except (ValueError, TypeError):
+                keep.append(c)
+                continue
+            if yr >= min_year:
+                keep.append(c)
+        else:
+            keep.append(c)
+    if not keep:
+        return df            # 全被过滤则退回原样，避免产出空表
+    return df[keep]
+
+
 PRICE_RANGE_ROW_LABEL = '后一年股价范围'
 
 
@@ -666,6 +694,7 @@ def evaluate_checks(stock_output_yearly, stock_0_dividends):
 # ---- output (JSON is source of truth; HTML rendered from it) --------------
 def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
                  last_7_days, dividends_df):
+    stock_output_combined = _filter_display_years(stock_output_combined)
     combined_json = None
     if stock_output_combined is not None:
         combined_json = json.loads(
@@ -824,6 +853,7 @@ def apply_price_range_preservation(stock_price_yearly, stock_output_yearly,
 
 
 def render_html(payload, stock_output_combined, dividends_df):
+    stock_output_combined = _filter_display_years(stock_output_combined)
     stock = payload['stock']
     stock_name = payload['stock_name']
     parts = ['<!DOCTYPE html><html><head><meta charset="utf-8">',
