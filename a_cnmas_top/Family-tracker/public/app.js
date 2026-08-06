@@ -308,6 +308,7 @@ const els = {
   incRecordCount: $("incRecordCount"),
   incEmptyHint: $("incEmptyHint"),
   incFilterDate: $("incFilterDate"),
+  incFilterYear: $("incFilterYear"),
   incFilterCat: $("incFilterCat"),
   incFilterPayee: $("incFilterPayee"),
   incClearFilterBtn: $("incClearFilterBtn"),
@@ -2277,6 +2278,7 @@ function incFillFilterSelects() {
   };
   build(els.incFilterCat, union(incVisTitles(), "title"), "全部分类");
   build(els.incFilterPayee, union(incVisPayees(), "payee"), "全部收款人");
+  if (els.incFilterYear) build(els.incFilterYear, incYears(), "全部年份");
 }
 
 /* ------------------------- Income Graph I/O ------------------------------ */
@@ -2612,14 +2614,16 @@ function incRenderHidden() {
 function incRender() {
   incFillFilterSelects();
   const monthFilter = incFilterOn && els.incFilterDate ? els.incFilterDate.value.slice(0, 7) : "";
+  const yearFilter = els.incFilterYear ? els.incFilterYear.value : "";
   const catFilter = els.incFilterCat ? els.incFilterCat.value : "";
   const payeeFilter = els.incFilterPayee ? els.incFilterPayee.value : "";
-  const attrFilter = !!(catFilter || payeeFilter);
+  const attrFilter = !!(catFilter || payeeFilter || yearFilter);
   const sorted = [...incomeRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   let view, limited = false;
   if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
   else if (incShowAll || attrFilter) view = sorted;
   else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+  if (yearFilter) view = view.filter((r) => (r.date || "").slice(0, 4) === yearFilter);
   if (catFilter) view = view.filter((r) => r.title === catFilter);
   if (payeeFilter) view = view.filter((r) => r.payee === payeeFilter);
 
@@ -3524,11 +3528,13 @@ function incWireEvents() {
   });
   els.incClearFilterBtn.onclick = () => {
     incFilterOn = false; els.incFilterDate.value = todayStr();
+    if (els.incFilterYear) els.incFilterYear.value = "";
     if (els.incFilterCat) els.incFilterCat.value = "";
     if (els.incFilterPayee) els.incFilterPayee.value = "";
     incRender();
   };
   els.incShowAllBtn.onclick = () => { incShowAll = !incShowAll; incRender(); };
+  if (els.incFilterYear) els.incFilterYear.onchange = () => { incShowAll = false; incRender(); };
   if (els.incFilterCat) els.incFilterCat.onchange = () => { incShowAll = false; incRender(); };
   if (els.incFilterPayee) els.incFilterPayee.onchange = () => { incShowAll = false; incRender(); };
   els.incChartYear.onchange = () => { incChartYearVal = els.incChartYear.value; incRenderChart(); };
