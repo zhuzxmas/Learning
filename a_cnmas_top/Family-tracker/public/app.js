@@ -308,6 +308,8 @@ const els = {
   incRecordCount: $("incRecordCount"),
   incEmptyHint: $("incEmptyHint"),
   incFilterDate: $("incFilterDate"),
+  incFilterCat: $("incFilterCat"),
+  incFilterPayee: $("incFilterPayee"),
   incClearFilterBtn: $("incClearFilterBtn"),
   incShowAllBtn: $("incShowAllBtn"),
   // --- income charts ---
@@ -2250,6 +2252,33 @@ function incVisPayees() {
   return all.filter((x) => !incMeta.payees.hidden.includes(x));
 }
 
+// Populate the 分类 / 收款人 filter dropdowns on the income list. Options are the
+// union of the visible option lists and any value actually present in records
+// (so historical records using a now-hidden 分类/收款人 stay filterable). The
+// current selection is preserved across rebuilds.
+function incFillFilterSelects() {
+  if (!els.incFilterCat || !els.incFilterPayee) return;
+  const union = (visible, field) => {
+    const set = new Set(visible);
+    for (const r of incomeRecords) { const v = r[field]; if (v) set.add(v); }
+    return [...set].sort((a, b) => String(a).localeCompare(String(b), "zh"));
+  };
+  const build = (sel, values, placeholder) => {
+    const keep = sel.value;
+    sel.innerHTML = "";
+    const ph = document.createElement("option");
+    ph.value = ""; ph.textContent = placeholder;
+    sel.appendChild(ph);
+    for (const v of values) {
+      const op = document.createElement("option");
+      op.value = v; op.textContent = v; sel.appendChild(op);
+    }
+    sel.value = values.includes(keep) ? keep : "";
+  };
+  build(els.incFilterCat, union(incVisTitles(), "title"), "全部分类");
+  build(els.incFilterPayee, union(incVisPayees(), "payee"), "全部收款人");
+}
+
 /* ------------------------- Income Graph I/O ------------------------------ */
 async function incResolveFolder(token) {
   if (incDriveBase) return;
@@ -2581,12 +2610,18 @@ function incRenderHidden() {
 
 /* --------------------------- Income table -------------------------------- */
 function incRender() {
+  incFillFilterSelects();
   const monthFilter = incFilterOn && els.incFilterDate ? els.incFilterDate.value.slice(0, 7) : "";
+  const catFilter = els.incFilterCat ? els.incFilterCat.value : "";
+  const payeeFilter = els.incFilterPayee ? els.incFilterPayee.value : "";
+  const attrFilter = !!(catFilter || payeeFilter);
   const sorted = [...incomeRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   let view, limited = false;
   if (monthFilter) view = sorted.filter((r) => (r.date || "").slice(0, 7) === monthFilter);
-  else if (incShowAll) view = sorted;
+  else if (incShowAll || attrFilter) view = sorted;
   else { view = sorted.slice(0, PAGE_LIMIT); limited = sorted.length > PAGE_LIMIT; }
+  if (catFilter) view = view.filter((r) => r.title === catFilter);
+  if (payeeFilter) view = view.filter((r) => r.payee === payeeFilter);
 
   els.incBody.innerHTML = "";
   let prevDate = null;
@@ -2620,12 +2655,12 @@ function incRender() {
 
   const total = incomeRecords.length;
   const sum = view.reduce((s, r) => s + (Number(r.netAmount) || 0), 0);
-  if (monthFilter) els.incRecordCount.textContent = `${view.length} 条，实际合计 ${fmtAmount(sum)}`;
+  if (monthFilter || attrFilter) els.incRecordCount.textContent = `${view.length} 条，实际合计 ${fmtAmount(sum)}`;
   else if (incShowAll) els.incRecordCount.textContent = `显示全部 ${total} 条`;
   else els.incRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
 
-  els.incClearFilterBtn.classList.toggle("hidden", !monthFilter);
-  els.incShowAllBtn.classList.toggle("hidden", !!monthFilter || (!limited && !incShowAll));
+  els.incClearFilterBtn.classList.toggle("hidden", !(monthFilter || attrFilter));
+  els.incShowAllBtn.classList.toggle("hidden", !!monthFilter || attrFilter || (!limited && !incShowAll));
   els.incShowAllBtn.textContent = incShowAll ? "显示50条" : "显示全部";
   els.incEmptyHint.classList.toggle("hidden", view.length !== 0);
 }
@@ -3487,8 +3522,15 @@ function incWireEvents() {
     const day = els.incFilterDate.value;
     requestAnimationFrame(() => requestAnimationFrame(() => incScrollToDay(day)));
   });
-  els.incClearFilterBtn.onclick = () => { incFilterOn = false; els.incFilterDate.value = todayStr(); incRender(); };
+  els.incClearFilterBtn.onclick = () => {
+    incFilterOn = false; els.incFilterDate.value = todayStr();
+    if (els.incFilterCat) els.incFilterCat.value = "";
+    if (els.incFilterPayee) els.incFilterPayee.value = "";
+    incRender();
+  };
   els.incShowAllBtn.onclick = () => { incShowAll = !incShowAll; incRender(); };
+  if (els.incFilterCat) els.incFilterCat.onchange = () => { incShowAll = false; incRender(); };
+  if (els.incFilterPayee) els.incFilterPayee.onchange = () => { incShowAll = false; incRender(); };
   els.incChartYear.onchange = () => { incChartYearVal = els.incChartYear.value; incRenderChart(); };
 }
 
