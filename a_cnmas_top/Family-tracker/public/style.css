@@ -1270,9 +1270,9 @@ td:nth-child(6) {
 
 /* 筹码分布 sub-tabs + 获利比例排行 table */
 .sbt-subtabs { margin-bottom: 10px; }
-#sbtChipRankTable { width: 100%; }
-#sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; }
-#sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; white-space: nowrap; }
+#sbtChipRankTable { width: 100%; min-width: 640px; }
+#sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; white-space: nowrap; }
+#sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; }
 .sbt-rank-row { cursor: pointer; }
 .sbt-rank-row:hover { background: #f2f4f7; }
 

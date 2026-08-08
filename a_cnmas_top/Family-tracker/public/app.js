@@ -3177,6 +3177,8 @@ async function sbtRenderChipRank() {
   if (!els.sbtChipRankBody) return;
   els.sbtChipRankBody.innerHTML = "";
   const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
+  const num = (v) => (v == null ? "—" : v);
+  const rng = (lo, hi) => (lo == null || hi == null) ? "—" : `${lo} ~ ${hi}`;
   for (const r of list) {
     const code = r.stock_cn || "";
     const nm = r.stock_name || sbtNameFor(code) || "";
@@ -3184,7 +3186,11 @@ async function sbtRenderChipRank() {
     tr.className = "sbt-rank-row";
     tr.innerHTML =
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
-      `<td class="num strong">${pct(r.profit_ratio)}</td>`;
+      `<td class="num strong">${pct(r.profit_ratio)}</td>` +
+      `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
+      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
+      `<td>${escapeHtml(String(num(r.as_of)))}</td>`;
     tr.onclick = () => {
       if (els.sbtChipSelect && Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
         els.sbtChipSelect.value = code;

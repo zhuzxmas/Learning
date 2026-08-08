@@ -1073,6 +1073,11 @@ def main():
                 'stock_cn': stock_cn,
                 'stock_name': stock_name,
                 'profit_ratio': (chip_hk or {}).get('profit_ratio'),
+                'avg_cost': (chip_hk or {}).get('avg_cost'),
+                'cost_90_low': (chip_hk or {}).get('cost_90_low'),
+                'cost_90_high': (chip_hk or {}).get('cost_90_high'),
+                'cost_70_low': (chip_hk or {}).get('cost_70_low'),
+                'cost_70_high': (chip_hk or {}).get('cost_70_high'),
                 'as_of': (chip_hk or {}).get('as_of'),
             })
             payload = build_output(stock, stock_cn, stock_name, checks,
@@ -1180,6 +1185,11 @@ def main():
             'stock_cn': stock_cn,
             'stock_name': stock_name,
             'profit_ratio': (chip or {}).get('profit_ratio'),
+            'avg_cost': (chip or {}).get('avg_cost'),
+            'cost_90_low': (chip or {}).get('cost_90_low'),
+            'cost_90_high': (chip or {}).get('cost_90_high'),
+            'cost_70_low': (chip or {}).get('cost_70_low'),
+            'cost_70_high': (chip or {}).get('cost_70_high'),
             'as_of': (chip or {}).get('as_of'),
         })
 
