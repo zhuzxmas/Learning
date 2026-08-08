@@ -911,6 +911,16 @@ def main():
     # merge its rows into the existing output/_summary.json instead of replacing.
     partial_run = bool(only) or limit.isdigit()
 
+    # LIGHT_MODE: daily price+chip refresh. Skips the dividend HTTP fetch (dividends
+    # change only quarterly and are preserved via merge_with_existing) and shortens
+    # the per-stock sleep. Financial reports still come from process_reports, whose
+    # freshness logic serves the pkl cache without network calls until a quarterly
+    # window is due — so financials update automatically when new reports land.
+    light_mode = os.environ.get('LIGHT_MODE', '').strip().lower() in ('1', 'true', 'yes')
+    if light_mode:
+        print('LIGHT_MODE on: daily price+chip refresh (dividends skipped, '
+              'reports from cache, short sleeps).\n')
+
     history_names = [it['name'] for it in od.list_children('history') if 'file' in it]
     print('Found {} existing history files.\n'.format(len(history_names)))
 
@@ -944,7 +954,12 @@ def main():
                 stock_output_yearly, stock_output_seasonly)
 
             # HK dividends: textual plans + DPS-based numeric rows (fetched once).
-            plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
+            # LIGHT_MODE skips this (dividends change only quarterly; the prior
+            # dividends section is preserved via merge_with_existing).
+            if light_mode:
+                plan_records = []
+            else:
+                plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
             print('HK dividend records for {}: {}.\n'.format(
                 stock, len(plan_records or [])))
 
@@ -1036,7 +1051,7 @@ def main():
             od.put_text('output/{}.html'.format(stock_cn), html,
                         content_type='text/html; charset=utf-8')
             print('Wrote output/{}.json + .html\n'.format(stock_cn))
-            time.sleep(random.uniform(7, 13))
+            time.sleep(random.uniform(1, 3) if light_mode else random.uniform(7, 13))
             continue
 
         try:
@@ -1054,21 +1069,31 @@ def main():
         # --- dividends (live datacenter host) ---
         # Fetched up front so the per-year dividend rows can be merged into the
         # yearly report (and re-saved) before it feeds the kline concat / output.
-        try:
-            stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies)
-        except Exception as e:  # noqa: BLE001
-            print('Dividend fetch failed for {} ({}); treating as none.\n'.format(stock_cn, e))
+        # LIGHT_MODE skips this (dividends change only quarterly; the prior
+        # dividends section + dividend rows are preserved via merge_with_existing
+        # / the cached pkl).
+        if light_mode:
             stock_0_dividends = []
+        else:
+            try:
+                stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies)
+            except Exception as e:  # noqa: BLE001
+                print('Dividend fetch failed for {} ({}); treating as none.\n'.format(stock_cn, e))
+                stock_0_dividends = []
 
         # Recompute the 3 dividend rows every run (all years) and persist them.
-        updated_yearly = apply_dividend_rows(stock_output_yearly, stock_0_dividends)
-        if updated_yearly is not stock_output_yearly:
-            stock_output_yearly = updated_yearly
-            try:
-                _save_history(od, stock, stock_name, '-Y-', stock_output_yearly)
-            except Exception as e:  # noqa: BLE001
-                print('Re-saving yearly with dividend rows failed for {} ({}: {}).\n'
-                      .format(stock_cn, type(e).__name__, e))
+        # Recompute the 3 dividend rows every run (all years) and persist them.
+        # LIGHT_MODE skips this so the cached yearly pkl keeps its existing
+        # dividend rows (no dividend fetch happened this run).
+        if not light_mode:
+            updated_yearly = apply_dividend_rows(stock_output_yearly, stock_0_dividends)
+            if updated_yearly is not stock_output_yearly:
+                stock_output_yearly = updated_yearly
+                try:
+                    _save_history(od, stock, stock_name, '-Y-', stock_output_yearly)
+                except Exception as e:  # noqa: BLE001
+                    print('Re-saving yearly with dividend rows failed for {} ({}: {}).\n'
+                          .format(stock_cn, type(e).__name__, e))
 
         dividends_df = None
         if len(stock_0_dividends) > 0:
@@ -1130,7 +1155,7 @@ def main():
                     content_type='text/html; charset=utf-8')
         print('Wrote output/{}.json + .html\n'.format(stock_cn))
 
-        time.sleep(random.uniform(7, 13))
+        time.sleep(random.uniform(1, 3) if light_mode else random.uniform(7, 13))
 
     # --- summary ---
     summary_cols = ['Stock Number', '利润表现好', '流动负债不高', '分红多']

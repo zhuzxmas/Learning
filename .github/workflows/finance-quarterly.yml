@@ -8,8 +8,11 @@
 name: finance-quarterly action
 
 on:
-  # schedule:
-  #   - cron:  '22 8 * * 3'
+  # 北京时间每天 22:00 == UTC 14:00（Beijing = UTC+8）。
+  # schedule 触发跑轻量日更（价格+筹码）；财务报告由 process_reports 的
+  # freshness 逻辑按需自动更新（新财报发布后当天的日更会自动抓取）。
+  schedule:
+    - cron: '0 14 * * *'
   workflow_dispatch:
   repository_dispatch:
     types: [finance-batch-stock-event]
@@ -51,6 +54,9 @@ jobs:
         # (finance-batch-stock-event), client_payload.stock limits the run to
         # that code. Empty on schedule/manual runs -> whole stock_list.csv.
         STOCK_ONLY: ${{ github.event.client_payload.stock }}
+        # schedule 触发 = 轻量日更（价格+筹码，跳过分红抓取、报告走缓存、短 sleep）；
+        # 手动 workflow_dispatch / repository_dispatch = 全量。
+        LIGHT_MODE: ${{ github.event_name == 'schedule' && '1' || '' }}
       run: python -u finance_batch_personal.py
 
     - name: Commit rotated refresh token
