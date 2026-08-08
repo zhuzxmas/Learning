@@ -346,6 +346,13 @@ const els = {
   sbtChipMetrics: $("sbtChipMetrics"),
   sbtChipSvg: $("sbtChipSvg"),
   sbtChipEmpty: $("sbtChipEmpty"),
+  sbtChipRankBtn: $("sbtChipRankBtn"),
+  sbtChipOneBtn: $("sbtChipOneBtn"),
+  sbtChipRankView: $("sbtChipRankView"),
+  sbtChipOneView: $("sbtChipOneView"),
+  sbtChipRankBody: $("sbtChipRankBody"),
+  sbtChipRankMeta: $("sbtChipRankMeta"),
+  sbtChipRankEmpty: $("sbtChipRankEmpty"),
   sbtAddBtn: $("sbtAddBtn"),
   sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
@@ -2936,6 +2943,8 @@ function incSwitchTab(name) {
  let sbtNames = {};             // numeric-code -> Chinese name, parsed from _summary.json
  let sbtDriveBase = "";         // resolved /drives/{id}/items/{id} base (shared mode)
  let sbtOwnRootBase = "";       // resolved /me/drive/root:/... base (owner mode)
+ let sbtChipRanking = null;     // cached parsed output/_chip_ranking.json
+ let sbtChipSubTab = "rank";    // chip tab sub-view: "rank" (default) | "one"
  
  // True only for the folder owner — gates all write actions (add/delete/trigger).
  function sbtCanEdit() {
@@ -3015,6 +3024,7 @@ function incSwitchTab(name) {
     sbtFiles[cn] = { name: f.name, lastModified: f.lastModifiedDateTime || "" };
   }
   if (force) sbtStocks = {};                      // drop in-memory cache on manual refresh
+  if (force) sbtChipRanking = null;               // re-read the ranking file on refresh
 
   sbtLoaded = true;
   sbtPopulateSelect();                            // lazy-loads the selected stock only
@@ -3122,6 +3132,67 @@ function sbtRenderSummary() {
     `<td class="sbt-c">${yes(r["流动负债不高"])}</td>` +
     `<td class="sbt-c">${yes(r["分红多"])}</td></tr>`
   ).join("");
+}
+
+// Switch between the 筹码分布 tab's two sub-views: "rank" (获利比例排行, default)
+// and "one" (single-stock chip chart).
+function sbtChipSwitchSub(name) {
+  sbtChipSubTab = name;
+  if (els.sbtChipRankView) els.sbtChipRankView.classList.toggle("hidden", name !== "rank");
+  if (els.sbtChipOneView) els.sbtChipOneView.classList.toggle("hidden", name !== "one");
+  if (els.sbtChipRankBtn) els.sbtChipRankBtn.classList.toggle("active", name === "rank");
+  if (els.sbtChipOneBtn) els.sbtChipOneBtn.classList.toggle("active", name === "one");
+  if (name === "rank") {
+    sbtRenderChipRank().catch((e) =>
+      setStatus("载入获利比例排行失败：" + (e.message || e), "error"));
+  } else {
+    sbtRenderChip(els.sbtChipSelect ? els.sbtChipSelect.value : "").catch((e) =>
+      setStatus("载入筹码分布失败：" + (e.message || e), "error"));
+  }
+}
+
+// Load the pre-aggregated ranking file (output/_chip_ranking.json). Cached in
+// memory; re-read on demand. Returns [] if absent.
+async function sbtLoadChipRanking() {
+  if (sbtChipRanking) return sbtChipRanking;
+  const token = await getToken();
+  sbtChipRanking = (await sbtReadJson(token, "output/_chip_ranking.json")) || [];
+  return sbtChipRanking;
+}
+
+// Render the 获利比例排行 sub-view: all stocks' profit_ratio ascending (nulls
+// last), shown as a percentage. Clicking a row jumps to that stock's chip chart.
+async function sbtRenderChipRank() {
+  const rows = await sbtLoadChipRanking();
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  // Ascending by profit_ratio; nulls/undefined sink to the bottom.
+  list.sort((a, b) => {
+    const av = (a && a.profit_ratio != null) ? a.profit_ratio : Infinity;
+    const bv = (b && b.profit_ratio != null) ? b.profit_ratio : Infinity;
+    return av - bv;
+  });
+  const has = list.length > 0;
+  if (els.sbtChipRankEmpty) els.sbtChipRankEmpty.classList.toggle("hidden", has);
+  if (els.sbtChipRankMeta) els.sbtChipRankMeta.textContent = has ? `共 ${list.length} 只` : "";
+  if (!els.sbtChipRankBody) return;
+  els.sbtChipRankBody.innerHTML = "";
+  const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
+  for (const r of list) {
+    const code = r.stock_cn || "";
+    const nm = r.stock_name || sbtNameFor(code) || "";
+    const tr = document.createElement("tr");
+    tr.className = "sbt-rank-row";
+    tr.innerHTML =
+      `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
+      `<td class="num strong">${pct(r.profit_ratio)}</td>`;
+    tr.onclick = () => {
+      if (els.sbtChipSelect && Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
+        els.sbtChipSelect.value = code;
+      }
+      sbtChipSwitchSub("one");
+    };
+    els.sbtChipRankBody.appendChild(tr);
+  }
 }
 
 // Render the 筹码分布 (chip distribution) tab: a horizontal histogram of chip
@@ -3338,8 +3409,7 @@ async function sbtRenderChip(code) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chip") {
-    sbtRenderChip(els.sbtChipSelect ? els.sbtChipSelect.value : "").catch((e) =>
-      setStatus("载入筹码分布失败：" + (e.message || e), "error"));
+    sbtChipSwitchSub(sbtChipSubTab);
   }
   if (name === "settings") {
     sbtLoadStockList().catch((e) =>
@@ -3358,6 +3428,8 @@ function sbtWireEvents() {
    els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
    if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
+   if (els.sbtChipRankBtn) els.sbtChipRankBtn.onclick = () => sbtChipSwitchSub("rank");
+   if (els.sbtChipOneBtn) els.sbtChipOneBtn.onclick = () => sbtChipSwitchSub("one");
    if (els.sbtChipSelect) els.sbtChipSelect.onchange = () =>
      sbtRenderChip(els.sbtChipSelect.value).catch((e) =>
        setStatus("载入筹码分布失败：" + (e.message || e), "error"));

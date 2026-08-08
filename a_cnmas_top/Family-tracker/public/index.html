@@ -624,22 +624,47 @@
 
         <!-- 筹码分布 -->
         <div id="sbtTabChip" class="hidden">
-          <div class="card">
-            <div class="sbt-toolbar">
-              <label for="sbtChipSelect">股票</label>
-              <select id="sbtChipSelect"></select>
+          <div class="tabs sbt-subtabs" role="tablist">
+            <button type="button" class="tab-btn active" id="sbtChipRankBtn">获利比例排行</button>
+            <button type="button" class="tab-btn" id="sbtChipOneBtn">筹码图</button>
+          </div>
+
+          <!-- 获利比例排行 -->
+          <div id="sbtChipRankView">
+            <div class="card">
+              <div class="table-head-row">
+                <h2>获利比例排行</h2>
+                <span id="sbtChipRankMeta" class="muted"></span>
+              </div>
+              <div class="table-wrap">
+                <table id="sbtChipRankTable">
+                  <thead><tr><th>股票</th><th class="num">获利比例</th></tr></thead>
+                  <tbody id="sbtChipRankBody"></tbody>
+                </table>
+              </div>
+              <p id="sbtChipRankEmpty" class="muted center hidden">暂无排行数据，请更新股票后再查看。</p>
             </div>
           </div>
-          <div class="card" id="sbtChipCard">
-            <h2 id="sbtChipTitle">筹码分布</h2>
-            <div id="sbtChipMeta" class="muted"></div>
-            <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
-            <div class="chart-cell">
-              <div class="line-chart-wrap sbt-chip-wrap">
-                <svg id="sbtChipSvg" class="line-chart" preserveAspectRatio="none"></svg>
+
+          <!-- 单只筹码图 -->
+          <div id="sbtChipOneView" class="hidden">
+            <div class="card">
+              <div class="sbt-toolbar">
+                <label for="sbtChipSelect">股票</label>
+                <select id="sbtChipSelect"></select>
               </div>
             </div>
-            <p id="sbtChipEmpty" class="muted center hidden">暂无筹码数据，请更新该股票。</p>
+            <div class="card" id="sbtChipCard">
+              <h2 id="sbtChipTitle">筹码分布</h2>
+              <div id="sbtChipMeta" class="muted"></div>
+              <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
+              <div class="chart-cell">
+                <div class="line-chart-wrap sbt-chip-wrap">
+                  <svg id="sbtChipSvg" class="line-chart" preserveAspectRatio="none"></svg>
+                </div>
+              </div>
+              <p id="sbtChipEmpty" class="muted center hidden">暂无筹码数据，请更新该股票。</p>
+            </div>
           </div>
         </div>
 

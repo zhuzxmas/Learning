@@ -954,6 +954,7 @@ def main():
     print('Found {} existing history files.\n'.format(len(history_names)))
 
     summary_rows = []
+    chip_rows = []   # per-stock 获利比例 for output/_chip_ranking.json
 
     for iii, code in enumerate(stock_code):
         stock, stock_cn = normalize_stock(code)
@@ -1067,10 +1068,16 @@ def main():
                 str(checks['profit'][0]), str(checks['liabilities'][0]),
                 str(checks['dividends'][0])])
 
+            chip_hk = z_Func.get_chip_distribution(stock_cn, proxies=proxies, is_hk=True)
+            chip_rows.append({
+                'stock_cn': stock_cn,
+                'stock_name': stock_name,
+                'profit_ratio': (chip_hk or {}).get('profit_ratio'),
+                'as_of': (chip_hk or {}).get('as_of'),
+            })
             payload = build_output(stock, stock_cn, stock_name, checks,
                                    stock_output_combined, last_7_days, dividends_df,
-                                   chip_distribution=z_Func.get_chip_distribution(
-                                       stock_cn, proxies=proxies, is_hk=True),
+                                   chip_distribution=chip_hk,
                                    price_source_error=price_source_error)
             payload = merge_with_existing(od, stock_cn, payload)
             od.put_text('output/{}.json'.format(stock_cn),
@@ -1169,6 +1176,12 @@ def main():
 
         # --- chip distribution (筹码分布) via Tencent quotes (auto, non-EastMoney) ---
         chip = z_Func.get_chip_distribution(stock_cn, proxies=proxies, is_hk=False)
+        chip_rows.append({
+            'stock_cn': stock_cn,
+            'stock_name': stock_name,
+            'profit_ratio': (chip or {}).get('profit_ratio'),
+            'as_of': (chip or {}).get('as_of'),
+        })
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df,
@@ -1229,6 +1242,29 @@ def main():
     od.put_text('output/_summary.html', summary_html,
                 content_type='text/html; charset=utf-8')
     print('Task Completed Successfully! Wrote output/_summary.json + .html\n')
+
+    # --- chip ranking (获利比例排行) — pre-aggregated for the web ranking tab ---
+    # Same partial-run merge as _summary.json: keep untouched stocks' rows and
+    # replace only the ones this run computed (keyed by stock_cn).
+    if partial_run:
+        touched = {r['stock_cn'] for r in chip_rows}
+        existing_cr = od.get_bytes('output/_chip_ranking.json')
+        kept_cr = []
+        if existing_cr:
+            try:
+                for r in json.loads(existing_cr.decode('utf-8')):
+                    if r.get('stock_cn') not in touched:
+                        kept_cr.append(r)
+            except Exception as e:  # noqa: BLE001
+                print('WARN: could not merge existing _chip_ranking.json ({}); '
+                      'writing only this run\'s rows.\n'.format(e))
+        chip_ranking = kept_cr + chip_rows
+    else:
+        chip_ranking = chip_rows
+    od.put_text('output/_chip_ranking.json',
+                json.dumps(chip_ranking, ensure_ascii=False),
+                content_type='application/json; charset=utf-8')
+    print('Wrote output/_chip_ranking.json ({} stocks).\n'.format(len(chip_ranking)))
 
 
 if __name__ == '__main__':

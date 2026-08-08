@@ -1268,4 +1268,12 @@ td:nth-child(6) {
   .sbt-chip-mval { font-size: 14px; }
 }
 
+/* 筹码分布 sub-tabs + 获利比例排行 table */
+.sbt-subtabs { margin-bottom: 10px; }
+#sbtChipRankTable { width: 100%; }
+#sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; }
+#sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; white-space: nowrap; }
+.sbt-rank-row { cursor: pointer; }
+.sbt-rank-row:hover { background: #f2f4f7; }
+
 
