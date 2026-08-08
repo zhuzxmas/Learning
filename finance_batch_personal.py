@@ -167,12 +167,17 @@ def find_history_name(history_names, stock, marker):
 
 
 # ---- per-stock report handling (yearly + monthly) -------------------------
-def process_reports(od, history_names, stock, stock_cn, proxies):
+def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=False):
     """Return (stock_output_yearly, stock_output_Seasonly_or_None, stock_name).
 
     Loads any cached pkl from history/, decides whether an update is due, fetches
     fresh EastMoney reports when needed, merges, and writes the pkl back. This
     preserves the merge logic from the legacy script.
+
+    skip_fetch=True (LIGHT_MODE): never hit the network — always serve the cached
+    pkl as-is (so the daily price+chip run stays fast and does not re-fetch
+    financials every day during a quarter's disclosure gap). If no pkl exists the
+    yearly result is None and the caller skips the stock.
     """
     stock_output_yearly = None
     stock_output_Seasonly = None
@@ -201,8 +206,11 @@ def process_reports(od, history_names, stock, stock_cn, proxies):
                 latest_report_notice_date, '%Y-%m-%d').date()
 
             if check_item_name == 'yearly':
-                if (day_one - latest_report_notice_date).days < 365:
-                    print('~~~ Yearly data in OneDrive is up to date for {}.\n'.format(stock_cn))
+                if skip_fetch or (day_one - latest_report_notice_date).days < 365:
+                    if skip_fetch:
+                        print('LIGHT_MODE: serving cached Yearly data for {}.\n'.format(stock_cn))
+                    else:
+                        print('~~~ Yearly data in OneDrive is up to date for {}.\n'.format(stock_cn))
                     stock_output_yearly = yearly_report_from_OD
                 else:
                     print(':::: Updating Yearly data for {} ...\n'.format(stock_cn))
@@ -230,8 +238,11 @@ def process_reports(od, history_names, stock, stock_cn, proxies):
                     stock_output_yearly = df_final
                     _save_history(od, stock, stock_name, marker, stock_output_yearly)
             else:
-                if (day_one - latest_report_notice_date).days < 40:
-                    print('~~~ Seasonly data in OneDrive is up to date for {}.\n'.format(stock_cn))
+                if skip_fetch or (day_one - latest_report_notice_date).days < 40:
+                    if skip_fetch:
+                        print('LIGHT_MODE: serving cached Seasonly data for {}.\n'.format(stock_cn))
+                    else:
+                        print('~~~ Seasonly data in OneDrive is up to date for {}.\n'.format(stock_cn))
                     stock_output_Seasonly = Seasonly_report_from_OD
                 else:
                     print(':::: Updating Seasonly data for {} ...\n'.format(stock_cn))
@@ -249,7 +260,12 @@ def process_reports(od, history_names, stock, stock_cn, proxies):
                     except Exception:  # noqa: BLE001
                         print('No seasonly report available as of now for {}.\n'.format(stock_cn))
         else:
-            # No cached history yet — fetch fresh and save.
+            # No cached history yet.
+            if skip_fetch:
+                print('LIGHT_MODE: no cached {} history for {}; skipping fetch '
+                      '(will populate on the next full run).\n'.format(check_item_name, stock_cn))
+                continue
+            # Fetch fresh and save.
             print("No cached {} history for {}; fetching fresh.\n".format(check_item_name, stock_cn))
             if check_item_name == 'yearly':
                 url_yearly = z_Func.Year_report_url(
@@ -376,8 +392,12 @@ def _reorder_hk_tail(df):
     return df.reindex(idx + tail)
 
 
-def process_reports_hk(od, history_names, stock, proxies):
+def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
     """HK equivalent of process_reports.
+
+    skip_fetch=True (LIGHT_MODE): never hit the network — serve the cached pkl
+    as-is (keeps the daily price+chip run fast). If no pkl exists, return
+    (None, None, name, {}) so the caller skips the stock this run.
 
     Fetches *all* disclosed periods (annual 12-31 + interim 06-30 + quarterly
     03-31/09-30 where reported) in one call, caches the full mixed frame, then
@@ -429,6 +449,11 @@ def process_reports_hk(od, history_names, stock, proxies):
         if fresh and not has_interim:
             fresh = False
 
+        # LIGHT_MODE: never fetch — always serve the cached frame.
+        if skip_fetch:
+            print('LIGHT_MODE: serving cached HK data for {}.\n'.format(stock))
+            return _finish(cached)
+
         if fresh:
             print('~~~ HK data in OneDrive is up to date for {}.\n'.format(stock))
             return _finish(cached)
@@ -449,6 +474,10 @@ def process_reports_hk(od, history_names, stock, proxies):
         _save_history(od, stock, stock_name, '-Y-', df_final)
         return _finish(df_final)
 
+    if skip_fetch:
+        print('LIGHT_MODE: no cached HK history for {}; skipping fetch '
+              '(will populate on the next full run).\n'.format(stock))
+        return None, None, stock_name, dps_map
     print('No cached HK history for {}; fetching fresh.\n'.format(stock))
     fresh_df, stock_name, dps_map = _fetch_fresh()
     if fresh_df is None:
@@ -938,7 +967,7 @@ def main():
         if str(stock).endswith('.HK'):
             try:
                 stock_output_yearly, stock_output_seasonly, stock_name, dps_map = \
-                    process_reports_hk(od, history_names, stock, proxies)
+                    process_reports_hk(od, history_names, stock, proxies, skip_fetch=light_mode)
             except Exception as e:  # noqa: BLE001
                 print('HK report processing failed for {} ({}: {}); skipping.\n'.format(
                     stock, type(e).__name__, e))
@@ -1056,7 +1085,7 @@ def main():
 
         try:
             stock_output_yearly, stock_output_Seasonly, stock_name = process_reports(
-                od, history_names, stock, stock_cn, proxies)
+                od, history_names, stock, stock_cn, proxies, skip_fetch=light_mode)
         except Exception as e:  # noqa: BLE001
             print('Report processing failed for {} ({}: {}); skipping.\n'.format(
                 stock_cn, type(e).__name__, e))

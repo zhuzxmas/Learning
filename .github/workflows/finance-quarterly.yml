@@ -8,11 +8,13 @@
 name: finance-quarterly action
 
 on:
-  # 北京时间每天 22:00 == UTC 14:00（Beijing = UTC+8）。
-  # schedule 触发跑轻量日更（价格+筹码）；财务报告由 process_reports 的
-  # freshness 逻辑按需自动更新（新财报发布后当天的日更会自动抓取）。
+  # 北京时间 = UTC+8，故 UTC 14:00 == 北京 22:00。
+  #   · 每天（周二~周日，北京）22:00 跑轻量日更（价格+筹码，不抓财务）。
+  #   · 每周一 22:00（北京）跑全量（抓财务+分红，刷新 pkl 缓存）。
+  # cron 星期：UTC Mon(1) 14:00 == 北京周一 22:00；其余日为轻量。
   schedule:
-    - cron: '0 14 * * *'
+    - cron: '0 14 * * 0,2-6'   # 轻量日更（北京 周日/周二~周六 晚，即周一以外）
+    - cron: '0 14 * * 1'       # 全量（北京 周一 22:00）
   workflow_dispatch:
   repository_dispatch:
     types: [finance-batch-stock-event]
@@ -54,9 +56,10 @@ jobs:
         # (finance-batch-stock-event), client_payload.stock limits the run to
         # that code. Empty on schedule/manual runs -> whole stock_list.csv.
         STOCK_ONLY: ${{ github.event.client_payload.stock }}
-        # schedule 触发 = 轻量日更（价格+筹码，跳过分红抓取、报告走缓存、短 sleep）；
-        # 手动 workflow_dispatch / repository_dispatch = 全量。
-        LIGHT_MODE: ${{ github.event_name == 'schedule' && '1' || '' }}
+        # LIGHT_MODE=1 只在每天的轻量 cron（'0 14 * * 0,2-6'）触发时开启：
+        # 只刷价格+筹码、财务走 pkl 缓存、不抓网络、短 sleep。
+        # 周一全量 cron / workflow_dispatch / repository_dispatch 都是全量（LIGHT_MODE 空）。
+        LIGHT_MODE: ${{ github.event.schedule == '0 14 * * 0,2-6' && '1' || '' }}
       run: python -u finance_batch_personal.py
 
     - name: Commit rotated refresh token
