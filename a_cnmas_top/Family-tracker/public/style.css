@@ -1239,4 +1239,33 @@ td:nth-child(6) {
   background: #f1f3f4; color: #202124; border-color: #dadce0;
 }
 
+/* --------------------------- 筹码分布 (chip distribution) --------------------------- */
+.sbt-chip-metrics {
+  display: flex; flex-wrap: wrap; gap: 8px 14px;
+  margin: 8px 0 12px;
+}
+.sbt-chip-metric {
+  display: flex; flex-direction: column;
+  min-width: 84px; padding: 6px 10px;
+  background: #f6f8fa; border: 1px solid #eaecef; border-radius: 8px;
+}
+.sbt-chip-mlabel { font-size: 12px; color: #6b7280; }
+.sbt-chip-mval { font-size: 15px; font-weight: 600; color: #111827; }
+.sbt-chip-wrap { width: 100%; overflow: hidden; }
+#sbtChipSvg { height: 420px; }
+#sbtChipSvg .lc-grid { stroke: #eef0f3; stroke-width: 1; }
+#sbtChipSvg .lc-ylabel { fill: #98a2b3; font-size: 11px; }
+.sbt-chip-bar { }
+.sbt-chip-profit { fill: #e2504f; }        /* 获利盘 (price <= 现价) 红 */
+.sbt-chip-loss { fill: #2f8f5b; }          /* 套牢盘 (price > 现价) 绿 */
+.sbt-chip-cur { stroke: #1f6fd6; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sbt-chip-curlbl { fill: #1f6fd6; font-size: 11px; font-weight: 600; }
+.sbt-chip-avg { stroke: #b8860b; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sbt-chip-avglbl { fill: #b8860b; font-size: 11px; font-weight: 600; }
+@media (max-width: 640px) {
+  #sbtChipSvg { height: 340px; }
+  .sbt-chip-metric { min-width: 72px; padding: 5px 8px; }
+  .sbt-chip-mval { font-size: 14px; }
+}
+
 

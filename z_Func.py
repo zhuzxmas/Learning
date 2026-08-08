@@ -1524,6 +1524,240 @@ def save_Notice_Date_data_to_OneDrive_newFile(stock_code, stock_data, user_id, p
     os.remove('{}-Notice_Date.pkl'.format(stock_code))
 
 
+# ==========================================================================
+# 筹码分布 (chip distribution / CYQ) — fully automated via Tencent quotes.
+#
+# EastMoney's kline host (push2his) is WAF-blocked from cloud IPs, so we source
+# daily OHLC+volume from Tencent (web.ifzq.gtimg.cn) — cloud-reachable, no WAF,
+# covers A-shares AND HK — and the free-float share count from the Tencent
+# snapshot (qt.gtimg.cn). We then run EastMoney's OFFICIAL chip-distribution
+# algorithm (ported from akshare's embedded CYQCalculator JS: triangular
+# distribution + per-day turnover decay, window=120 days, factor=150 price
+# levels) to produce the histogram plus 获利比例 / 平均成本 / 90-70 成本区间 / 集中度.
+#
+# Per-day turnover% is approximated as volume(shares) / free_float_shares * 100
+# using the current float (float changes slowly, standard approximation when the
+# source lacks a historical per-day turnover field).
+# ==========================================================================
+
+def _to_tencent_secid(stock_cn):
+    """Map our stock code to a Tencent quote symbol.
+    '600519.SH'->'sh600519', '000001.SZ'->'sz000001', '01548.HK'->'hk01548'."""
+    s = str(stock_cn).strip()
+    if s.endswith('.HK'):
+        return 'hk' + s.split('.')[0].zfill(5)
+    if s.endswith('.SH') or s.endswith('.ss'):
+        return 'sh' + s[:6]
+    if s.endswith('.SZ') or s.endswith('.sz'):
+        return 'sz' + s[:6]
+    # bare 6-digit fallback: 6xxxxx -> SH else SZ
+    digits = ''.join(ch for ch in s if ch.isdigit())[:6]
+    if not digits:
+        return None
+    return ('sh' if digits.startswith('6') else 'sz') + digits
+
+
+def fetch_tencent_daily(tx_secid, n=130, proxies=None):
+    """Fetch ~n most-recent daily candles from Tencent.
+    Returns a DataFrame [date, open, close, high, low, volume] (volume in 手/lots,
+    HK in shares) sorted oldest->newest, or an empty DataFrame on failure."""
+    cols = ['date', 'open', 'close', 'high', 'low', 'volume']
+    url = ('https://web.ifzq.gtimg.com/appstock/app/kline/kline'
+           '?param={},day,,,{}'.format(tx_secid, int(n)))
+    # host has two spellings; ifzq.gtimg.cn is the canonical one
+    url = url.replace('gtimg.com', 'gtimg.cn')
+    try:
+        r = requests.get(url, timeout=30)
+    except requests.exceptions.RequestException:
+        try:
+            r = requests.get(url, timeout=30, proxies=proxies)
+        except requests.exceptions.RequestException as e:
+            print('Tencent daily fetch failed for {} ({}: {}).\n'.format(
+                tx_secid, type(e).__name__, e))
+            return pd.DataFrame([], columns=cols)
+    try:
+        data = r.json()['data'][tx_secid]
+        rows = data.get('day') or data.get('qfqday') or []
+    except Exception as e:  # noqa: BLE001
+        print('Tencent daily parse failed for {} ({}: {}).\n'.format(
+            tx_secid, type(e).__name__, e))
+        return pd.DataFrame([], columns=cols)
+    if not rows:
+        return pd.DataFrame([], columns=cols)
+    parsed = [[c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])]
+              for c in rows if len(c) >= 6]
+    out = pd.DataFrame(parsed, columns=cols)
+    return out
+
+
+def fetch_tencent_float_shares(tx_secid, proxies=None):
+    """Return free-float share count from the Tencent snapshot (qt.gtimg.cn),
+    or None on failure.
+
+    Snapshot is a '~'-delimited string. Field layout (0-based):
+      idx 3  = current price
+      idx 45 = 流通市值 in 亿 (100M units) — present for BOTH A-shares and HK
+    We derive float shares = 流通市值 * 1e8 / price, which works uniformly across
+    A-share and HK snapshots (their raw share-count fields sit at different
+    indices). Cross-checked: 600519 -> ~1.25e9, 000001 -> ~1.94e10, 01548.HK
+    -> ~2.19e9, all matching known free-float counts.
+    """
+    url = 'https://qt.gtimg.cn/q={}'.format(tx_secid)
+    try:
+        r = requests.get(url, timeout=20)
+    except requests.exceptions.RequestException:
+        try:
+            r = requests.get(url, timeout=20, proxies=proxies)
+        except requests.exceptions.RequestException as e:
+            print('Tencent snapshot fetch failed for {} ({}: {}).\n'.format(
+                tx_secid, type(e).__name__, e))
+            return None
+    try:
+        txt = r.content.decode('gbk', errors='replace')
+        body = txt.split('"', 2)[1]
+        parts = body.split('~')
+        price = float(parts[3])
+        float_mktcap_yi = float(parts[45])   # 流通市值, 单位: 亿
+        if price > 0 and float_mktcap_yi > 0:
+            return float_mktcap_yi * 1e8 / price
+    except Exception as e:  # noqa: BLE001
+        print('Tencent snapshot parse failed for {} ({}: {}).\n'.format(
+            tx_secid, type(e).__name__, e))
+    return None
+
+
+def compute_chip_distribution(daily_df, float_shares, is_hk=False,
+                              window=120, factor=150):
+    """Port of EastMoney's official CYQCalculator (from akshare) — triangular
+    chip distribution with per-day turnover decay — over the last `window` days.
+
+    daily_df: DataFrame with columns date/open/close/high/low/volume (oldest->newest).
+    float_shares: free-float share count (for turnover% = volume_shares/float*100).
+    is_hk: Tencent HK volume is already in shares; A-share volume is in 手 (×100).
+
+    Returns a dict:
+      {prices, weights, avg_cost, profit_ratio,
+       cost_90_low, cost_90_high, concentration_90,
+       cost_70_low, cost_70_high, concentration_70,
+       latest_close, as_of}
+    or None if there isn't enough data.
+    """
+    if daily_df is None or len(daily_df) < 2 or not float_shares or float_shares <= 0:
+        return None
+    df_w = daily_df.tail(window).reset_index(drop=True)
+    highs = df_w['high'].tolist()
+    lows = df_w['low'].tolist()
+    opens = df_w['open'].tolist()
+    closes = df_w['close'].tolist()
+    vols = df_w['volume'].tolist()
+    share_mult = 1.0 if is_hk else 100.0  # 手 -> shares for A-shares
+
+    maxprice = max(highs)
+    minprice = min(lows)
+    if maxprice <= minprice:
+        return None
+    accuracy = max(0.01, (maxprice - minprice) / (factor - 1))
+    yrange = [round(minprice + accuracy * i, 4) for i in range(factor)]
+    xdata = [0.0] * factor
+
+    for i in range(len(df_w)):
+        o, c, h, low = opens[i], closes[i], highs[i], lows[i]
+        avg = (o + c + h + low) / 4.0
+        vol_shares = vols[i] * share_mult
+        turnover = vol_shares / float_shares          # fraction (0..1-ish)
+        if turnover > 1:
+            turnover = 1.0
+        if turnover < 0:
+            turnover = 0.0
+        H = int((h - minprice) // accuracy)
+        L = int(-(-(low - minprice) // accuracy))     # ceil
+        # peak height so triangle area == 1 before turnover scaling
+        gp_h = (factor - 1) if h == low else (2.0 / (h - low))
+        gp_idx = int((avg - minprice) // accuracy)
+        # decay all existing chips by (1 - turnover)
+        decay = (1 - turnover)
+        for n in range(factor):
+            xdata[n] *= decay
+        if h == low:
+            if 0 <= gp_idx < factor:
+                xdata[gp_idx] += gp_h * turnover / 2.0
+        else:
+            for j in range(max(0, L), min(factor - 1, H) + 1):
+                curprice = minprice + accuracy * j
+                if curprice <= avg:
+                    if abs(avg - low) < 1e-8:
+                        xdata[j] += gp_h * turnover
+                    else:
+                        xdata[j] += (curprice - low) / (avg - low) * gp_h * turnover
+                else:
+                    if abs(h - avg) < 1e-8:
+                        xdata[j] += gp_h * turnover
+                    else:
+                        xdata[j] += (h - curprice) / (h - avg) * gp_h * turnover
+
+    total = sum(xdata)
+    if total <= 0:
+        return None
+    current = closes[-1]
+
+    def cost_by_chip(chip):
+        s = 0.0
+        for i in range(factor):
+            if s + xdata[i] > chip:
+                return minprice + i * accuracy
+            s += xdata[i]
+        return minprice + (factor - 1) * accuracy
+
+    below = sum(xdata[i] for i in range(factor)
+                if current >= minprice + i * accuracy)
+    profit_ratio = below / total
+
+    def pct_range(pct):
+        lo = cost_by_chip(total * (1 - pct) / 2.0)
+        hi = cost_by_chip(total * (1 + pct) / 2.0)
+        conc = 0.0 if (lo + hi) == 0 else (hi - lo) / (lo + hi)
+        return round(lo, 2), round(hi, 2), round(conc, 4)
+
+    c90_lo, c90_hi, c90_con = pct_range(0.9)
+    c70_lo, c70_hi, c70_con = pct_range(0.7)
+    weights = [round(x / total, 6) for x in xdata]  # normalized to sum 1
+
+    return {
+        'prices': yrange,
+        'weights': weights,
+        'avg_cost': round(cost_by_chip(total * 0.5), 2),
+        'profit_ratio': round(profit_ratio, 4),
+        'cost_90_low': c90_lo, 'cost_90_high': c90_hi, 'concentration_90': c90_con,
+        'cost_70_low': c70_lo, 'cost_70_high': c70_hi, 'concentration_70': c70_con,
+        'latest_close': round(current, 2),
+        'as_of': str(df_w['date'].iloc[-1]),
+    }
+
+
+def get_chip_distribution(stock_cn, proxies=None, is_hk=False):
+    """High-level: fetch Tencent daily + float, compute chip distribution.
+    Returns the dict from compute_chip_distribution, or None on any failure."""
+    secid = _to_tencent_secid(stock_cn)
+    if not secid:
+        return None
+    daily = fetch_tencent_daily(secid, n=130, proxies=proxies)
+    if daily is None or len(daily) < 2:
+        print('No Tencent daily data for {} ({}); skipping chip distribution.\n'
+              .format(stock_cn, secid))
+        return None
+    float_shares = fetch_tencent_float_shares(secid, proxies=proxies)
+    if not float_shares:
+        print('No float shares for {} ({}); skipping chip distribution.\n'
+              .format(stock_cn, secid))
+        return None
+    try:
+        return compute_chip_distribution(daily, float_shares, is_hk=is_hk)
+    except Exception as e:  # noqa: BLE001
+        print('Chip distribution compute failed for {} ({}: {}).\n'.format(
+            stock_cn, type(e).__name__, e))
+        return None
+
+
 if __name__ == "__main__":
     login_return = funcLG.func_login_secret()  # to login into MS365 and get the return value
     result = login_return['result']

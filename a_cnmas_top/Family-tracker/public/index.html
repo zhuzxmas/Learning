@@ -597,6 +597,7 @@
       <div id="stocksApp" class="hidden">
         <div class="tabs" role="tablist">
           <button type="button" class="tab-btn active" id="sbtTabDetailBtn">详情</button>
+          <button type="button" class="tab-btn" id="sbtTabChipBtn">筹码分布</button>
           <button type="button" class="tab-btn" id="sbtTabSummaryBtn">汇总</button>
           <button type="button" class="tab-btn" id="sbtTabSettingsBtn">设置</button>
         </div>
@@ -618,6 +619,27 @@
             <div class="table-wrap sbt-scroll"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
             <h3>分红记录</h3>
             <div class="table-wrap"><table id="sbtDividendTable"><thead></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+
+        <!-- 筹码分布 -->
+        <div id="sbtTabChip" class="hidden">
+          <div class="card">
+            <div class="sbt-toolbar">
+              <label for="sbtChipSelect">股票</label>
+              <select id="sbtChipSelect"></select>
+            </div>
+          </div>
+          <div class="card" id="sbtChipCard">
+            <h2 id="sbtChipTitle">筹码分布</h2>
+            <div id="sbtChipMeta" class="muted"></div>
+            <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
+            <div class="chart-cell">
+              <div class="line-chart-wrap sbt-chip-wrap">
+                <svg id="sbtChipSvg" class="line-chart" preserveAspectRatio="none"></svg>
+              </div>
+            </div>
+            <p id="sbtChipEmpty" class="muted center hidden">暂无筹码数据，请更新该股票。</p>
           </div>
         </div>
 

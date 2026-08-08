@@ -693,7 +693,7 @@ def evaluate_checks(stock_output_yearly, stock_0_dividends):
 
 # ---- output (JSON is source of truth; HTML rendered from it) --------------
 def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
-                 last_7_days, dividends_df):
+                 last_7_days, dividends_df, chip_distribution=None):
     stock_output_combined = _filter_display_years(stock_output_combined)
     combined_json = None
     if stock_output_combined is not None:
@@ -711,6 +711,7 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
         'combined': combined_json,
         'last_7_days_high_low': last_7_days,
         'dividends': div_records,
+        'chip_distribution': chip_distribution,
     }
 
 
@@ -746,6 +747,9 @@ def merge_with_existing(od, stock_cn, payload):
     if not payload.get('dividends') and old.get('dividends'):
         payload['dividends'] = old['dividends']
         stale.append('dividends')
+    if payload.get('chip_distribution') is None and old.get('chip_distribution') is not None:
+        payload['chip_distribution'] = old['chip_distribution']
+        stale.append('chip_distribution')
 
     if stale:
         payload['carried_over'] = stale
@@ -1020,7 +1024,9 @@ def main():
                 str(checks['dividends'][0])])
 
             payload = build_output(stock, stock_cn, stock_name, checks,
-                                   stock_output_combined, last_7_days, dividends_df)
+                                   stock_output_combined, last_7_days, dividends_df,
+                                   chip_distribution=z_Func.get_chip_distribution(
+                                       stock_cn, proxies=proxies, is_hk=True))
             payload = merge_with_existing(od, stock_cn, payload)
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
@@ -1106,8 +1112,12 @@ def main():
             str(checks['profit'][0]), str(checks['liabilities'][0]),
             str(checks['dividends'][0])])
 
+        # --- chip distribution (筹码分布) via Tencent quotes (auto, non-EastMoney) ---
+        chip = z_Func.get_chip_distribution(stock_cn, proxies=proxies, is_hk=False)
+
         payload = build_output(stock, stock_cn, stock_name, checks,
-                               stock_output_combined, last_7_days, dividends_df)
+                               stock_output_combined, last_7_days, dividends_df,
+                               chip_distribution=chip)
         payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload)
         od.put_text('output/{}.json'.format(stock_cn),

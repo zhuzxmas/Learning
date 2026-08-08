@@ -332,11 +332,20 @@ const els = {
   sbtSelect: $("sbtSelect"),
   sbtReloadBtn: $("sbtReloadBtn"),
   sbtTabDetailBtn: $("sbtTabDetailBtn"),
+  sbtTabChipBtn: $("sbtTabChipBtn"),
   sbtTabSummaryBtn: $("sbtTabSummaryBtn"),
   sbtTabSettingsBtn: $("sbtTabSettingsBtn"),
   sbtTabDetail: $("sbtTabDetail"),
+  sbtTabChip: $("sbtTabChip"),
   sbtTabSummary: $("sbtTabSummary"),
   sbtTabSettings: $("sbtTabSettings"),
+  sbtChipSelect: $("sbtChipSelect"),
+  sbtChipCard: $("sbtChipCard"),
+  sbtChipTitle: $("sbtChipTitle"),
+  sbtChipMeta: $("sbtChipMeta"),
+  sbtChipMetrics: $("sbtChipMetrics"),
+  sbtChipSvg: $("sbtChipSvg"),
+  sbtChipEmpty: $("sbtChipEmpty"),
   sbtAddBtn: $("sbtAddBtn"),
   sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
@@ -3082,6 +3091,19 @@ async function sbtLoadStock(code) {
      opt.textContent = nm ? `${code} ${nm}` : code;
      els.sbtSelect.appendChild(opt);
    }
+  // Mirror the same options into the 筹码分布 stock selector.
+  if (els.sbtChipSelect) {
+    const prevChip = els.sbtChipSelect.value;
+    els.sbtChipSelect.innerHTML = "";
+    for (const code of codes) {
+      const opt = document.createElement("option");
+      const nm = sbtNameFor(code);
+      opt.value = code;
+      opt.textContent = nm ? `${code} ${nm}` : code;
+      els.sbtChipSelect.appendChild(opt);
+    }
+    if (codes.length) els.sbtChipSelect.value = codes.includes(prevChip) ? prevChip : codes[0];
+  }
   if (codes.length) {
     els.sbtSelect.value = codes.includes(prev) ? prev : codes[0];
     sbtRenderDetail(els.sbtSelect.value).catch((e) =>
@@ -3101,6 +3123,90 @@ function sbtRenderSummary() {
     `<td class="sbt-c">${yes(r["分红多"])}</td></tr>`
   ).join("");
 }
+
+// Render the 筹码分布 (chip distribution) tab: a horizontal histogram of chip
+// weight by price level, plus summary metrics (获利比例 / 平均成本 / 90-70 成本区间
+// / 集中度). Data comes from d.chip_distribution written by the batch.
+async function sbtRenderChip(code) {
+  if (!els.sbtChipCard) return;
+  if (!code) { els.sbtChipCard.classList.add("hidden"); return; }
+  const d = await sbtLoadStock(code);
+  if (!d) { els.sbtChipCard.classList.add("hidden"); return; }
+  els.sbtChipCard.classList.remove("hidden");
+  els.sbtChipTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""} 筹码分布`;
+
+  const cyq = d.chip_distribution;
+  const hasData = cyq && Array.isArray(cyq.prices) && Array.isArray(cyq.weights)
+    && cyq.prices.length === cyq.weights.length && cyq.prices.length > 1;
+  els.sbtChipEmpty.classList.toggle("hidden", !!hasData);
+  if (!hasData) {
+    els.sbtChipSvg.innerHTML = "";
+    els.sbtChipMeta.textContent = "";
+    els.sbtChipMetrics.innerHTML = "";
+    return;
+  }
+
+  els.sbtChipMeta.textContent = (cyq.as_of ? "数据日期: " + cyq.as_of : "")
+    + (cyq.latest_close != null ? "　收盘价: " + cyq.latest_close : "");
+
+  const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
+  const num = (v) => (v == null ? "—" : v);
+  const metric = (label, val) =>
+    `<div class="sbt-chip-metric"><span class="sbt-chip-mlabel">${label}</span>` +
+    `<span class="sbt-chip-mval">${val}</span></div>`;
+  els.sbtChipMetrics.innerHTML =
+    metric("获利比例", pct(cyq.profit_ratio)) +
+    metric("平均成本", num(cyq.avg_cost)) +
+    metric("90%成本区间", `${num(cyq.cost_90_low)} ~ ${num(cyq.cost_90_high)}`) +
+    metric("90%集中度", pct(cyq.concentration_90)) +
+    metric("70%成本区间", `${num(cyq.cost_70_low)} ~ ${num(cyq.cost_70_high)}`) +
+    metric("70%集中度", pct(cyq.concentration_70));
+
+  // --- horizontal histogram SVG (Y = price high->low, X = chip weight) ---
+  const prices = cyq.prices, weights = cyq.weights;
+  const W = 760, H = 420, padL = 62, padR = 16, padT = 12, padB = 26;
+  const pMin = Math.min(...prices), pMax = Math.max(...prices);
+  const wMax = Math.max(...weights, 1e-9);
+  const plotH = H - padT - padB, plotW = W - padL - padR;
+  const yOf = (p) => padT + (pMax - p) / (pMax - pMin || 1) * plotH; // high at top
+  const xOf = (w) => padL + (w / wMax) * plotW;
+  const band = plotH / prices.length;
+  const barH = Math.max(1, band * 0.9);
+
+  els.sbtChipSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  let svg = "";
+  // bars
+  for (let i = 0; i < prices.length; i++) {
+    if (weights[i] <= 0) continue;
+    const y = yOf(prices[i]) - barH / 2;
+    const w = xOf(weights[i]) - padL;
+    const profit = cyq.latest_close != null && prices[i] <= cyq.latest_close;
+    svg += `<rect class="sbt-chip-bar ${profit ? "sbt-chip-profit" : "sbt-chip-loss"}" ` +
+      `x="${padL}" y="${y.toFixed(1)}" width="${Math.max(0, w).toFixed(1)}" height="${barH.toFixed(1)}"></rect>`;
+  }
+  // Y axis price labels (~6 ticks)
+  const ticks = 6;
+  for (let t = 0; t <= ticks; t++) {
+    const p = pMin + (pMax - pMin) * t / ticks;
+    const y = yOf(p);
+    svg += `<text class="lc-ylabel" x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${p.toFixed(2)}</text>`;
+    svg += `<line class="lc-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}"></line>`;
+  }
+  // current price line
+  if (cyq.latest_close != null && cyq.latest_close >= pMin && cyq.latest_close <= pMax) {
+    const y = yOf(cyq.latest_close);
+    svg += `<line class="sbt-chip-cur" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}"></line>`;
+    svg += `<text class="sbt-chip-curlbl" x="${W - padR}" y="${(y - 3).toFixed(1)}" text-anchor="end">现价 ${cyq.latest_close}</text>`;
+  }
+  // avg cost line
+  if (cyq.avg_cost != null && cyq.avg_cost >= pMin && cyq.avg_cost <= pMax) {
+    const y = yOf(cyq.avg_cost);
+    svg += `<line class="sbt-chip-avg" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}"></line>`;
+    svg += `<text class="sbt-chip-avglbl" x="${W - padR}" y="${(y + 12).toFixed(1)}" text-anchor="end">均价 ${cyq.avg_cost}</text>`;
+  }
+  els.sbtChipSvg.innerHTML = svg;
+}
+
 
  // Strip the tax parenthetical from a dividend-plan string, e.g.
  // "10派3.00元(含税,扣税后2.70元)" -> "10派3.00元". Handles full/half-width
@@ -3217,6 +3323,7 @@ function sbtRenderSummary() {
    if (name === "settings" && !sbtCanEdit()) name = "detail";
    const tabs = {
     detail: { panel: els.sbtTabDetail, btn: els.sbtTabDetailBtn },
+    chip: { panel: els.sbtTabChip, btn: els.sbtTabChipBtn },
     summary: { panel: els.sbtTabSummary, btn: els.sbtTabSummaryBtn },
     settings: { panel: els.sbtTabSettings, btn: els.sbtTabSettingsBtn },
   };
@@ -3224,6 +3331,10 @@ function sbtRenderSummary() {
     const active = k === name;
     if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
+  }
+  if (name === "chip") {
+    sbtRenderChip(els.sbtChipSelect ? els.sbtChipSelect.value : "").catch((e) =>
+      setStatus("载入筹码分布失败：" + (e.message || e), "error"));
   }
   if (name === "settings") {
     sbtLoadStockList().catch((e) =>
@@ -3241,6 +3352,10 @@ function sbtWireEvents() {
    els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
    els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
+   if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
+   if (els.sbtChipSelect) els.sbtChipSelect.onchange = () =>
+     sbtRenderChip(els.sbtChipSelect.value).catch((e) =>
+       setStatus("载入筹码分布失败：" + (e.message || e), "error"));
    els.sbtAddBtn.onclick = sbtAddStock;
  }
  
