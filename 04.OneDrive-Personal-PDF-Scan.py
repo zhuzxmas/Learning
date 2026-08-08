@@ -13,7 +13,7 @@ DESIGN (see the planning discussion):
     It therefore never touches the shared automation/rt.enc used by the other
     OneDrive workflows -> zero token conflict.
   * "Already processed" is tracked by driveItem id in a small state file on
-    OneDrive itself: App/PDF2PNGTracker/state.json. No git commits involved.
+    OneDrive itself: Apps/PDF2PNGTracker/state.json. No git commits involved.
   * FIRST RUN (no state) only SEEDS: it records every PDF currently present as
     processed WITHOUT converting them, so only PDFs that arrive afterwards get
     rasterised.
@@ -26,7 +26,7 @@ Required env vars (set by the workflow):
   GITHUB_REPOSITORY            "owner/repo" (auto-set by Actions)
 Optional:
   WATCH_FOLDER                 default "Pictures/ZZ.Temp"
-  STATE_PATH                   default "App/PDF2PNGTracker/state.json"
+  STATE_PATH                   default "Apps/PDF2PNGTracker/state.json"
   RENDER_DPI                   default "300"
   SECRET_NAME                  default "ONEDRIVE_REFRESH_TOKEN_PDF"
 """
@@ -52,7 +52,7 @@ GRAPH = "https://graph.microsoft.com/v1.0"
 SCOPES = "offline_access Files.ReadWrite.All User.Read"
 
 WATCH_FOLDER = os.environ.get("WATCH_FOLDER", "Pictures/ZZ.Temp").strip("/")
-STATE_PATH = os.environ.get("STATE_PATH", "App/PDF2PNGTracker/state.json").strip("/")
+STATE_PATH = os.environ.get("STATE_PATH", "Apps/PDF2PNGTracker/state.json").strip("/")
 RENDER_DPI = int(os.environ.get("RENDER_DPI", "300") or "300")
 SECRET_NAME = os.environ.get("SECRET_NAME", "ONEDRIVE_REFRESH_TOKEN_PDF")
 

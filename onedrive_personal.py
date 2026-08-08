@@ -8,7 +8,7 @@ encrypted ``rt.enc`` -> redeem for access token + rotated refresh token), but:
   * every network call is **proxy aware** so it works from behind the Ford
     corporate proxy during local testing, and
   * files are addressed by **root-relative path** under
-    ``/me/drive/root:/App/StockBatchTracker/...`` (no 1drv.ms share links).
+    ``/me/drive/root:/Apps/StockBatchTracker/...`` (no 1drv.ms share links).
 
 The refresh token is shared with the summarizer (same ``rt.enc``); to avoid
 desyncing that shared token during local experiments, set the environment
@@ -21,7 +21,7 @@ Auth inputs (env vars, mirrors the summarizer):
   ONEDRIVE_REFRESH_TOKEN   initial refresh token (first-run fallback)
 Optional:
   ONEDRIVE_RT_READONLY     "1"/"true"/"yes" -> never rewrite rt.enc
-  ONEDRIVE_APP_ROOT        override the root folder (default App/StockBatchTracker)
+  ONEDRIVE_APP_ROOT        override the root folder (default Apps/StockBatchTracker)
 """
 
 import io

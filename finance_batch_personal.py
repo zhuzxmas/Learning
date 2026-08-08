@@ -7,7 +7,7 @@ SharePoint (app-only) dependencies and the live kline API call (which is not
 reachable from GitHub Actions / cloud IPs), replacing them with:
 
   * Auth + storage on the user's **personal OneDrive** via ``onedrive_personal``
-    (root folder ``App/StockBatchTracker/``), proxy-aware for local Ford runs.
+    (root folder ``Apps/StockBatchTracker/``), proxy-aware for local Ford runs.
   * Stock universe from ``stock_list.csv`` (exported from the old SharePoint
     list) instead of a Graph SharePoint-list query.
   * Report/dividend data still fetched **live** from EastMoney's ``datacenter``
@@ -118,7 +118,7 @@ def normalize_stock(code):
 
 
 def load_stock_list(od):
-    """Read App/StockBatchTracker/stock_list.csv -> list of code strings.
+    """Read Apps/StockBatchTracker/stock_list.csv -> list of code strings.
 
     Accepts a header row containing a 'Title'/'code'/'Stock'/'stock_code'
     column, or a plain single-column list with no header.
@@ -126,7 +126,7 @@ def load_stock_list(od):
     raw = od.get_text('stock_list.csv')
     if raw is None:
         raise RuntimeError(
-            "stock_list.csv not found in App/StockBatchTracker/ — export the "
+            "stock_list.csv not found in Apps/StockBatchTracker/ — export the "
             "SharePoint stock list to that file first.")
     import csv
     import io as _io

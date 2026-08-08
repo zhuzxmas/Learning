@@ -1,6 +1,6 @@
 # Quarterly stock fundamentals batch — personal-OneDrive edition.
 # Runs finance_batch_personal.py, which stores everything on the user's personal
-# OneDrive (App/StockBatchTracker/) via a delegated refresh token. Price history
+# OneDrive (Apps/StockBatchTracker/) via a delegated refresh token. Price history
 # is read from pre-downloaded kline/{code}.txt files (the push2his kline API is
 # not reachable from cloud IPs); reports/dividends are still fetched live from
 # EastMoney's datacenter hosts.
