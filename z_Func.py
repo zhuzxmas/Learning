@@ -1590,6 +1590,100 @@ def fetch_tencent_daily(tx_secid, n=130, proxies=None):
     return out
 
 
+def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
+    """Fully-automated replacement for the manually-downloaded kline file.
+
+    Fetches FORWARD-ADJUSTED (qfq) daily candles from Tencent (cloud-reachable,
+    no WAF; covers A-shares AND HK) and returns a DataFrame with the SAME Chinese
+    column layout that ``get_stock_price_from_kline_text`` produced, so all
+    downstream consumers (price ranges, last-10-day high/low) work unchanged.
+
+    Only 日期/开盘/收盘/最高/最低/成交量只 are populated (the only columns the
+    batch consumes); the remaining legacy columns are filled with NaN. Returns an
+    empty (correctly-columned) DataFrame on any failure — same contract as the
+    old kline parser, so the caller's ``len(df) > 0`` guard still applies.
+    """
+    columns = ["日期", "开盘", "收盘", "最高", "最低",
+               "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+    numeric_columns = ["开盘", "收盘", "最高", "最低",
+                       "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+
+    def _empty():
+        return pd.DataFrame([], columns=columns)
+
+    secid = _to_tencent_secid(stock_cn)
+    if not secid:
+        print('Could not map {} to a Tencent secid; no price data.\n'.format(stock_cn))
+        return _empty()
+
+    # Tencent's fqkline endpoint caps a single response at ~640 trading days
+    # regardless of the requested count, so we page through the history in
+    # fixed date windows (start..today) and concatenate. ~2-year windows keep
+    # each request comfortably under the cap.
+    today = datetime.datetime.now()
+    try:
+        start_year = int(str(start)[:4])
+    except (ValueError, TypeError):
+        start_year = 2018
+    all_rows = []
+    seen = set()
+    win_start = datetime.datetime(start_year, 1, 1)
+    step_days = 640            # ~2.5 trading years; safely under the cap
+    while win_start <= today:
+        win_end = min(win_start + datetime.timedelta(days=step_days), today)
+        s = win_start.strftime('%Y-%m-%d')
+        e = win_end.strftime('%Y-%m-%d')
+        url = ('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get'
+               '?param={},day,{},{},640,qfq'.format(secid, s, e))
+        try:
+            r = requests.get(url, timeout=30)
+        except requests.exceptions.RequestException:
+            try:
+                r = requests.get(url, timeout=30, proxies=proxies)
+            except requests.exceptions.RequestException as ex:
+                print('Tencent qfq window {}..{} failed for {} ({}: {}).\n'.format(
+                    s, e, stock_cn, type(ex).__name__, ex))
+                win_start = win_end + datetime.timedelta(days=1)
+                continue
+        try:
+            data = r.json().get('data') or {}
+            node = data.get(secid) if isinstance(data, dict) else None
+            rows = (node.get('qfqday') or node.get('day') or []) if node else []
+        except Exception as ex:  # noqa: BLE001
+            print('Tencent qfq window {}..{} parse failed for {} ({}: {}).\n'.format(
+                s, e, stock_cn, type(ex).__name__, ex))
+            rows = []
+        for c in rows:
+            if len(c) >= 6 and c[0] not in seen:
+                seen.add(c[0])
+                all_rows.append(c)
+        win_start = win_end + datetime.timedelta(days=1)
+
+    if not all_rows:
+        print('Tencent returned no candles for {} ({}).\n'.format(stock_cn, secid))
+        return _empty()
+
+    recs = []
+    for c in all_rows:
+        # c = [date, open, close, high, low, volume, (optional dividend dict)]
+        recs.append({
+            '日期': c[0], '开盘': c[1], '收盘': c[2],
+            '最高': c[3], '最低': c[4], '成交量只': c[5],
+        })
+    price_df = pd.DataFrame(recs)
+    for col in columns:
+        if col not in price_df.columns:
+            price_df[col] = pd.NA
+    price_df = price_df[columns]
+    price_df[numeric_columns] = price_df[numeric_columns].apply(
+        pd.to_numeric, errors='coerce')
+    price_df['日期'] = pd.to_datetime(price_df['日期'], errors='coerce')
+    price_df = price_df.dropna(subset=['日期']).sort_values('日期').reset_index(drop=True)
+    print('Fetched {} Tencent qfq daily rows for {} ({}).\n'.format(
+        len(price_df), stock_cn, secid))
+    return price_df
+
+
 def fetch_tencent_float_shares(tx_secid, proxies=None):
     """Return free-float share count from the Tencent snapshot (qt.gtimg.cn),
     or None on failure.

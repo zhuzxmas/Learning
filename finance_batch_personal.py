@@ -693,7 +693,8 @@ def evaluate_checks(stock_output_yearly, stock_0_dividends):
 
 # ---- output (JSON is source of truth; HTML rendered from it) --------------
 def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
-                 last_7_days, dividends_df, chip_distribution=None):
+                 last_7_days, dividends_df, chip_distribution=None,
+                 price_source_error=False):
     stock_output_combined = _filter_display_years(stock_output_combined)
     combined_json = None
     if stock_output_combined is not None:
@@ -712,6 +713,7 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
         'last_7_days_high_low': last_7_days,
         'dividends': div_records,
         'chip_distribution': chip_distribution,
+        'price_source_error': bool(price_source_error),
     }
 
 
@@ -956,16 +958,14 @@ def main():
                     'IMPL_PLAN_PROFILE': r.get('plan') or '',
                 } for r in plan_records])
 
-            # HK price history from the manually-downloaded kline file (same
-            # strategy as A-shares: push2his is not reachable from cloud IPs, so
-            # the kline JSONP is saved to OneDrive as kline/{code}.txt).
+            # HK price history: auto-fetched forward-adjusted daily from Tencent
+            # (cloud-reachable, no WAF; replaces the manual kline file).
             last_7_days = None
-            kline_text = od.get_text('kline/{}.txt'.format(stock))
-            if kline_text is None:
-                print('!! kline/{}.txt missing — run the kline manifest pre-step. '
-                      'Skipping price ranges for this stock.\n'.format(stock))
-            stock_price_df = z_Func.get_stock_price_from_kline_text(
-                kline_text or '', stock_cn=stock)
+            stock_price_df = z_Func.get_stock_price_from_tencent(stock, proxies=proxies)
+            price_source_error = len(stock_price_df) == 0
+            if price_source_error:
+                print('!! Tencent price fetch failed for {} — price-related '
+                      'metrics not updated this run.\n'.format(stock))
             if len(stock_price_df) > 0:
                 try:
                     last_7_days = z_Func.get_latest_7_days_stock_price_Based_on_EasMon(
@@ -1026,7 +1026,8 @@ def main():
             payload = build_output(stock, stock_cn, stock_name, checks,
                                    stock_output_combined, last_7_days, dividends_df,
                                    chip_distribution=z_Func.get_chip_distribution(
-                                       stock_cn, proxies=proxies, is_hk=True))
+                                       stock_cn, proxies=proxies, is_hk=True),
+                                   price_source_error=price_source_error)
             payload = merge_with_existing(od, stock_cn, payload)
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
@@ -1074,12 +1075,12 @@ def main():
             dividends_df = pd.DataFrame(stock_0_dividends)[
                 ['REPORT_DATE', 'EQUITY_RECORD_DATE', 'IMPL_PLAN_PROFILE']]
 
-        # --- price history from the manually-downloaded kline file ---
-        kline_text = od.get_text('kline/{}.txt'.format(stock_cn))
-        if kline_text is None:
-            print('!! kline/{}.txt missing — run the kline manifest pre-step. '
-                  'Skipping price ranges for this stock.\n'.format(stock_cn))
-        stock_price_df = z_Func.get_stock_price_from_kline_text(kline_text or '', stock_cn=stock_cn)
+        # --- price history: auto-fetched forward-adjusted daily from Tencent ---
+        stock_price_df = z_Func.get_stock_price_from_tencent(stock_cn, proxies=proxies)
+        price_source_error = len(stock_price_df) == 0
+        if price_source_error:
+            print('!! Tencent price fetch failed for {} — price-related '
+                  'metrics not updated this run.\n'.format(stock_cn))
 
         stock_output_combined = None
         last_7_days = None
@@ -1117,7 +1118,8 @@ def main():
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df,
-                               chip_distribution=chip)
+                               chip_distribution=chip,
+                               price_source_error=price_source_error)
         payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload)
         od.put_text('output/{}.json'.format(stock_cn),

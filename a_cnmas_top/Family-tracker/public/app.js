@@ -3243,19 +3243,24 @@ async function sbtRenderChip(code) {
     if (opt && !/\s/.test(opt.textContent.trim())) opt.textContent = `${code} ${d.stock_name}`;
   }
 
+  // Price source error: Tencent quote fetch failed on the last run, so
+  // price-related metrics were NOT refreshed (they show the previous values).
+  const priceErrBanner = d.price_source_error
+    ? `<div class="sbt-gap-banner">⚠️ 股价数据获取失败（腾讯行情源暂时不可用），本次未更新股价相关指标，显示为上次数据。</div>`
+    : "";
+
   // Price-range data gaps: years whose 后一年股价范围 is genuinely missing
-  // because the downloaded kline doesn't cover that window. Prompt the user to
-  // download a complete kline so the batch can self-heal those cells.
+  // because the auto-fetched daily history doesn't cover that window.
   const gaps = Array.isArray(d.price_range_gaps) ? d.price_range_gaps : [];
   const gapBanner = gaps.length
-    ? `<div class="sbt-gap-banner">⚠️ 以下年份的「后一年股价范围」缺失（当前 kline 未覆盖该时段）：` +
-      `${gaps.map((g) => escapeHtml(String(g))).join("、")}。请下载完整 kline 后再更新，批处理会自动补全。</div>`
+    ? `<div class="sbt-gap-banner">⚠️ 以下年份的「后一年股价范围」缺失（行情源未覆盖该时段）：` +
+      `${gaps.map((g) => escapeHtml(String(g))).join("、")}。</div>`
     : "";
 
   // Checks.
   const checks = d.checks || {};
   const order = ["profit", "liabilities", "dividends"];
-  els.sbtChecks.innerHTML = gapBanner + order.filter((k) => checks[k]).map((k) => {
+  els.sbtChecks.innerHTML = priceErrBanner + gapBanner + order.filter((k) => checks[k]).map((k) => {
     const c = checks[k];
     const cls = c.pass ? "sbt-pass" : "sbt-fail";
     return `<div class="sbt-check ${cls}">${escapeHtml(c.text || "")}</div>`;
@@ -3473,28 +3478,14 @@ function sbtRenderSettings() {
     const span = document.createElement("span");
     span.className = "sbt-code-label";
     span.textContent = nm ? `${code}  ${nm}` : code;
-    const kl = document.createElement("a");
-    kl.className = "sbt-kline-link";
-    kl.href = sbtKlineUrl(code) || "#";
-    kl.target = "_blank"; kl.rel = "noopener";
-    kl.textContent = "下载 kline";
-    kl.title = `点开后「网页另存为」${cn}.txt 到 kline/ 文件夹`;
-    const fn = document.createElement("button");
-    fn.type = "button"; fn.className = "btn btn-mini sbt-fn-btn";
-    fn.textContent = `${cn}.txt`;
-    fn.title = "点击复制文件名";
-    fn.onclick = () => sbtCopyFilename(`${cn}.txt`);
     const upd = document.createElement("button");
     upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
     upd.onclick = () => sbtUpdateStock(code);
     const del = document.createElement("button");
     del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
     del.onclick = () => sbtRemoveStock(code);
-    const dlLine = document.createElement("div");
-    dlLine.className = "sbt-dl-line";
-    dlLine.appendChild(kl); dlLine.appendChild(fn);
+    // Price history is now auto-fetched (Tencent) — no manual kline download.
     row.appendChild(span); row.appendChild(upd); row.appendChild(del);
-    row.appendChild(dlLine);
     c.appendChild(row);
   }
 }
@@ -3538,15 +3529,14 @@ async function sbtAddStock() {
     await sbtWriteStockList(token, next);
     sbtCodes = next;
     sbtRenderSettings();
-    setStatus(`已加入清单：${code}。请点该行「下载 kline」另存为后，再点「更新」触发个股批处理。`, "success", 8000);
+    setStatus(`已加入清单：${code}。点该行「更新」即可触发个股批处理（股价自动获取）。`, "success", 8000);
   } catch (e) {
     setStatus("添加失败：" + (e.message || e), "error");
   }
 }
 
 async function sbtUpdateStock(code) {
-  const tip = "\n\n请确认已下载最新 kline 数据，否则：\n· 股价相关指标将停留在旧价格\n· 仅财务基本面会刷新";
-  if (!confirm(`触发个股批处理更新 ${code}？${tip}`)) return;
+  if (!confirm(`触发个股批处理更新 ${code}？\n\n股价与财务数据将自动获取并刷新。`)) return;
   try {
     const token = await getToken();
     const res = await fetch(SBT_TRIGGER_URL, {

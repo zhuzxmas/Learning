@@ -673,15 +673,9 @@
                 <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
               </div>
               <p class="muted sbt-settings-hint">
-                添加后：① 点该股「下载 kline」→ 网页另存为对应文件名（如 <code>600875.SH.txt</code>）；
-                ② 上传到 <b>个人版 OneDrive → <code>Apps/StockBatchTracker/kline/</code></b>；
-                ③ 再点该股「更新」触发个股批处理。<br>
-                删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），
-                <code>kline/</code>、<code>history/</code> 文件保留。<br>
-                ⚠️ 若不更新 kline 的后果：<br>
-                · 股价相关指标（近期高/低、股价区间、与「市盈率15对应股价」的比较）会缺失或停留在旧价格；<br>
-                · 财务基本面数据（营收/利润/EPS 等）不受影响，仍会正常刷新；<br>
-                · 港股无需下载 kline，价格在批处理中实时获取。
+                添加后点该股「更新」即可触发个股批处理；股价（前复权日线）与财务数据均自动获取，无需手动下载。<br>
+                删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），<code>history/</code> 文件保留。<br>
+                ⚠️ 若某次行情源（腾讯）暂时不可用，该股详情页顶部会提示，股价相关指标将显示为上次数据，财务基本面不受影响。
               </p>
               <div id="sbtCodeList"></div>
             </div>
