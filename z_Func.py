@@ -1593,10 +1593,13 @@ def fetch_tencent_daily(tx_secid, n=130, proxies=None):
 def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
     """Fully-automated replacement for the manually-downloaded kline file.
 
-    Fetches FORWARD-ADJUSTED (qfq) daily candles from Tencent (cloud-reachable,
-    no WAF; covers A-shares AND HK) and returns a DataFrame with the SAME Chinese
-    column layout that ``get_stock_price_from_kline_text`` produced, so all
-    downstream consumers (price ranges, last-10-day high/low) work unchanged.
+    Fetches UNADJUSTED (不复权 / 真实除权价) daily candles from Tencent
+    (cloud-reachable, no WAF; covers A-shares AND HK). Unadjusted = the actual
+    traded price each day (what brokers like 中信证券 show), which matches the
+    price basis used by the chip-distribution computation. Returns a DataFrame
+    with the SAME Chinese column layout that ``get_stock_price_from_kline_text``
+    produced, so all downstream consumers (price ranges, last-10-day high/low)
+    work unchanged.
 
     Only 日期/开盘/收盘/最高/最低/成交量只 are populated (the only columns the
     batch consumes); the remaining legacy columns are filled with NaN. Returns an
@@ -1616,10 +1619,11 @@ def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
         print('Could not map {} to a Tencent secid; no price data.\n'.format(stock_cn))
         return _empty()
 
-    # Tencent's fqkline endpoint caps a single response at ~640 trading days
+    # Tencent's kline endpoint caps a single response at ~640 trading days
     # regardless of the requested count, so we page through the history in
     # fixed date windows (start..today) and concatenate. ~2-year windows keep
-    # each request comfortably under the cap.
+    # each request comfortably under the cap. We use the UNADJUSTED (day) kline
+    # endpoint (kline/kline) so prices are the real traded/除权 prices.
     today = datetime.datetime.now()
     try:
         start_year = int(str(start)[:4])
@@ -1633,24 +1637,24 @@ def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
         win_end = min(win_start + datetime.timedelta(days=step_days), today)
         s = win_start.strftime('%Y-%m-%d')
         e = win_end.strftime('%Y-%m-%d')
-        url = ('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get'
-               '?param={},day,{},{},640,qfq'.format(secid, s, e))
+        url = ('https://web.ifzq.gtimg.cn/appstock/app/kline/kline'
+               '?param={},day,{},{},640'.format(secid, s, e))
         try:
             r = requests.get(url, timeout=30)
         except requests.exceptions.RequestException:
             try:
                 r = requests.get(url, timeout=30, proxies=proxies)
             except requests.exceptions.RequestException as ex:
-                print('Tencent qfq window {}..{} failed for {} ({}: {}).\n'.format(
+                print('Tencent day window {}..{} failed for {} ({}: {}).\n'.format(
                     s, e, stock_cn, type(ex).__name__, ex))
                 win_start = win_end + datetime.timedelta(days=1)
                 continue
         try:
             data = r.json().get('data') or {}
             node = data.get(secid) if isinstance(data, dict) else None
-            rows = (node.get('qfqday') or node.get('day') or []) if node else []
+            rows = (node.get('day') or node.get('qfqday') or []) if node else []
         except Exception as ex:  # noqa: BLE001
-            print('Tencent qfq window {}..{} parse failed for {} ({}: {}).\n'.format(
+            print('Tencent day window {}..{} parse failed for {} ({}: {}).\n'.format(
                 s, e, stock_cn, type(ex).__name__, ex))
             rows = []
         for c in rows:
@@ -1679,7 +1683,7 @@ def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
         pd.to_numeric, errors='coerce')
     price_df['日期'] = pd.to_datetime(price_df['日期'], errors='coerce')
     price_df = price_df.dropna(subset=['日期']).sort_values('日期').reset_index(drop=True)
-    print('Fetched {} Tencent qfq daily rows for {} ({}).\n'.format(
+    print('Fetched {} Tencent day (unadjusted) rows for {} ({}).\n'.format(
         len(price_df), stock_cn, secid))
     return price_df
 
