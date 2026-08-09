@@ -3171,6 +3171,13 @@ function sbtChipExpandRow(tr, code) {
   tr.after(exTr);
   els.sbtChipHidden.classList.remove("hidden");
   td.appendChild(els.sbtChipCard);           // move the reusable block here
+  // Clear the previous stock's chart/metrics immediately so it doesn't flash
+  // while the new stock's data loads (sbtRenderChip is async).
+  if (els.sbtChipSvg) els.sbtChipSvg.innerHTML = "";
+  if (els.sbtChipMeta) els.sbtChipMeta.textContent = "";
+  if (els.sbtChipMetrics) els.sbtChipMetrics.innerHTML = "";
+  if (els.sbtChipTitle) els.sbtChipTitle.textContent = "载入中…";
+  if (els.sbtChipEmpty) els.sbtChipEmpty.classList.add("hidden");
   sbtRenderChip(code).catch((e) =>
     setStatus("载入筹码分布失败：" + (e.message || e), "error"));
 }

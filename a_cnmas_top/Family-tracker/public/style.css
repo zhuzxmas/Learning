@@ -1251,7 +1251,7 @@ td:nth-child(6) {
 }
 .sbt-chip-mlabel { font-size: 12px; color: #6b7280; }
 .sbt-chip-mval { font-size: 15px; font-weight: 600; color: #111827; }
-.sbt-chip-wrap { width: 100%; max-width: 480px; overflow: hidden; }
+.sbt-chip-wrap { width: 100%; max-width: min(360px, 92vw); overflow: hidden; }
 #sbtChipSvg { width: 100%; height: auto; display: block; }
 #sbtChipSvg .lc-grid { stroke: #eef0f3; stroke-width: 1; }
 #sbtChipSvg .lc-ylabel { fill: #98a2b3; font-size: 11px; }
@@ -1263,7 +1263,6 @@ td:nth-child(6) {
 .sbt-chip-avg { stroke: #b8860b; stroke-width: 1.5; stroke-dasharray: 4 3; }
 .sbt-chip-avglbl { fill: #b8860b; font-size: 11px; font-weight: 600; }
 @media (max-width: 640px) {
-  .sbt-chip-wrap { max-width: 100%; }
   .sbt-chip-metric { min-width: 72px; padding: 5px 8px; }
   .sbt-chip-mval { font-size: 14px; }
 }
