@@ -596,13 +596,13 @@
       <!-- ============ STOCKS (基本面批处理) APP ============ -->
       <div id="stocksApp" class="hidden">
         <div class="tabs" role="tablist">
-          <button type="button" class="tab-btn active" id="sbtTabDetailBtn">详情</button>
-          <button type="button" class="tab-btn" id="sbtTabChipBtn">筹码排行</button>
+          <button type="button" class="tab-btn active" id="sbtTabChipBtn">筹码排行</button>
+          <button type="button" class="tab-btn" id="sbtTabDetailBtn">详情</button>
           <button type="button" class="tab-btn" id="sbtTabSettingsBtn">设置</button>
         </div>
 
         <!-- 详情 -->
-        <div id="sbtTabDetail">
+        <div id="sbtTabDetail" class="hidden">
           <div class="card">
             <div class="sbt-toolbar">
               <label for="sbtSelect">股票</label>
@@ -622,7 +622,7 @@
         </div>
 
         <!-- 筹码排行（合并 获利比例排行 + 汇总；点行在下方展开筹码图） -->
-        <div id="sbtTabChip" class="hidden">
+        <div id="sbtTabChip">
           <div class="card">
             <div class="table-head-row">
               <h2>筹码排行</h2>
