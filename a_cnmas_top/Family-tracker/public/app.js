@@ -333,23 +333,20 @@ const els = {
   sbtReloadBtn: $("sbtReloadBtn"),
   sbtTabDetailBtn: $("sbtTabDetailBtn"),
   sbtTabChipBtn: $("sbtTabChipBtn"),
-  sbtTabSummaryBtn: $("sbtTabSummaryBtn"),
   sbtTabSettingsBtn: $("sbtTabSettingsBtn"),
   sbtTabDetail: $("sbtTabDetail"),
   sbtTabChip: $("sbtTabChip"),
-  sbtTabSummary: $("sbtTabSummary"),
   sbtTabSettings: $("sbtTabSettings"),
   sbtChipSelect: $("sbtChipSelect"),
   sbtChipCard: $("sbtChipCard"),
+  sbtChipHidden: $("sbtChipHidden"),
+  sbtChipCollapseBtn: $("sbtChipCollapseBtn"),
   sbtChipTitle: $("sbtChipTitle"),
   sbtChipMeta: $("sbtChipMeta"),
   sbtChipMetrics: $("sbtChipMetrics"),
   sbtChipSvg: $("sbtChipSvg"),
   sbtChipEmpty: $("sbtChipEmpty"),
-  sbtChipRankBtn: $("sbtChipRankBtn"),
-  sbtChipOneBtn: $("sbtChipOneBtn"),
-  sbtChipRankView: $("sbtChipRankView"),
-  sbtChipOneView: $("sbtChipOneView"),
+  sbtChipRankTable: $("sbtChipRankTable"),
   sbtChipRankBody: $("sbtChipRankBody"),
   sbtChipRankMeta: $("sbtChipRankMeta"),
   sbtChipRankEmpty: $("sbtChipRankEmpty"),
@@ -357,7 +354,6 @@ const els = {
   sbtAddBtn: $("sbtAddBtn"),
   sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
-  sbtSummaryBody: $("sbtSummaryBody"),
   sbtDetailCard: $("sbtDetailCard"),
   sbtDetailTitle: $("sbtDetailTitle"),
   sbtChecks: $("sbtChecks"),
@@ -2945,7 +2941,8 @@ function incSwitchTab(name) {
  let sbtDriveBase = "";         // resolved /drives/{id}/items/{id} base (shared mode)
  let sbtOwnRootBase = "";       // resolved /me/drive/root:/... base (owner mode)
  let sbtChipRanking = null;     // cached parsed output/_chip_ranking.json
- let sbtChipSubTab = "rank";    // chip tab sub-view: "rank" (default) | "one"
+ let sbtRankSort = { col: "profit_ratio", dir: 1 };  // 1 asc, -1 desc; default 获利比例升序
+ let sbtChipExpandCode = "";    // stock_cn of the currently expanded/highlighted row ("" = none)
  
  // True only for the folder owner — gates all write actions (add/delete/trigger).
  function sbtCanEdit() {
@@ -3007,7 +3004,7 @@ function incSwitchTab(name) {
 
  async function sbtLoad(force) {
    sbtApplyPerms();
-   if (sbtLoaded && !force) { sbtRenderSummary(); return; }
+   if (sbtLoaded && !force) { return; }
   setStatus("正在载入股票基本面数据…", "info");
   const token = await getToken();
 
@@ -3029,9 +3026,12 @@ function incSwitchTab(name) {
 
   sbtLoaded = true;
   sbtPopulateSelect();                            // lazy-loads the selected stock only
-  sbtRenderSummary();
+  // If the 筹码排行 tab is currently visible, refresh it.
+  if (els.sbtTabChip && !els.sbtTabChip.classList.contains("hidden")) {
+    sbtRenderChipRank().catch(() => {});
+  }
   const n = Object.keys(sbtFiles).length;
-  els.sbtRecordCount.textContent = n ? `${n} 只股票` : "";
+  if (els.sbtRecordCount) els.sbtRecordCount.textContent = n ? `${n} 只股票` : "";
   setStatus(n ? `已载入 ${n} 只股票（按需加载明细）。` : "未找到 output/*.json。", n ? "success" : "error", 4000);
 }
 
@@ -3124,34 +3124,6 @@ async function sbtLoadStock(code) {
   }
 }
 
-function sbtRenderSummary() {
-  const rows = Array.isArray(sbtSummary) ? sbtSummary : [];
-  const yes = (v) => (String(v) === "True" || v === true) ? "✔" : "✘";
-  els.sbtSummaryBody.innerHTML = rows.map((r) =>
-    `<tr><td>${escapeHtml(r["Stock Number"] || "")}</td>` +
-    `<td class="sbt-c">${yes(r["利润表现好"])}</td>` +
-    `<td class="sbt-c">${yes(r["流动负债不高"])}</td>` +
-    `<td class="sbt-c">${yes(r["分红多"])}</td></tr>`
-  ).join("");
-}
-
-// Switch between the 筹码分布 tab's two sub-views: "rank" (获利比例排行, default)
-// and "one" (single-stock chip chart).
-function sbtChipSwitchSub(name) {
-  sbtChipSubTab = name;
-  if (els.sbtChipRankView) els.sbtChipRankView.classList.toggle("hidden", name !== "rank");
-  if (els.sbtChipOneView) els.sbtChipOneView.classList.toggle("hidden", name !== "one");
-  if (els.sbtChipRankBtn) els.sbtChipRankBtn.classList.toggle("active", name === "rank");
-  if (els.sbtChipOneBtn) els.sbtChipOneBtn.classList.toggle("active", name === "one");
-  if (name === "rank") {
-    sbtRenderChipRank().catch((e) =>
-      setStatus("载入获利比例排行失败：" + (e.message || e), "error"));
-  } else {
-    sbtRenderChip(els.sbtChipSelect ? els.sbtChipSelect.value : "").catch((e) =>
-      setStatus("载入筹码分布失败：" + (e.message || e), "error"));
-  }
-}
-
 // Load the pre-aggregated ranking file (output/_chip_ranking.json). Cached in
 // memory; re-read on demand. Returns [] if absent.
 async function sbtLoadChipRanking() {
@@ -3161,49 +3133,158 @@ async function sbtLoadChipRanking() {
   return sbtChipRanking;
 }
 
-// Render the 获利比例排行 sub-view: all stocks' profit_ratio ascending (nulls
-// last), shown as a percentage. Clicking a row jumps to that stock's chip chart.
+// Build a numeric-code -> {profit, liab, div} bool map from _summary.json,
+// so the 3 汇总 flags can be joined onto each ranking row.
+function sbtSummaryFlags() {
+  const map = {};
+  const truthy = (v) => (String(v) === "True" || v === true);
+  for (const r of (Array.isArray(sbtSummary) ? sbtSummary : [])) {
+    const sn = String((r && r["Stock Number"]) || "");
+    const rest = sn.split("--").slice(1).join("--");     // drop "{seq}--"
+    const stock = rest.split("-")[0] || "";              // e.g. 600519.ss / 01548.HK
+    const numeric = stock.split(".")[0].trim();
+    if (!numeric) continue;
+    map[numeric] = {
+      b_profit: truthy(r["利润表现好"]),
+      b_liab: truthy(r["流动负债不高"]),
+      b_div: truthy(r["分红多"]),
+    };
+  }
+  return map;
+}
+
+// Collapse the inline chip chart (move the reusable block back to its hidden
+// home). keepHighlight=true leaves the clicked row highlighted.
+function sbtChipCollapse(keepHighlight) {
+  const expandTr = els.sbtChipRankBody && els.sbtChipRankBody.querySelector("tr.sbt-chip-expand");
+  if (els.sbtChipCard && els.sbtChipHidden && els.sbtChipCard.parentElement !== els.sbtChipHidden) {
+    els.sbtChipHidden.appendChild(els.sbtChipCard);
+  }
+  if (els.sbtChipHidden) els.sbtChipHidden.classList.add("hidden");
+  if (expandTr) expandTr.remove();
+  if (!keepHighlight) {
+    sbtChipExpandCode = "";
+    if (els.sbtChipRankBody) els.sbtChipRankBody.querySelectorAll("tr.sbt-rank-active")
+      .forEach((tr) => tr.classList.remove("sbt-rank-active"));
+  }
+}
+
+// Expand the chip chart for `code` directly below its ranking row `tr`.
+function sbtChipExpandRow(tr, code) {
+  // toggle off if same row already open
+  if (sbtChipExpandCode === code) { sbtChipCollapse(false); return; }
+  sbtChipCollapse(false);
+  sbtChipExpandCode = code;
+  tr.classList.add("sbt-rank-active");
+  const ncols = tr.children.length;
+  const exTr = document.createElement("tr");
+  exTr.className = "sbt-chip-expand";
+  const td = document.createElement("td");
+  td.colSpan = ncols;
+  exTr.appendChild(td);
+  tr.after(exTr);
+  els.sbtChipHidden.classList.remove("hidden");
+  td.appendChild(els.sbtChipCard);           // move the reusable block here
+  if (els.sbtChipSelect &&
+      Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
+    els.sbtChipSelect.value = code;
+  }
+  sbtRenderChip(code).catch((e) =>
+    setStatus("载入筹码分布失败：" + (e.message || e), "error"));
+}
+
+// Sort the ranking list per sbtRankSort. Nulls always sink to the bottom for
+// numeric columns; bool columns put True first on asc.
+function sbtSortRanking(list) {
+  const { col, dir } = sbtRankSort;
+  const arr = list.slice();
+  if (col === "stock") {
+    arr.sort((a, b) => {
+      const ak = `${a.stock_cn || ""} ${a.stock_name || ""}`;
+      const bk = `${b.stock_cn || ""} ${b.stock_name || ""}`;
+      return dir * ak.localeCompare(bk, "zh");
+    });
+  } else if (col === "b_profit" || col === "b_liab" || col === "b_div") {
+    arr.sort((a, b) => {
+      const av = a[col] ? 1 : 0, bv = b[col] ? 1 : 0;
+      return dir * (bv - av);   // dir=1 (asc) => True first
+    });
+  } else {
+    arr.sort((a, b) => {
+      const av = (a && a[col] != null) ? a[col] : null;
+      const bv = (b && b[col] != null) ? b[col] : null;
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;    // nulls last regardless of dir
+      if (bv == null) return -1;
+      return dir * (av - bv);
+    });
+  }
+  return arr;
+}
+
+// Render the merged 筹码排行 table (ranking + summary flags), with sortable
+// headers and inline chip-chart expansion on row click.
 async function sbtRenderChipRank() {
   const rows = await sbtLoadChipRanking();
-  const list = Array.isArray(rows) ? rows.slice() : [];
-  // Ascending by profit_ratio; nulls/undefined sink to the bottom.
-  list.sort((a, b) => {
-    const av = (a && a.profit_ratio != null) ? a.profit_ratio : Infinity;
-    const bv = (b && b.profit_ratio != null) ? b.profit_ratio : Infinity;
-    return av - bv;
+  const flags = sbtSummaryFlags();
+  let list = (Array.isArray(rows) ? rows : []).map((r) => {
+    const numeric = String(r.stock_cn || "").split(".")[0].trim();
+    const f = flags[numeric] || {};
+    return Object.assign({}, r, {
+      b_profit: !!f.b_profit, b_liab: !!f.b_liab, b_div: !!f.b_div,
+    });
   });
+  sbtChipCollapse(false);           // reset any open chart before re-render
+  list = sbtSortRanking(list);
+
   const has = list.length > 0;
   if (els.sbtChipRankEmpty) els.sbtChipRankEmpty.classList.toggle("hidden", has);
   if (els.sbtChipRankMeta) els.sbtChipRankMeta.textContent = has ? `共 ${list.length} 只` : "";
-  // Dynamic 收盘价 header: prefix with the latest as_of date across all rows.
   if (els.sbtChipRankPriceTh) {
     let repDate = "";
     for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
     els.sbtChipRankPriceTh.textContent = repDate ? `${repDate}收盘价` : "收盘价";
+  }
+  // header sort arrows
+  if (els.sbtChipRankTable) {
+    els.sbtChipRankTable.querySelectorAll("th.sbt-sortable").forEach((th) => {
+      const c = th.getAttribute("data-sort");
+      const base = th.getAttribute("data-label") || th.textContent.replace(/[▲▼]\s*$/, "").trim();
+      th.setAttribute("data-label", base);
+      th.textContent = base + (c === sbtRankSort.col ? (sbtRankSort.dir === 1 ? " ▲" : " ▼") : "");
+    });
+    // dynamic 收盘价 header keeps its date; re-apply arrow if it's the sort col
+    if (els.sbtChipRankPriceTh) {
+      const c = "latest_close";
+      let repDate = "";
+      for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
+      const base = (repDate ? `${repDate}收盘价` : "收盘价");
+      els.sbtChipRankPriceTh.setAttribute("data-label", base);
+      els.sbtChipRankPriceTh.textContent = base + (c === sbtRankSort.col ? (sbtRankSort.dir === 1 ? " ▲" : " ▼") : "");
+    }
   }
   if (!els.sbtChipRankBody) return;
   els.sbtChipRankBody.innerHTML = "";
   const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
   const num = (v) => (v == null ? "—" : v);
   const rng = (lo, hi) => (lo == null || hi == null) ? "—" : `${lo} ~ ${hi}`;
+  const yn = (v) => v ? "✔" : "✘";
   for (const r of list) {
     const code = r.stock_cn || "";
     const nm = r.stock_name || sbtNameFor(code) || "";
     const tr = document.createElement("tr");
-    tr.className = "sbt-rank-row";
+    tr.className = "sbt-rank-row" + (code === sbtChipExpandCode ? " sbt-rank-active" : "");
     tr.innerHTML =
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
-      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>`;
-    tr.onclick = () => {
-      if (els.sbtChipSelect && Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
-        els.sbtChipSelect.value = code;
-      }
-      sbtChipSwitchSub("one");
-    };
+      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +
+      `<td class="sbt-c">${yn(r.b_profit)}</td>` +
+      `<td class="sbt-c">${yn(r.b_liab)}</td>` +
+      `<td class="sbt-c">${yn(r.b_div)}</td>`;
+    tr.onclick = () => sbtChipExpandRow(tr, code);
     els.sbtChipRankBody.appendChild(tr);
   }
 }
@@ -3413,7 +3494,6 @@ async function sbtRenderChip(code) {
    const tabs = {
     detail: { panel: els.sbtTabDetail, btn: els.sbtTabDetailBtn },
     chip: { panel: els.sbtTabChip, btn: els.sbtTabChipBtn },
-    summary: { panel: els.sbtTabSummary, btn: els.sbtTabSummaryBtn },
     settings: { panel: els.sbtTabSettings, btn: els.sbtTabSettingsBtn },
   };
   for (const k in tabs) {
@@ -3422,7 +3502,8 @@ async function sbtRenderChip(code) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chip") {
-    sbtChipSwitchSub(sbtChipSubTab);
+    sbtRenderChipRank().catch((e) =>
+      setStatus("载入筹码排行失败：" + (e.message || e), "error"));
   }
   if (name === "settings") {
     sbtLoadStockList().catch((e) =>
@@ -3438,14 +3519,33 @@ function sbtWireEvents() {
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
    els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
-   els.sbtTabSummaryBtn.onclick = () => sbtSwitchTab("summary");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
    if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
-   if (els.sbtChipRankBtn) els.sbtChipRankBtn.onclick = () => sbtChipSwitchSub("rank");
-   if (els.sbtChipOneBtn) els.sbtChipOneBtn.onclick = () => sbtChipSwitchSub("one");
    if (els.sbtChipSelect) els.sbtChipSelect.onchange = () =>
      sbtRenderChip(els.sbtChipSelect.value).catch((e) =>
        setStatus("载入筹码分布失败：" + (e.message || e), "error"));
+   if (els.sbtChipCollapseBtn) els.sbtChipCollapseBtn.onclick = () => sbtChipCollapse(false);
+   // Sortable headers on the ranking table.
+   if (els.sbtChipRankTable) {
+     els.sbtChipRankTable.querySelectorAll("th.sbt-sortable").forEach((th) => {
+       th.onclick = () => {
+         const col = th.getAttribute("data-sort");
+         if (!col) return;
+         if (sbtRankSort.col === col) sbtRankSort.dir *= -1;
+         else sbtRankSort = { col, dir: 1 };
+         sbtRenderChipRank().catch((e) =>
+           setStatus("排序失败：" + (e.message || e), "error"));
+       };
+     });
+   }
+   // Click on blank area (outside a ranking row / the expanded chart) collapses
+   // the chart but keeps the row highlight.
+   document.addEventListener("click", (e) => {
+     if (!sbtChipExpandCode) return;
+     if (els.sbtTabChip && els.sbtTabChip.classList.contains("hidden")) return;
+     if (e.target.closest && e.target.closest(".sbt-rank-row, .sbt-chip-expand")) return;
+     sbtChipCollapse(true);   // keep highlight
+   });
    els.sbtAddBtn.onclick = sbtAddStock;
  }
  

@@ -597,8 +597,7 @@
       <div id="stocksApp" class="hidden">
         <div class="tabs" role="tablist">
           <button type="button" class="tab-btn active" id="sbtTabDetailBtn">详情</button>
-          <button type="button" class="tab-btn" id="sbtTabChipBtn">筹码分布</button>
-          <button type="button" class="tab-btn" id="sbtTabSummaryBtn">汇总</button>
+          <button type="button" class="tab-btn" id="sbtTabChipBtn">筹码排行</button>
           <button type="button" class="tab-btn" id="sbtTabSettingsBtn">设置</button>
         </div>
 
@@ -622,46 +621,43 @@
           </div>
         </div>
 
-        <!-- 筹码分布 -->
+        <!-- 筹码排行（合并 获利比例排行 + 汇总；点行在下方展开筹码图） -->
         <div id="sbtTabChip" class="hidden">
-          <div class="tabs sbt-subtabs" role="tablist">
-            <button type="button" class="tab-btn active" id="sbtChipRankBtn">获利比例排行</button>
-            <button type="button" class="tab-btn" id="sbtChipOneBtn">筹码图</button>
+          <div class="card">
+            <div class="table-head-row">
+              <h2>筹码排行</h2>
+              <span id="sbtChipRankMeta" class="muted"></span>
+              <button type="button" class="btn btn-ghost btn-mini" id="sbtReloadBtn">刷新</button>
+            </div>
+            <div class="table-wrap">
+              <table id="sbtChipRankTable">
+                <thead><tr>
+                  <th class="sbt-sortable" data-sort="stock">股票</th>
+                  <th class="num sbt-sortable" data-sort="profit_ratio">获利比例</th>
+                  <th class="num sbt-sortable" data-sort="latest_close" id="sbtChipRankPriceTh">收盘价</th>
+                  <th class="num sbt-sortable" data-sort="avg_cost">平均成本</th>
+                  <th class="num">90%成本区间</th>
+                  <th class="num">70%成本区间</th>
+                  <th class="sbt-c sbt-sortable" data-sort="b_profit">利润好</th>
+                  <th class="sbt-c sbt-sortable" data-sort="b_liab">负债低</th>
+                  <th class="sbt-c sbt-sortable" data-sort="b_div">分红多</th>
+                </tr></thead>
+                <tbody id="sbtChipRankBody"></tbody>
+              </table>
+            </div>
+            <p id="sbtChipRankEmpty" class="muted center hidden">暂无排行数据，请更新股票后再查看。</p>
           </div>
 
-          <!-- 获利比例排行 -->
-          <div id="sbtChipRankView">
-            <div class="card">
-              <div class="table-head-row">
-                <h2>获利比例排行</h2>
-                <span id="sbtChipRankMeta" class="muted"></span>
-              </div>
-              <div class="table-wrap">
-                <table id="sbtChipRankTable">
-                  <thead><tr>
-                    <th>股票</th>
-                    <th class="num">获利比例</th>
-                    <th class="num" id="sbtChipRankPriceTh">收盘价</th>
-                    <th class="num">平均成本</th>
-                    <th class="num">90%成本区间</th>
-                    <th class="num">70%成本区间</th>
-                  </tr></thead>
-                  <tbody id="sbtChipRankBody"></tbody>
-                </table>
-              </div>
-              <p id="sbtChipRankEmpty" class="muted center hidden">暂无排行数据，请更新股票后再查看。</p>
-            </div>
-          </div>
-
-          <!-- 单只筹码图 -->
-          <div id="sbtChipOneView" class="hidden">
-            <div class="card">
-              <div class="sbt-toolbar">
-                <label for="sbtChipSelect">股票</label>
-                <select id="sbtChipSelect"></select>
-              </div>
-            </div>
+          <!-- 可复用的筹码图块：默认藏在此处，点行时移动到该行下方展开 -->
+          <div id="sbtChipHidden" class="hidden">
             <div class="card" id="sbtChipCard">
+              <div class="sbt-chip-head">
+                <div class="sbt-toolbar">
+                  <label for="sbtChipSelect">股票</label>
+                  <select id="sbtChipSelect"></select>
+                </div>
+                <button type="button" class="btn btn-ghost btn-mini" id="sbtChipCollapseBtn">收起</button>
+              </div>
               <h2 id="sbtChipTitle">筹码分布</h2>
               <div id="sbtChipMeta" class="muted"></div>
               <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
@@ -671,27 +667,6 @@
                 </div>
               </div>
               <p id="sbtChipEmpty" class="muted center hidden">暂无筹码数据，请更新该股票。</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 汇总 -->
-        <div id="sbtTabSummary" class="hidden">
-          <div class="card">
-            <div class="sbt-toolbar">
-              <button type="button" class="btn btn-ghost" id="sbtReloadBtn">刷新</button>
-              <span id="sbtRecordCount" class="muted"></span>
-            </div>
-            <div id="sbtSummaryWrap">
-              <h2>汇总</h2>
-              <div class="table-wrap">
-                <table id="sbtSummaryTable">
-                  <thead>
-                    <tr><th>股票</th><th>利润表现好</th><th>流动负债不高</th><th>分红多</th></tr>
-                  </thead>
-                  <tbody id="sbtSummaryBody"></tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>

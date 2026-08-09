@@ -1268,12 +1268,21 @@ td:nth-child(6) {
   .sbt-chip-mval { font-size: 14px; }
 }
 
-/* 筹码分布 sub-tabs + 获利比例排行 table */
-.sbt-subtabs { margin-bottom: 10px; }
-#sbtChipRankTable { width: 100%; min-width: 640px; }
+/* 筹码排行 table (合并 排行 + 汇总 + 行内筹码图) */
+#sbtChipRankTable { width: 100%; min-width: 760px; }
 #sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; white-space: nowrap; }
 #sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; }
+#sbtChipRankTable th.sbt-c, #sbtChipRankTable td.sbt-c { text-align: center; }
+#sbtChipRankTable th.sbt-sortable { cursor: pointer; user-select: none; }
+#sbtChipRankTable th.sbt-sortable:hover { background: #eef1f5; }
 .sbt-rank-row { cursor: pointer; }
 .sbt-rank-row:hover { background: #f2f4f7; }
+.sbt-rank-row.sbt-rank-active { background: #e3f0ff; }
+tr.sbt-chip-expand > td { padding: 0; background: #fafbfc; }
+tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; }
+.sbt-chip-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
 
 
