@@ -1243,6 +1243,7 @@ td:nth-child(6) {
 .sbt-chip-metrics {
   display: flex; flex-wrap: wrap; gap: 8px 14px;
   margin: 8px 0 12px;
+  max-width: min(360px, 92vw);   /* anchor to viewport so it wraps, not横滑 */
 }
 .sbt-chip-metric {
   display: flex; flex-direction: column;
@@ -1251,7 +1252,7 @@ td:nth-child(6) {
 }
 .sbt-chip-mlabel { font-size: 12px; color: #6b7280; }
 .sbt-chip-mval { font-size: 15px; font-weight: 600; color: #111827; }
-.sbt-chip-wrap { width: 100%; max-width: min(360px, 92vw); overflow: hidden; }
+.sbt-chip-wrap { width: 100%; max-width: 300px; overflow: hidden; }
 #sbtChipSvg { width: 100%; height: auto; display: block; }
 #sbtChipSvg .lc-grid { stroke: #eef0f3; stroke-width: 1; }
 #sbtChipSvg .lc-ylabel { fill: #98a2b3; font-size: 11px; }
@@ -1278,9 +1279,9 @@ td:nth-child(6) {
 .sbt-rank-row:hover { background: #f2f4f7; }
 .sbt-rank-row.sbt-rank-active { background: #e3f0ff; }
 tr.sbt-chip-expand > td { padding: 0; background: #fafbfc; }
-tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 12px; }
+tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 0; }
 .sbt-chip-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px;
   margin-bottom: 6px;
 }
 
