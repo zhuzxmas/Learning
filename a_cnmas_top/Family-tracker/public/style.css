@@ -1280,7 +1280,7 @@ td:nth-child(6) {
 .sbt-rank-row:hover { background: #f2f4f7; }
 .sbt-rank-row.sbt-rank-active { background: #e3f0ff; }
 tr.sbt-chip-expand > td { padding: 0; background: #fafbfc; }
-tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 0; }
+tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 0; background: transparent; }
 .sbt-chip-head {
   display: flex; align-items: center; justify-content: flex-start; gap: 10px;
   margin-bottom: 6px;
