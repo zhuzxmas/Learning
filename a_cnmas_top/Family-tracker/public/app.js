@@ -3311,6 +3311,7 @@ async function sbtRenderChip(code) {
     metric("获利比例", pct(cyq.profit_ratio)) +
     metric("平均成本", num(cyq.avg_cost)) +
     metric("90%成本区间", `${num(cyq.cost_90_low)} ~ ${num(cyq.cost_90_high)}`) +
+    '<div class="sbt-chip-break"></div>' +
     metric("90%集中度", pct(cyq.concentration_90)) +
     metric("70%成本区间", `${num(cyq.cost_70_low)} ~ ${num(cyq.cost_70_high)}`) +
     metric("70%集中度", pct(cyq.concentration_70));

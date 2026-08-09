@@ -1252,6 +1252,7 @@ td:nth-child(6) {
 }
 .sbt-chip-mlabel { font-size: 12px; color: #6b7280; }
 .sbt-chip-mval { font-size: 15px; font-weight: 600; color: #111827; }
+.sbt-chip-break { flex-basis: 100%; width: 0; height: 0; margin: 0; }
 .sbt-chip-wrap { width: 100%; max-width: 300px; overflow: hidden; }
 #sbtChipSvg { width: 100%; height: auto; display: block; }
 #sbtChipSvg .lc-grid { stroke: #eef0f3; stroke-width: 1; }
@@ -1269,7 +1270,7 @@ td:nth-child(6) {
 }
 
 /* 筹码排行 table (合并 排行 + 汇总 + 行内筹码图) */
-#sbtChipRankTable { width: 100%; min-width: 760px; }
+#sbtChipRankTable { width: auto; min-width: 760px; }
 #sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; white-space: nowrap; }
 #sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; }
 #sbtChipRankTable th.sbt-c, #sbtChipRankTable td.sbt-c { text-align: center; }
