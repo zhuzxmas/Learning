@@ -353,6 +353,7 @@ const els = {
   sbtChipRankBody: $("sbtChipRankBody"),
   sbtChipRankMeta: $("sbtChipRankMeta"),
   sbtChipRankEmpty: $("sbtChipRankEmpty"),
+  sbtChipRankPriceTh: $("sbtChipRankPriceTh"),
   sbtAddBtn: $("sbtAddBtn"),
   sbtCodeList: $("sbtCodeList"),
   sbtRecordCount: $("sbtRecordCount"),
@@ -3174,6 +3175,12 @@ async function sbtRenderChipRank() {
   const has = list.length > 0;
   if (els.sbtChipRankEmpty) els.sbtChipRankEmpty.classList.toggle("hidden", has);
   if (els.sbtChipRankMeta) els.sbtChipRankMeta.textContent = has ? `共 ${list.length} 只` : "";
+  // Dynamic 收盘价 header: prefix with the latest as_of date across all rows.
+  if (els.sbtChipRankPriceTh) {
+    let repDate = "";
+    for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
+    els.sbtChipRankPriceTh.textContent = repDate ? `${repDate}收盘价` : "收盘价";
+  }
   if (!els.sbtChipRankBody) return;
   els.sbtChipRankBody.innerHTML = "";
   const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
@@ -3187,10 +3194,10 @@ async function sbtRenderChipRank() {
     tr.innerHTML =
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
-      `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
-      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
-      `<td>${escapeHtml(String(num(r.as_of)))}</td>`;
+      `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
+      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>`;
     tr.onclick = () => {
       if (els.sbtChipSelect && Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
         els.sbtChipSelect.value = code;
