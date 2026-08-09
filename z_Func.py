@@ -1532,8 +1532,10 @@ def save_Notice_Date_data_to_OneDrive_newFile(stock_code, stock_data, user_id, p
 # covers A-shares AND HK — and the free-float share count from the Tencent
 # snapshot (qt.gtimg.cn). We then run EastMoney's OFFICIAL chip-distribution
 # algorithm (ported from akshare's embedded CYQCalculator JS: triangular
-# distribution + per-day turnover decay, window=120 days, factor=150 price
-# levels) to produce the histogram plus 获利比例 / 平均成本 / 90-70 成本区间 / 集中度.
+# distribution + per-day turnover decay, window=240 days ≈1年交易日, factor=150
+# price levels) to produce the histogram plus 获利比例 / 平均成本 / 90-70 成本区间 / 集中度.
+# (akshare's embedded JS defaults range=120; we use 240 to match broker/腾讯 App
+# 一年口径 — e.g. 600741 avg cost then matches 腾讯不复权 18.26 / 中信 18.4.)
 #
 # Per-day turnover% is approximated as volume(shares) / free_float_shares * 100
 # using the current float (float changes slowly, standard approximation when the
@@ -1725,7 +1727,7 @@ def fetch_tencent_float_shares(tx_secid, proxies=None):
 
 
 def compute_chip_distribution(daily_df, float_shares, is_hk=False,
-                              window=120, factor=150):
+                              window=240, factor=150):
     """Port of EastMoney's official CYQCalculator (from akshare) — triangular
     chip distribution with per-day turnover decay — over the last `window` days.
 
@@ -1838,7 +1840,7 @@ def get_chip_distribution(stock_cn, proxies=None, is_hk=False):
     secid = _to_tencent_secid(stock_cn)
     if not secid:
         return None
-    daily = fetch_tencent_daily(secid, n=130, proxies=proxies)
+    daily = fetch_tencent_daily(secid, n=300, proxies=proxies)
     if daily is None or len(daily) < 2:
         print('No Tencent daily data for {} ({}); skipping chip distribution.\n'
               .format(stock_cn, secid))
