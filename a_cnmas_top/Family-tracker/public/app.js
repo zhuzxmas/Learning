@@ -269,6 +269,7 @@ const els = {
   // --- mode switch ---
   modeSpendingBtn: $("modeSpendingBtn"),
   modeIncomeBtn: $("modeIncomeBtn"),
+  modeStocksBtn: $("modeStocksBtn"),
   spendingApp: $("spendingApp"),
   incomeApp: $("incomeApp"),
   // --- income tabs ---
@@ -3759,7 +3760,8 @@ async function setMode(next) {
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeChatBtn.classList.toggle("active", next === "ai");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
-  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "stocks");
+  if (els.modeStocksBtn) els.modeStocksBtn.classList.toggle("active", next === "stocks");
+  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk);
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
@@ -3787,7 +3789,7 @@ async function setMode(next) {
     catch (e) { setStatus("股票数据载入失败：" + (e.message || e), "error"); }
   } else if (next === "stocks") {
     try { await sbtLoad(); }
-    catch (e) { setStatus("股票基本面数据载入失败：" + (e.message || e), "error"); }
+    catch (e) { setStatus("选股数据载入失败：" + (e.message || e), "error"); }
   } else if (isMed) {
     try { await medLoad(); }
     catch (e) { setStatus("看病数据载入失败：" + (e.message || e), "error"); }
@@ -3825,6 +3827,7 @@ async function setMode(next) {
 function incWireEvents() {
   els.modeSpendingBtn.onclick = () => setMode("spending");
   els.modeIncomeBtn.onclick = () => setMode("income");
+  if (els.modeStocksBtn) els.modeStocksBtn.onclick = () => setMode("stocks");
   els.modeChatBtn.onclick = () => setMode("ai");
   els.modeBlogBtn.onclick = () => setMode("blog");
 
