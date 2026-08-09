@@ -339,7 +339,6 @@ const els = {
   sbtTabSettings: $("sbtTabSettings"),
   sbtChipCard: $("sbtChipCard"),
   sbtChipHidden: $("sbtChipHidden"),
-  sbtChipCollapseBtn: $("sbtChipCollapseBtn"),
   sbtChipTitle: $("sbtChipTitle"),
   sbtChipMeta: $("sbtChipMeta"),
   sbtChipMetrics: $("sbtChipMetrics"),
@@ -3510,7 +3509,6 @@ function sbtWireEvents() {
    els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
    if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
-   if (els.sbtChipCollapseBtn) els.sbtChipCollapseBtn.onclick = () => sbtChipCollapse(false);
    // Sortable headers on the ranking table.
    if (els.sbtChipRankTable) {
      els.sbtChipRankTable.querySelectorAll("th.sbt-sortable").forEach((th) => {

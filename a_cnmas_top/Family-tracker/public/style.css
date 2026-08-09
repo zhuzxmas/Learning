@@ -1241,7 +1241,7 @@ td:nth-child(6) {
 
 /* --------------------------- 筹码分布 (chip distribution) --------------------------- */
 .sbt-chip-metrics {
-  display: flex; flex-wrap: wrap; gap: 8px 14px;
+  display: flex; flex-wrap: wrap; gap: 4px 7px;
   margin: 8px 0 12px;
   max-width: min(360px, 92vw);   /* anchor to viewport so it wraps, not横滑 */
 }
