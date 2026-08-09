@@ -652,18 +652,14 @@
           <div id="sbtChipHidden" class="hidden">
             <div class="card" id="sbtChipCard">
               <div class="sbt-chip-head">
-                <div class="sbt-toolbar">
-                  <label for="sbtChipSelect">股票</label>
-                  <select id="sbtChipSelect"></select>
-                </div>
+                <h2 id="sbtChipTitle">筹码分布</h2>
                 <button type="button" class="btn btn-ghost btn-mini" id="sbtChipCollapseBtn">收起</button>
               </div>
-              <h2 id="sbtChipTitle">筹码分布</h2>
               <div id="sbtChipMeta" class="muted"></div>
               <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
               <div class="chart-cell">
                 <div class="line-chart-wrap sbt-chip-wrap">
-                  <svg id="sbtChipSvg" class="line-chart" preserveAspectRatio="none"></svg>
+                  <svg id="sbtChipSvg" class="line-chart"></svg>
                 </div>
               </div>
               <p id="sbtChipEmpty" class="muted center hidden">暂无筹码数据，请更新该股票。</p>

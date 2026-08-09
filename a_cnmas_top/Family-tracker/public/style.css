@@ -1251,8 +1251,8 @@ td:nth-child(6) {
 }
 .sbt-chip-mlabel { font-size: 12px; color: #6b7280; }
 .sbt-chip-mval { font-size: 15px; font-weight: 600; color: #111827; }
-.sbt-chip-wrap { width: 100%; overflow: hidden; }
-#sbtChipSvg { height: 420px; }
+.sbt-chip-wrap { width: 100%; max-width: 480px; overflow: hidden; }
+#sbtChipSvg { width: 100%; height: auto; display: block; }
 #sbtChipSvg .lc-grid { stroke: #eef0f3; stroke-width: 1; }
 #sbtChipSvg .lc-ylabel { fill: #98a2b3; font-size: 11px; }
 .sbt-chip-bar { }
@@ -1263,7 +1263,7 @@ td:nth-child(6) {
 .sbt-chip-avg { stroke: #b8860b; stroke-width: 1.5; stroke-dasharray: 4 3; }
 .sbt-chip-avglbl { fill: #b8860b; font-size: 11px; font-weight: 600; }
 @media (max-width: 640px) {
-  #sbtChipSvg { height: 340px; }
+  .sbt-chip-wrap { max-width: 100%; }
   .sbt-chip-metric { min-width: 72px; padding: 5px 8px; }
   .sbt-chip-mval { font-size: 14px; }
 }
@@ -1279,7 +1279,7 @@ td:nth-child(6) {
 .sbt-rank-row:hover { background: #f2f4f7; }
 .sbt-rank-row.sbt-rank-active { background: #e3f0ff; }
 tr.sbt-chip-expand > td { padding: 0; background: #fafbfc; }
-tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; }
+tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 12px; }
 .sbt-chip-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-bottom: 6px;

@@ -337,7 +337,6 @@ const els = {
   sbtTabDetail: $("sbtTabDetail"),
   sbtTabChip: $("sbtTabChip"),
   sbtTabSettings: $("sbtTabSettings"),
-  sbtChipSelect: $("sbtChipSelect"),
   sbtChipCard: $("sbtChipCard"),
   sbtChipHidden: $("sbtChipHidden"),
   sbtChipCollapseBtn: $("sbtChipCollapseBtn"),
@@ -3102,19 +3101,6 @@ async function sbtLoadStock(code) {
      opt.textContent = nm ? `${code} ${nm}` : code;
      els.sbtSelect.appendChild(opt);
    }
-  // Mirror the same options into the 筹码分布 stock selector.
-  if (els.sbtChipSelect) {
-    const prevChip = els.sbtChipSelect.value;
-    els.sbtChipSelect.innerHTML = "";
-    for (const code of codes) {
-      const opt = document.createElement("option");
-      const nm = sbtNameFor(code);
-      opt.value = code;
-      opt.textContent = nm ? `${code} ${nm}` : code;
-      els.sbtChipSelect.appendChild(opt);
-    }
-    if (codes.length) els.sbtChipSelect.value = codes.includes(prevChip) ? prevChip : codes[0];
-  }
   if (codes.length) {
     els.sbtSelect.value = codes.includes(prev) ? prev : codes[0];
     sbtRenderDetail(els.sbtSelect.value).catch((e) =>
@@ -3185,10 +3171,6 @@ function sbtChipExpandRow(tr, code) {
   tr.after(exTr);
   els.sbtChipHidden.classList.remove("hidden");
   td.appendChild(els.sbtChipCard);           // move the reusable block here
-  if (els.sbtChipSelect &&
-      Array.from(els.sbtChipSelect.options).some((o) => o.value === code)) {
-    els.sbtChipSelect.value = code;
-  }
   sbtRenderChip(code).catch((e) =>
     setStatus("载入筹码分布失败：" + (e.message || e), "error"));
 }
@@ -3329,7 +3311,7 @@ async function sbtRenderChip(code) {
 
   // --- horizontal histogram SVG (Y = price high->low, X = chip weight) ---
   const prices = cyq.prices, weights = cyq.weights;
-  const W = 760, H = 420, padL = 62, padR = 16, padT = 12, padB = 26;
+  const W = 460, H = 360, padL = 46, padR = 14, padT = 10, padB = 22;
   const pMin = Math.min(...prices), pMax = Math.max(...prices);
   const wMax = Math.max(...weights, 1e-9);
   const plotH = H - padT - padB, plotW = W - padL - padR;
@@ -3521,9 +3503,6 @@ function sbtWireEvents() {
    els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
    if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
-   if (els.sbtChipSelect) els.sbtChipSelect.onchange = () =>
-     sbtRenderChip(els.sbtChipSelect.value).catch((e) =>
-       setStatus("载入筹码分布失败：" + (e.message || e), "error"));
    if (els.sbtChipCollapseBtn) els.sbtChipCollapseBtn.onclick = () => sbtChipCollapse(false);
    // Sortable headers on the ranking table.
    if (els.sbtChipRankTable) {
