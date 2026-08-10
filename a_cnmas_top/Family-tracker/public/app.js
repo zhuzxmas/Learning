@@ -3216,13 +3216,17 @@ function sbtSortRanking(list) {
 async function sbtRenderChipRank() {
   const rows = await sbtLoadChipRanking();
   const flags = sbtSummaryFlags();
-  let list = (Array.isArray(rows) ? rows : []).map((r) => {
-    const numeric = String(r.stock_cn || "").split(".")[0].trim();
-    const f = flags[numeric] || {};
-    return Object.assign({}, r, {
-      b_profit: !!f.b_profit, b_liab: !!f.b_liab, b_div: !!f.b_div,
+  let list = (Array.isArray(rows) ? rows : [])
+    // Only show stocks whose output/{code}.json still exists (deleted stocks
+    // stay in the aggregate file until the next full batch, but must not show).
+    .filter((r) => r && r.stock_cn && Object.prototype.hasOwnProperty.call(sbtFiles, r.stock_cn))
+    .map((r) => {
+      const numeric = String(r.stock_cn || "").split(".")[0].trim();
+      const f = flags[numeric] || {};
+      return Object.assign({}, r, {
+        b_profit: !!f.b_profit, b_liab: !!f.b_liab, b_div: !!f.b_div,
+      });
     });
-  });
   sbtChipCollapse(false);           // reset any open chart before re-render
   list = sbtSortRanking(list);
 
@@ -3739,9 +3743,14 @@ async function sbtRemoveStock(code) {
       delete sbtStocks[cn];
       delete sbtFiles[cn];
       try { localStorage.removeItem("sbt:" + cn + ".json"); } catch { /* ignore */ }
+      // Drop it from the in-memory 筹码排行 too so it disappears immediately.
+      if (Array.isArray(sbtChipRanking)) {
+        sbtChipRanking = sbtChipRanking.filter((r) => r && r.stock_cn !== cn);
+      }
     }
     sbtRenderSettings();
     sbtPopulateSelect();
+    sbtRenderChipRank().catch(() => {});
     setStatus(`已删除 ${code}。`, "success", 5000);
   } catch (e) {
     setStatus("删除失败：" + (e.message || e), "error");
