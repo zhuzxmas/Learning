@@ -63,6 +63,20 @@ jobs:
         LIGHT_MODE: ${{ github.event.schedule == '0 14 * * 2-5' && '1' || '' }}
       run: python -u finance_batch_personal.py
 
+    - name: Email 筹码排行 (scheduled runs only)
+      if: ${{ github.event_name == 'schedule' }}
+      continue-on-error: true
+      env:
+        ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+        TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+        ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+        client_id: ${{ secrets.CLIENT_ID }}
+        client_secret: ${{ secrets.CLIENT_SECRET }}
+        tenant_id: ${{ secrets.TENANT_ID }}
+        STOCK_MAIL_FROM: ${{ secrets.STOCK_MAIL_FROM }}
+        STOCK_MAIL_TO: ${{ secrets.STOCK_MAIL_TO }}
+      run: python -u send_chip_ranking_mail.py
+
     - name: Commit rotated refresh token
       run: |
         rt="a_cnmas_top/Family-tracker/automation/rt.enc"
