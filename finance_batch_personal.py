@@ -754,6 +754,83 @@ def load_existing_output(od, stock_cn):
         return None
 
 
+DIVIDEND_CACHE_DAYS = 21
+
+
+def load_dividend_records(od, stock_cn, fetcher, light_mode=False,
+                          force_refresh=False):
+    """Return (records, cache_available) using a 21-day per-stock cache.
+
+    Light mode never calls the upstream host. Full runs refresh only when the
+    cache is absent/expired (or FORCE_DIVIDEND_REFRESH=1). A failed refresh uses
+    stale cached records and never overwrites them with an error result.
+    """
+    cache_path = 'history/{}-D-EastMoney.pkl'.format(stock_cn)
+    try:
+        cached = od.get_pickle(cache_path)
+    except Exception as e:  # noqa: BLE001
+        print('WARN: dividend cache read failed for {} ({}).\n'.format(stock_cn, e))
+        cached = None
+
+    records = []
+    fetched_at = None
+    cache_available = isinstance(cached, dict) and 'records' in cached
+    if cache_available:
+        records = cached.get('records') or []
+        try:
+            fetched_at = datetime.datetime.fromisoformat(
+                str(cached.get('fetched_at') or '').replace('Z', '+00:00'))
+            if fetched_at.tzinfo is None:
+                fetched_at = fetched_at.replace(tzinfo=datetime.timezone.utc)
+        except (TypeError, ValueError):
+            fetched_at = None
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    fresh = (fetched_at is not None and
+             (now - fetched_at).total_seconds() < DIVIDEND_CACHE_DAYS * 86400)
+    if light_mode:
+        if cache_available:
+            print('LIGHT_MODE: using cached dividends for {} ({} records).\n'.format(
+                stock_cn, len(records)))
+        else:
+            print('LIGHT_MODE: no dividend cache for {}; preserving prior output.\n'.format(
+                stock_cn))
+        return records, cache_available
+
+    if cache_available and fresh and not force_refresh:
+        age = (now - fetched_at).days
+        print('Using dividend cache for {} ({} records, {} days old).\n'.format(
+            stock_cn, len(records), age))
+        return records, True
+
+    try:
+        fresh_records = fetcher() or []
+        cache = {'fetched_at': now.isoformat(), 'records': fresh_records}
+        od.put_pickle(cache_path, cache)
+        print('Updated dividend cache for {} ({} records).\n'.format(
+            stock_cn, len(fresh_records)))
+        return fresh_records, True
+    except Exception as e:  # noqa: BLE001
+        if cache_available:
+            print('Dividend refresh failed for {} ({}); using stale cache.\n'.format(
+                stock_cn, e))
+            return records, True
+        print('Dividend refresh failed for {} ({}); no cache available.\n'.format(
+            stock_cn, e))
+        return [], False
+
+
+def preserve_dividend_check(checks, old_output, cache_available):
+    """Use the prior dividend check only when light mode has no cache yet."""
+    if cache_available or not old_output:
+        return checks
+    old_check = (old_output.get('checks') or {}).get('dividends')
+    if old_check:
+        checks['dividends'] = (
+            bool(old_check.get('pass')), str(old_check.get('text') or ''))
+    return checks
+
+
 def merge_with_existing(od, stock_cn, payload, old=None):
     """Preserve prior good data when this run couldn't fetch part of it.
 
@@ -955,15 +1032,14 @@ def main():
     # merge its rows into the existing output/_summary.json instead of replacing.
     partial_run = bool(only) or limit.isdigit()
 
-    # LIGHT_MODE: daily price+chip refresh. Skips the dividend HTTP fetch (dividends
-    # change only quarterly and are preserved via merge_with_existing) and shortens
-    # the per-stock sleep. Financial reports still come from process_reports, whose
-    # freshness logic serves the pkl cache without network calls until a quarterly
-    # window is due — so financials update automatically when new reports land.
+    # LIGHT_MODE: daily price+chip refresh. It never hits financial/dividend hosts,
+    # uses cached report/dividend data, and shortens the per-stock sleep.
     light_mode = os.environ.get('LIGHT_MODE', '').strip().lower() in ('1', 'true', 'yes')
+    force_dividend_refresh = os.environ.get(
+        'FORCE_DIVIDEND_REFRESH', '').strip().lower() in ('1', 'true', 'yes')
     if light_mode:
-        print('LIGHT_MODE on: daily price+chip refresh (dividends skipped, '
-              'reports from cache, short sleeps).\n')
+        print('LIGHT_MODE on: daily price+chip refresh (reports/dividends from '
+              'cache, short sleeps).\n')
 
     history_names = [it['name'] for it in od.list_children('history') if 'file' in it]
     print('Found {} existing history files.\n'.format(len(history_names)))
@@ -981,6 +1057,7 @@ def main():
 
         # ---- Hong Kong branch (annual + interim/quarterly, live price, xlsx Notice Date) ----
         if str(stock).endswith('.HK'):
+            old_output = load_existing_output(od, stock_cn)
             try:
                 stock_output_yearly, stock_output_seasonly, stock_name, dps_map = \
                     process_reports_hk(od, history_names, stock, proxies, skip_fetch=light_mode)
@@ -998,13 +1075,22 @@ def main():
             stock_output_seasonly = _hk_display_interim(
                 stock_output_yearly, stock_output_seasonly)
 
-            # HK dividends: textual plans + DPS-based numeric rows (fetched once).
-            # LIGHT_MODE skips this (dividends change only quarterly; the prior
-            # dividends section is preserved via merge_with_existing).
-            if light_mode:
-                plan_records = []
-            else:
-                plan_records = z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(stock, proxies)
+            # HK dividends: cached for 21 days; light mode never hits EastMoney.
+            plan_records, dividend_cache_available = load_dividend_records(
+                od, stock_cn,
+                lambda: z_Func.Dividend_Data_Yearly_from_Eas_Mon_HK(
+                    stock, proxies, strict=True),
+                light_mode=light_mode,
+                force_refresh=force_dividend_refresh)
+            if not dividend_cache_available and old_output:
+                # First light run after deploying the cache: reconstruct enough
+                # HK plan data from the prior JSON to keep its dividend rows.
+                plan_records = [{
+                    'year': str(r.get('REPORT_DATE') or '')[:4],
+                    'notice_date': r.get('REPORT_DATE') or '',
+                    'record_date': r.get('EQUITY_RECORD_DATE') or '',
+                    'plan': r.get('IMPL_PLAN_PROFILE') or '',
+                } for r in (old_output.get('dividends') or [])]
             print('HK dividend records for {}: {}.\n'.format(
                 stock, len(plan_records or [])))
 
@@ -1077,6 +1163,8 @@ def main():
             checks_frame = stock_output_yearly if stock_output_yearly is not None \
                 else stock_output_seasonly
             checks = evaluate_checks(checks_frame, plan_records or [])
+            checks = preserve_dividend_check(
+                checks, old_output, dividend_cache_available)
             summary_rows.append([
                 '{}--{}-{}'.format(iii, stock, stock_name),
                 str(checks['profit'][0]), str(checks['liabilities'][0]),
@@ -1100,7 +1188,7 @@ def main():
                                    stock_output_combined, last_7_days, dividends_df,
                                    chip_distribution=chip_hk,
                                    price_source_error=price_source_error)
-            payload = merge_with_existing(od, stock_cn, payload)
+            payload = merge_with_existing(od, stock_cn, payload, old=old_output)
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
                         content_type='application/json; charset=utf-8')
@@ -1120,23 +1208,16 @@ def main():
             print('No yearly data for {}; skipping.\n'.format(stock_cn))
             continue
 
-        # --- dividends (live datacenter host) ---
-        # Fetched up front so the per-year dividend rows can be merged into the
-        # yearly report (and re-saved) before it feeds the kline concat / output.
-        # LIGHT_MODE skips this (dividends change only quarterly; the prior
-        # dividends section + dividend rows are preserved via merge_with_existing
-        # / the cached pkl).
-        if light_mode:
-            stock_0_dividends = []
-        else:
-            try:
-                stock_0_dividends = z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies)
-            except Exception as e:  # noqa: BLE001
-                print('Dividend fetch failed for {} ({}); treating as none.\n'.format(stock_cn, e))
-                stock_0_dividends = []
+        old_output = load_existing_output(od, stock_cn)
 
-        # Recompute the 3 dividend rows every run (all years) and persist them.
-        # Recompute the 3 dividend rows every run (all years) and persist them.
+        # A-share dividends: cached for 21 days; light mode never hits EastMoney.
+        stock_0_dividends, dividend_cache_available = load_dividend_records(
+            od, stock_cn,
+            lambda: z_Func.Dividend_Data_Yearly_from_Eas_Mon(stock_cn, proxies),
+            light_mode=light_mode,
+            force_refresh=force_dividend_refresh)
+
+        # Recompute the 3 dividend rows on full runs and persist them.
         # LIGHT_MODE skips this so the cached yearly pkl keeps its existing
         # dividend rows (no dividend fetch happened this run).
         if not light_mode:
@@ -1164,7 +1245,6 @@ def main():
         stock_output_combined = None
         last_7_days = None
         price_range_gaps = []
-        old_output = load_existing_output(od, stock_cn)
         if len(stock_price_df) > 0:
             stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(
                 stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
@@ -1189,6 +1269,8 @@ def main():
             stock_output_combined = stock_output_yearly
 
         checks = evaluate_checks(stock_output_yearly, stock_0_dividends)
+        checks = preserve_dividend_check(
+            checks, old_output, dividend_cache_available)
         summary_rows.append([
             '{}--{}-{}'.format(iii, stock, stock_name),
             str(checks['profit'][0]), str(checks['liabilities'][0]),

@@ -682,7 +682,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
     return [stock_output_y, stock_name_from_year_income, dps_map, date_type_map]
 
 
-def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
+def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies, strict=False):
     """Fetch HK dividend *plan descriptions* from EastMoney's F10 endpoint.
 
     Unlike the A-share ``RPT_SHAREBONUS_DET`` feed, ``RPT_HKF10_INFO_DIVIDEND``
@@ -707,6 +707,8 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
         if resp.status_code != 200:
             print('Failed to retrieve HK dividend data for {}: {}\n'.format(
                 stock_hk, resp.status_code))
+            if strict:
+                raise RuntimeError('HK dividend HTTP {}'.format(resp.status_code))
             return []
         data = resp.json().get('result')
         if not data or not data.get('data'):
@@ -750,6 +752,8 @@ def Dividend_Data_Yearly_from_Eas_Mon_HK(stock_hk, proxies):
         return out
     except Exception as e:  # noqa: BLE001
         print('HK dividend fetch failed for {} ({}); treating as none.\n'.format(stock_hk, e))
+        if strict:
+            raise
         return []
 
 ################# to get the stock price for each year #####################################
