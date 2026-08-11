@@ -167,6 +167,8 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
 .btn-ghost:hover { background: #e5e7eb; }
 .btn-danger { background: #fee2e2; color: var(--red); }
 .btn-danger:hover { background: #fecaca; }
+.btn-warn { background: #fff7e6; color: #9a5b00; border-color: #e7b75f; }
+.btn-warn:hover { background: #ffedc2; }
 .btn-mini { padding: 4px 10px; font-size: 13px; margin-right: 6px; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
@@ -1285,5 +1287,4 @@ tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none;
   display: flex; align-items: center; justify-content: flex-start; gap: 10px;
   margin-bottom: 6px;
 }
-
 

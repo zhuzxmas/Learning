@@ -148,6 +148,8 @@ export default {
       let body;
       try { body = await request.json(); } catch { body = null; }
       let stock = body ? String(body.stock || "").trim() : "";
+      const forceReports = !!(body && body.force_reports === true);
+      const forceDividends = !!(body && body.force_dividends === true);
       // HK codes look like H02018 (or 02018.HK); A-shares are 6 digits.
       if (/^[Hh]\d+$/.test(stock)) {
         stock = "H" + stock.slice(1).padStart(5, "0");
@@ -175,7 +177,11 @@ export default {
           },
           body: JSON.stringify({
             event_type: GH_DISPATCH_EVENT,
-            client_payload: { stock },
+            client_payload: {
+              stock,
+              force_reports: forceReports,
+              force_dividends: forceDividends,
+            },
           }),
         });
       } catch (e) {

@@ -57,6 +57,9 @@ jobs:
         # (finance-batch-stock-event), client_payload.stock limits the run to
         # that code. Empty on schedule/manual runs -> whole stock_list.csv.
         STOCK_ONLY: ${{ github.event.client_payload.stock }}
+        # 网页「强制更新」通过 repository_dispatch 传入；普通更新为空/false。
+        FORCE_REPORT_REFRESH: ${{ github.event.client_payload.force_reports }}
+        FORCE_DIVIDEND_REFRESH: ${{ github.event.client_payload.force_dividends }}
         # LIGHT_MODE=1 只在轻量 cron（'0 14 * * 2-5'，北京周二~周五）触发时开启：
         # 只刷价格+筹码、财务走 pkl 缓存、不抓网络、短 sleep。
         # 周一全量 cron / workflow_dispatch / repository_dispatch 都是全量（LIGHT_MODE 空）。

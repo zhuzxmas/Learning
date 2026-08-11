@@ -3655,12 +3655,18 @@ function sbtRenderSettings() {
     span.textContent = nm ? `${code}  ${nm}` : code;
     const upd = document.createElement("button");
     upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
-    upd.onclick = () => sbtUpdateStock(code);
+    upd.title = "更新股价与筹码；财报/分红按缓存规则检查";
+    upd.onclick = () => sbtUpdateStock(code, false);
+    const forceUpd = document.createElement("button");
+    forceUpd.type = "button"; forceUpd.className = "btn btn-mini btn-warn";
+    forceUpd.textContent = "强制更新";
+    forceUpd.title = "绕过缓存，完整重新抓取财报、分红、股价与筹码";
+    forceUpd.onclick = () => sbtUpdateStock(code, true);
     const del = document.createElement("button");
     del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
     del.onclick = () => sbtRemoveStock(code);
     // Price history is now auto-fetched (Tencent) — no manual kline download.
-    row.appendChild(span); row.appendChild(upd); row.appendChild(del);
+    row.appendChild(span); row.appendChild(upd); row.appendChild(forceUpd); row.appendChild(del);
     c.appendChild(row);
   }
 }
@@ -3710,20 +3716,27 @@ async function sbtAddStock() {
   }
 }
 
-async function sbtUpdateStock(code) {
-  if (!confirm(`触发个股批处理更新 ${code}？\n\n股价与财务数据将自动获取并刷新。`)) return;
+async function sbtUpdateStock(code, force) {
+  const detail = force
+    ? "将绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码；耗时较长。"
+    : "将更新股价与筹码；财报按 14/28 天探测规则、分红按 21 天缓存规则检查。";
+  if (!confirm(`触发${force ? "强制" : "普通"}更新 ${code}？\n\n${detail}`)) return;
   try {
     const token = await getToken();
     const res = await fetch(SBT_TRIGGER_URL, {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({ stock: code }),
+      body: JSON.stringify({
+        stock: code,
+        force_reports: !!force,
+        force_dividends: !!force,
+      }),
     });
     if (!res.ok) {
       let d = ""; try { d = (await res.json()).error || ""; } catch {}
       throw new Error(res.status + (d ? "：" + d : ""));
     }
-    setStatus(`已提交 ${code} 的更新任务，几分钟后点「刷新」查看。`, "success", 8000);
+    setStatus(`已提交 ${code} 的${force ? "强制" : "普通"}更新任务，几分钟后点「刷新」查看。`, "success", 8000);
   } catch (e) {
     setStatus("触发更新失败：" + (e.message || e), "error");
   }
@@ -9816,4 +9829,3 @@ function chatWireEvents() {
     try { localStorage.setItem("chatModel", chatLastModel); } catch {}
   };
 }
-

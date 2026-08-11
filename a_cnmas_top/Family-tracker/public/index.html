@@ -675,7 +675,9 @@
                 <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
               </div>
               <p class="muted sbt-settings-hint">
-                添加后点该股「更新」即可触发个股批处理；股价（前复权日线）与财务数据均自动获取，无需手动下载。<br>
+                添加后可选择：<br>
+                · <b>更新</b>：更新股价与筹码；财报按 14/28 天探测规则、分红按 21 天缓存规则检查（通常更快）。<br>
+                · <b>强制更新</b>：绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码（耗时更长）。<br>
                 删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），<code>history/</code> 文件保留。<br>
                 ⚠️ 若某次行情源（腾讯）暂时不可用，该股详情页顶部会提示，股价相关指标将显示为上次数据，财务基本面不受影响。
               </p>
