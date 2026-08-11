@@ -1240,6 +1240,28 @@ td:nth-child(6) {
   flex: 0 0 auto; font-family: monospace; font-size: 12px;
   background: #f1f3f4; color: #202124; border-color: #dadce0;
 }
+.sbt-force-short { display: none; }
+@media (max-width: 640px) {
+  .sbt-code-row {
+    flex-wrap: nowrap;
+    gap: 3px;
+    padding: 5px 2px;
+  }
+  .sbt-code-row .sbt-code-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .sbt-code-row .btn-mini {
+    margin-right: 0;
+    padding: 4px 5px;
+    font-size: 12px;
+  }
+  .sbt-force-long { display: none; }
+  .sbt-force-short { display: inline; }
+}
 
 /* --------------------------- 筹码分布 (chip distribution) --------------------------- */
 .sbt-chip-metrics {
@@ -1287,4 +1309,3 @@ tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none;
   display: flex; align-items: center; justify-content: flex-start; gap: 10px;
   margin-bottom: 6px;
 }
-

@@ -3658,8 +3658,10 @@ function sbtRenderSettings() {
     upd.title = "更新股价与筹码；财报/分红按缓存规则检查";
     upd.onclick = () => sbtUpdateStock(code, false);
     const forceUpd = document.createElement("button");
-    forceUpd.type = "button"; forceUpd.className = "btn btn-mini btn-warn";
-    forceUpd.textContent = "强制更新";
+    forceUpd.type = "button";
+    forceUpd.className = "btn btn-mini btn-warn sbt-force-update";
+    forceUpd.innerHTML = '<span class="sbt-force-long">强制更新</span>' +
+      '<span class="sbt-force-short" aria-hidden="true">强更</span>';
     forceUpd.title = "绕过缓存，完整重新抓取财报、分红、股价与筹码";
     forceUpd.onclick = () => sbtUpdateStock(code, true);
     const del = document.createElement("button");
