@@ -1,8 +1,8 @@
 # Quarterly stock fundamentals batch — personal-OneDrive edition.
 # Runs finance_batch_personal.py, which stores everything on the user's personal
-# OneDrive (Apps/StockBatchTracker/) via a delegated refresh token. Price history
-# is read from pre-downloaded kline/{code}.txt files (the push2his kline API is
-# not reachable from cloud IPs); reports/dividends are still fetched live from
+# OneDrive (Apps/StockBatchTracker/) via a delegated refresh token. Unadjusted
+# Tencent price history is cached in history/ (first run 2018-present; nightly
+# runs merge the latest 300 trading days); reports/dividends are fetched from
 # EastMoney's datacenter hosts.
 
 name: finance-quarterly action

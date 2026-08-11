@@ -12,10 +12,9 @@ reachable from GitHub Actions / cloud IPs), replacing them with:
     list) instead of a Graph SharePoint-list query.
   * Report/dividend data still fetched **live** from EastMoney's ``datacenter``
     hosts (verified reachable from cloud) via the existing ``z_Func`` helpers.
-  * Price history read from pre-downloaded ``kline/{code}.txt`` files (raw
-    browser JSONP) instead of calling ``push2his`` — see Phase 2 manifest tool.
-  * Per-stock output written as ``output/{stock}.json`` (source of truth) plus a
-    rendered ``output/{stock}.html``.
+  * Unadjusted Tencent price history cached under ``history/``: first run seeds
+    2018-present; nightly runs merge only the latest 300 trading days.
+  * Per-stock output written as ``output/{stock}.json`` (source of truth).
 
 Local testing (behind the Ford proxy):
   1. Put ONEDRIVE_CLIENT_ID / TOKEN_ENC_KEY (and optionally
@@ -23,7 +22,7 @@ Local testing (behind the Ford proxy):
      your [proxy_add] section.
   2. ONEDRIVE_RT_READONLY defaults to 1 for local runs so the shared rt.enc is
      never rotated/desynced. Override by exporting ONEDRIVE_RT_READONLY=0.
-  3. Manually place kline/{code}.txt and stock_list.csv in the OneDrive folder.
+  3. Keep stock_list.csv in the OneDrive folder; Tencent prices are automatic.
 """
 
 import configparser
@@ -720,7 +719,7 @@ def evaluate_checks(stock_output_yearly, stock_0_dividends):
     return checks
 
 
-# ---- output (JSON is source of truth; HTML rendered from it) --------------
+# ---- output (JSON is the sole source of truth) -----------------------------
 def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
                  last_7_days, dividends_df, chip_distribution=None,
                  price_source_error=False):
@@ -746,25 +745,28 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
     }
 
 
-def merge_with_existing(od, stock_cn, payload):
+def load_existing_output(od, stock_cn):
+    """Load and parse output/{code}.json once, returning None on failure."""
+    try:
+        raw = od.get_text('output/{}.json'.format(stock_cn))
+        return json.loads(raw) if raw else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def merge_with_existing(od, stock_cn, payload, old=None):
     """Preserve prior good data when this run couldn't fetch part of it.
 
     The per-stock output/{code}.json is the source of truth, but a run may fail
-    to produce some sections (e.g. kline/{code}.txt missing -> no combined table
-    / price ranges, or a transient dividend-host error -> empty dividends). Rather
+    to produce some sections (e.g. a transient price/dividend-host failure).
+    Rather
     than overwrite good data with nulls/empties, we merge the freshly built
     payload over whatever is already on OneDrive: any section missing in the new
     payload falls back to the stored one, flagged as carried-over.
     """
-    try:
-        existing_raw = od.get_text('output/{}.json'.format(stock_cn))
-    except Exception:  # noqa: BLE001
-        existing_raw = None
-    if not existing_raw:
-        return payload
-    try:
-        old = json.loads(existing_raw)
-    except Exception:  # noqa: BLE001
+    if old is None:
+        old = load_existing_output(od, stock_cn)
+    if not old:
         return payload
 
     stale = []
@@ -793,6 +795,48 @@ def merge_with_existing(od, stock_cn, payload):
 PRICE_RANGE_ROW = '后一年股价范围'
 
 
+def load_tencent_price_history(od, stock_cn, proxies):
+    """Return (full_history_df, source_error) using an incremental OneDrive cache.
+
+    The first run downloads unadjusted Tencent daily data from 2018 onward.
+    Later runs fetch only the latest 300 trading days, merge by date (new wins),
+    and retain every older cached row. The cache is written only when changed.
+    """
+    cache_path = 'history/{}-P-Tencent.pkl'.format(stock_cn)
+    try:
+        cached = od.get_pickle(cache_path)
+    except Exception as e:  # noqa: BLE001
+        print('WARN: Tencent price cache read failed for {} ({}).\n'.format(stock_cn, e))
+        cached = None
+
+    if cached is None or len(cached) == 0:
+        full = z_Func.get_stock_price_from_tencent(stock_cn, proxies=proxies)
+        if full is None or len(full) == 0:
+            return full, True
+        od.put_pickle(cache_path, full)
+        print('Seeded Tencent price cache {} ({} rows).\n'.format(cache_path, len(full)))
+        return full, False
+
+    cached = cached.copy()
+    cached['日期'] = pd.to_datetime(cached['日期'], errors='coerce')
+    cached = cached.dropna(subset=['日期']).sort_values('日期').reset_index(drop=True)
+    recent = z_Func.get_recent_stock_price_from_tencent(
+        stock_cn, proxies=proxies, n=300)
+    if recent is None or len(recent) == 0:
+        print('Tencent recent-price fetch failed for {}; using cached history.\n'.format(stock_cn))
+        return cached, True
+
+    before = cached.to_json(orient='split', date_format='iso')
+    merged = pd.concat([cached, recent], ignore_index=True)
+    merged = (merged.drop_duplicates(subset=['日期'], keep='last')
+              .sort_values('日期').reset_index(drop=True))
+    after = merged.to_json(orient='split', date_format='iso')
+    if after != before:
+        od.put_pickle(cache_path, merged)
+        print('Updated Tencent price cache {} ({} rows).\n'.format(cache_path, len(merged)))
+    return merged, False
+
+
 def _is_valid_range(v):
     """True if a stored price-range cell holds a real min-max (not nan/empty)."""
     if v is None:
@@ -803,7 +847,7 @@ def _is_valid_range(v):
     return True
 
 
-def load_old_price_ranges(od, stock_cn):
+def load_old_price_ranges(od, stock_cn, old=None):
     """Return ({col_label: stored_range}, newest_col_label) from the prior
     output/{code}.json's combined table, restricted to the price-range row.
 
@@ -811,13 +855,10 @@ def load_old_price_ranges(od, stock_cn):
     the 'just-closed' transition column). Returns ({}, None) on any failure.
     """
     try:
-        raw = od.get_text('output/{}.json'.format(stock_cn))
-    except Exception:  # noqa: BLE001
-        raw = None
-    if not raw:
-        return {}, None
-    try:
-        old = json.loads(raw)
+        if old is None:
+            old = load_existing_output(od, stock_cn)
+        if not old:
+            return {}, None
         combined = old.get('combined')
         if not combined:
             return {}, None
@@ -885,32 +926,6 @@ def apply_price_range_preservation(stock_price_yearly, stock_output_yearly,
             # genuine gap: keep whatever placeholder, flag for the user
             gaps.append(label)
     return row, gaps
-
-
-def render_html(payload, stock_output_combined, dividends_df):
-    stock_output_combined = _filter_display_years(stock_output_combined)
-    stock = payload['stock']
-    stock_name = payload['stock_name']
-    parts = ['<!DOCTYPE html><html><head><meta charset="utf-8">',
-             '<title>{} {}</title></head><body>'.format(stock, stock_name)]
-    parts.append('<h2>{} {} — {}</h2>'.format(
-        stock, stock_name, payload['generated']))
-    for key in ('profit', 'liabilities', 'dividends'):
-        c = payload['checks'].get(key)
-        if c:
-            parts.append('<div><p>{}: {}</p></div>'.format(key, c['text']))
-    if stock_output_combined is not None:
-        html_tbl = stock_output_combined.to_html().replace('<th></th>', '<th>item</th>')
-        parts.append(html_tbl)
-    parts.append('<div><p>Last 10 days high/low for {} {}: {}</p></div>'.format(
-        stock, stock_name, payload['last_7_days_high_low']))
-    if dividends_df is not None and len(dividends_df) > 0:
-        show = dividends_df if len(dividends_df) < 15 else dividends_df.head(14)
-        parts.append(show.to_html())
-    else:
-        parts.append('<div><p>No dividend record for {} {}.</p></div>'.format(stock, stock_name))
-    parts.append('</body></html>')
-    return ''.join(parts)
 
 
 # ---- main -----------------------------------------------------------------
@@ -1003,11 +1018,10 @@ def main():
                     'IMPL_PLAN_PROFILE': r.get('plan') or '',
                 } for r in plan_records])
 
-            # HK price history: auto-fetched forward-adjusted daily from Tencent
-            # (cloud-reachable, no WAF; replaces the manual kline file).
+            # HK price history: cached unadjusted daily from Tencent.
             last_7_days = None
-            stock_price_df = z_Func.get_stock_price_from_tencent(stock, proxies=proxies)
-            price_source_error = len(stock_price_df) == 0
+            stock_price_df, price_source_error = load_tencent_price_history(
+                od, stock_cn, proxies)
             if price_source_error:
                 print('!! Tencent price fetch failed for {} — price-related '
                       'metrics not updated this run.\n'.format(stock))
@@ -1068,7 +1082,8 @@ def main():
                 str(checks['profit'][0]), str(checks['liabilities'][0]),
                 str(checks['dividends'][0])])
 
-            chip_hk = z_Func.get_chip_distribution(stock_cn, proxies=proxies, is_hk=True)
+            chip_hk = z_Func.get_chip_distribution_from_price_df(
+                stock_cn, stock_price_df, proxies=proxies, is_hk=True)
             chip_rows.append({
                 'stock_cn': stock_cn,
                 'stock_name': stock_name,
@@ -1089,10 +1104,7 @@ def main():
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
                         content_type='application/json; charset=utf-8')
-            html = render_html(payload, stock_output_combined, dividends_df)
-            od.put_text('output/{}.html'.format(stock_cn), html,
-                        content_type='text/html; charset=utf-8')
-            print('Wrote output/{}.json + .html\n'.format(stock_cn))
+            print('Wrote output/{}.json\n'.format(stock_cn))
             time.sleep(random.uniform(1, 3) if light_mode else random.uniform(7, 13))
             continue
 
@@ -1142,9 +1154,9 @@ def main():
             dividends_df = pd.DataFrame(stock_0_dividends)[
                 ['REPORT_DATE', 'EQUITY_RECORD_DATE', 'IMPL_PLAN_PROFILE']]
 
-        # --- price history: auto-fetched forward-adjusted daily from Tencent ---
-        stock_price_df = z_Func.get_stock_price_from_tencent(stock_cn, proxies=proxies)
-        price_source_error = len(stock_price_df) == 0
+        # --- price history: cached unadjusted daily from Tencent ---
+        stock_price_df, price_source_error = load_tencent_price_history(
+            od, stock_cn, proxies)
         if price_source_error:
             print('!! Tencent price fetch failed for {} — price-related '
                   'metrics not updated this run.\n'.format(stock_cn))
@@ -1152,10 +1164,12 @@ def main():
         stock_output_combined = None
         last_7_days = None
         price_range_gaps = []
+        old_output = load_existing_output(od, stock_cn)
         if len(stock_price_df) > 0:
             stock_price_yearly = z_Func.get_stock_price_range_Based_on_EasMon(
                 stock_price_df=stock_price_df, stock_output=stock_output_yearly, day_one=day_one)
-            old_ranges, old_newest = load_old_price_ranges(od, stock_cn)
+            old_ranges, old_newest = load_old_price_ranges(
+                od, stock_cn, old=old_output)
             stock_price_yearly, price_range_gaps = apply_price_range_preservation(
                 stock_price_yearly, stock_output_yearly, stock_price_df,
                 old_ranges, old_newest)
@@ -1181,7 +1195,8 @@ def main():
             str(checks['dividends'][0])])
 
         # --- chip distribution (筹码分布) via Tencent quotes (auto, non-EastMoney) ---
-        chip = z_Func.get_chip_distribution(stock_cn, proxies=proxies, is_hk=False)
+        chip = z_Func.get_chip_distribution_from_price_df(
+            stock_cn, stock_price_df, proxies=proxies, is_hk=False)
         chip_rows.append({
             'stock_cn': stock_cn,
             'stock_name': stock_name,
@@ -1200,14 +1215,11 @@ def main():
                                chip_distribution=chip,
                                price_source_error=price_source_error)
         payload['price_range_gaps'] = price_range_gaps
-        payload = merge_with_existing(od, stock_cn, payload)
+        payload = merge_with_existing(od, stock_cn, payload, old=old_output)
         od.put_text('output/{}.json'.format(stock_cn),
                     json.dumps(payload, ensure_ascii=False, indent=2),
                     content_type='application/json; charset=utf-8')
-        html = render_html(payload, stock_output_combined, dividends_df)
-        od.put_text('output/{}.html'.format(stock_cn), html,
-                    content_type='text/html; charset=utf-8')
-        print('Wrote output/{}.json + .html\n'.format(stock_cn))
+        print('Wrote output/{}.json\n'.format(stock_cn))
 
         time.sleep(random.uniform(1, 3) if light_mode else random.uniform(7, 13))
 
@@ -1247,13 +1259,7 @@ def main():
     od.put_text('output/_summary.json',
                 summary_df.to_json(orient='records', force_ascii=False),
                 content_type='application/json; charset=utf-8')
-    summary_html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'
-                    'Summary {}</title></head><body>{}</body></html>').format(
-        day_one.strftime('%Y-%m-%d'),
-        summary_df.to_html().replace('<th></th>', '<th>item</th>'))
-    od.put_text('output/_summary.html', summary_html,
-                content_type='text/html; charset=utf-8')
-    print('Task Completed Successfully! Wrote output/_summary.json + .html\n')
+    print('Task Completed Successfully! Wrote output/_summary.json\n')
 
     # --- chip ranking (获利比例排行) — pre-aggregated for the web ranking tab ---
     # Same partial-run merge as _summary.json: keep untouched stocks' rows and

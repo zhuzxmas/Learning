@@ -1592,6 +1592,35 @@ def fetch_tencent_daily(tx_secid, n=130, proxies=None):
     return out
 
 
+def tencent_daily_to_price_df(daily_df):
+    """Convert Tencent's compact daily frame to the batch's canonical columns."""
+    columns = ["日期", "开盘", "收盘", "最高", "最低",
+               "成交量只", "成交额元", "振幅", "涨跌幅%", "涨跌额", "换手率%"]
+    numeric_columns = columns[1:]
+    if daily_df is None or len(daily_df) == 0:
+        return pd.DataFrame([], columns=columns)
+    out = pd.DataFrame({
+        '日期': daily_df['date'], '开盘': daily_df['open'],
+        '收盘': daily_df['close'], '最高': daily_df['high'],
+        '最低': daily_df['low'], '成交量只': daily_df['volume'],
+    })
+    for col in columns:
+        if col not in out.columns:
+            out[col] = pd.NA
+    out = out[columns]
+    out[numeric_columns] = out[numeric_columns].apply(pd.to_numeric, errors='coerce')
+    out['日期'] = pd.to_datetime(out['日期'], errors='coerce')
+    return out.dropna(subset=['日期']).sort_values('日期').reset_index(drop=True)
+
+
+def get_recent_stock_price_from_tencent(stock_cn, proxies=None, n=300):
+    """Fetch the most-recent unadjusted candles in the canonical price format."""
+    secid = _to_tencent_secid(stock_cn)
+    if not secid:
+        return tencent_daily_to_price_df(None)
+    return tencent_daily_to_price_df(fetch_tencent_daily(secid, n=n, proxies=proxies))
+
+
 def get_stock_price_from_tencent(stock_cn, proxies=None, start='2018-01-01'):
     """Fully-automated replacement for the manually-downloaded kline file.
 
@@ -1837,13 +1866,17 @@ def compute_chip_distribution(daily_df, float_shares, is_hk=False,
 def get_chip_distribution(stock_cn, proxies=None, is_hk=False):
     """High-level: fetch Tencent daily + float, compute chip distribution.
     Returns the dict from compute_chip_distribution, or None on any failure."""
+    price_df = get_recent_stock_price_from_tencent(stock_cn, proxies=proxies, n=300)
+    return get_chip_distribution_from_price_df(
+        stock_cn, price_df, proxies=proxies, is_hk=is_hk)
+
+
+def get_chip_distribution_from_price_df(stock_cn, stock_price_df, proxies=None,
+                                         is_hk=False):
+    """Compute CYQ from an already-fetched canonical price frame."""
     secid = _to_tencent_secid(stock_cn)
-    if not secid:
-        return None
-    daily = fetch_tencent_daily(secid, n=300, proxies=proxies)
-    if daily is None or len(daily) < 2:
-        print('No Tencent daily data for {} ({}); skipping chip distribution.\n'
-              .format(stock_cn, secid))
+    if not secid or stock_price_df is None or len(stock_price_df) < 2:
+        print('No Tencent daily data for {}; skipping chip distribution.\n'.format(stock_cn))
         return None
     float_shares = fetch_tencent_float_shares(secid, proxies=proxies)
     if not float_shares:
@@ -1851,6 +1884,12 @@ def get_chip_distribution(stock_cn, proxies=None, is_hk=False):
               .format(stock_cn, secid))
         return None
     try:
+        daily = pd.DataFrame({
+            'date': pd.to_datetime(stock_price_df['日期'], errors='coerce').dt.strftime('%Y-%m-%d'),
+            'open': stock_price_df['开盘'],
+            'close': stock_price_df['收盘'], 'high': stock_price_df['最高'],
+            'low': stock_price_df['最低'], 'volume': stock_price_df['成交量只'],
+        }).tail(300).reset_index(drop=True)
         return compute_chip_distribution(daily, float_shares, is_hk=is_hk)
     except Exception as e:  # noqa: BLE001
         print('Chip distribution compute failed for {} ({}: {}).\n'.format(

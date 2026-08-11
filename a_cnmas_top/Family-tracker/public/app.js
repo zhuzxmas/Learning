@@ -3739,7 +3739,6 @@ async function sbtRemoveStock(code) {
     const cn = sbtCodeToCn(code);
     if (cn) {
       await sbtDeleteFile(token, "output/" + cn + ".json");
-      await sbtDeleteFile(token, "output/" + cn + ".html");
       delete sbtStocks[cn];
       delete sbtFiles[cn];
       try { localStorage.removeItem("sbt:" + cn + ".json"); } catch { /* ignore */ }
@@ -9817,5 +9816,4 @@ function chatWireEvents() {
     try { localStorage.setItem("chatModel", chatLastModel); } catch {}
   };
 }
-
 
