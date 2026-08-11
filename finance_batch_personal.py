@@ -485,12 +485,29 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
     return _finish(fresh_df)
 
 
-def load_hk_notice_dates(od, stock, columns):
+def _hk_notice_report_kind(title):
+    """Classify an HK notice title for precise same-year matching."""
+    text = str(title or '').strip().lower()
+    if re.search(r'中报|半年|中期|interim|half[- ]?year', text):
+        return 'interim'
+    if re.search(r'年报|年度|annual', text):
+        return 'annual'
+    if re.search(r'一季|第一季|q1|first quarter', text):
+        return 'q1'
+    if re.search(r'三季|第三季|q3|third quarter', text):
+        return 'q3'
+    return None
+
+
+def load_hk_notice_dates(od, stock, columns, report_kind=None, raw=None,
+                         raw_preloaded=False):
     """Build the 'Notice Date' row for an HK stock from the manual xlsx.
 
     Reads H{code}_Notice_Date.xlsx (columns Notice_Date + Report_Title,
-    e.g. Report_Title '2024年年报'), aligns each report period column to its
-    disclosure date, and returns a 1-row DataFrame indexed by 'Notice Date'.
+    e.g. Report_Title '2024年年报' / '2024年中报'), aligns each report period
+    using year + report type, and returns a 1-row DataFrame indexed by
+    'Notice Date'. This prevents a same-year interim row from overwriting the
+    annual row (or vice versa).
 
     Never returns None: if the xlsx is missing or malformed, falls back to using
     each column's own period date so the stock is still processed (price ranges
@@ -502,7 +519,8 @@ def load_hk_notice_dates(od, stock, columns):
             [{col: str(col)[:10] for col in columns}], index=['Notice Date'])
 
     fname = 'H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
-    raw = od.get_bytes(fname)
+    if not raw_preloaded:
+        raw = od.get_bytes(fname)
     if not raw:
         print('!! {} missing — 使用期末日期作为 Notice Date（上传该文件可获得精确披露日）：{}。\n'
               .format(fname, stock))
@@ -514,17 +532,32 @@ def load_hk_notice_dates(od, stock, columns):
               .format(fname, stock))
         return _fallback()
 
-    year_to_notice = {}
+    typed_notice = {}
+    generic_notice = {}
     for _, r in df_nd.iterrows():
-        m = re.search(r'(\d{4})', str(r['Report_Title']))
+        title = str(r['Report_Title'])
+        m = re.search(r'(\d{4})', title)
         if not m:
             continue
-        year_to_notice[m.group(1)] = str(r['Notice_Date'])[:10]
+        raw_date = r['Notice_Date']
+        try:
+            notice = pd.to_datetime(raw_date).strftime('%Y-%m-%d')
+        except Exception:  # noqa: BLE001
+            notice = str(raw_date)[:10]
+        kind = _hk_notice_report_kind(title)
+        if kind:
+            typed_notice[(m.group(1), kind)] = notice
+        else:
+            # Backward-compatible row such as title='2024'; use only when no
+            # type-specific date exists, never as the opposite report type.
+            generic_notice[m.group(1)] = notice
 
     row = {}
     for col in columns:
         year = str(col)[:4]
-        row[col] = year_to_notice.get(year, str(col)[:10])
+        row[col] = (typed_notice.get((year, report_kind))
+                    or generic_notice.get(year)
+                    or str(col)[:10])
     return pd.DataFrame([row], index=['Notice Date'])
 
 
@@ -1118,12 +1151,17 @@ def main():
                 except Exception:  # noqa: BLE001
                     last_7_days = None
 
-            def _build_hk_side(df, add_dividends):
+            notice_fname = 'H{}_Notice_Date.xlsx'.format(stock.split('.')[0])
+            notice_raw = od.get_bytes(notice_fname)
+
+            def _build_hk_side(df, add_dividends, report_kind):
                 """Prepend the Notice Date row, (optionally) append dividend rows,
                 and append the price-range row — for one report-type frame."""
                 if df is None:
                     return None
-                notice_row = load_hk_notice_dates(od, stock, list(df.columns))
+                notice_row = load_hk_notice_dates(
+                    od, stock, list(df.columns), report_kind=report_kind,
+                    raw=notice_raw, raw_preloaded=True)
                 if 'Notice Date' in df.index:
                     df = df.drop(index='Notice Date')
                 df = pd.concat([notice_row, df], axis=0)
@@ -1145,8 +1183,10 @@ def main():
 
             # Dividend rows only on the annual side (mirrors A-shares, where the
             # seasonly frame carries no dividend rows).
-            yearly_f = _build_hk_side(stock_output_yearly, add_dividends=True)
-            seasonly_f = _build_hk_side(stock_output_seasonly, add_dividends=False)
+            yearly_f = _build_hk_side(
+                stock_output_yearly, add_dividends=True, report_kind='annual')
+            seasonly_f = _build_hk_side(
+                stock_output_seasonly, add_dividends=False, report_kind='interim')
 
             # Lay seasonly + yearly side by side (季度 + 年报), like A-shares.
             if seasonly_f is not None and yearly_f is not None:
