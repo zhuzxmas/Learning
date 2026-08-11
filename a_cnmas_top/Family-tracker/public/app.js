@@ -3439,12 +3439,15 @@ async function sbtRenderChip(code) {
      // row (e.g. an HK quarter the issuer never disclosed) is dropped entirely.
      const isEmptyCell = (v) =>
        v === null || v === undefined || String(v).trim() === "";
-     const visibleCols = cb.columns
-       .map((_, j) => j)
-       .filter((j) => cb.index.some((_, i) =>
-         !isEmptyCell((cb.data[i] || [])[j])));
-     cbHead.innerHTML = "<tr><th>指标</th>" +
-       visibleCols.map((j) => `<th>${escapeHtml(String(cb.columns[j]))}</th>`).join("") + "</tr>";
+      const visibleCols = cb.columns
+        .map((_, j) => j)
+        .filter((j) => cb.index.some((_, i) =>
+          !isEmptyCell((cb.data[i] || [])[j])));
+      // Quarterly/interim report columns (Q1/H1/Q3) get a distinct background;
+      // annual 12-31 columns retain the normal table background.
+      const isQuarterCol = (j) => /-(03-31|06-30|09-30)$/.test(String(cb.columns[j]));
+      cbHead.innerHTML = "<tr><th>指标</th>" +
+        visibleCols.map((j) => `<th class="${isQuarterCol(j) ? "sbt-quarter-col" : ""}">${escapeHtml(String(cb.columns[j]))}</th>`).join("") + "</tr>";
      cbBody.innerHTML = cb.index.map((label, i) => {
        // 每股派发股息 carries long plan text like "10派3.00元(含税,扣税后2.70元)";
        // drop the tax parenthetical for display and let the cell wrap (.sbt-plan)
@@ -3458,7 +3461,8 @@ async function sbtRenderChip(code) {
          visibleCols.map((j) => {
            let s = isEmptyCell((cb.data[i] || [])[j]) ? "" : String((cb.data[i] || [])[j]);
            if (isPlan) s = sbtStripTax(s);
-           return `<td class="${cls}">${escapeHtml(s)}</td>`;
+            const colCls = isQuarterCol(j) ? " sbt-quarter-col" : "";
+            return `<td class="${cls}${colCls}">${escapeHtml(s)}</td>`;
          }).join("") + "</tr>";
      }).join("");
    } else {

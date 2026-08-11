@@ -1191,6 +1191,9 @@ td:nth-child(6) {
   position: sticky; top: 0; z-index: 3; background: #fafafa;
   box-shadow: inset 0 -1px 0 var(--border);  /* collapse 模式下 sticky 会丢下边框，用阴影补分隔线 */
 }
+/* Q1 / interim / Q3 columns: distinguish them from annual 12-31 columns. */
+#sbtCombinedTable th.sbt-quarter-col,
+#sbtCombinedTable td.sbt-quarter-col { background: #eaf4ff; }
 /* 左上角单元格同时横竖固定，层级最高。 */
 #sbtCombinedTable thead th:first-child { left: 0; z-index: 4; background: #fafafa; }
 /* 重点决策行：每股收益、市盈率15对应股价 —— 深蓝加粗突出。 */
