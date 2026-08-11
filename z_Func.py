@@ -51,6 +51,48 @@ def generate_random_string(length):
     # Generate a random string of the specified length
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
+
+def select_eps_with_fallback(income_df):
+    """Prefer diluted EPS per period, falling back to basic EPS cell-by-cell."""
+    index = income_df.index
+    diluted = (pd.to_numeric(income_df['DILUTED_EPS'], errors='coerce')
+               if 'DILUTED_EPS' in income_df.columns else
+               pd.Series(index=index, dtype='float64'))
+    basic = (pd.to_numeric(income_df['BASIC_EPS'], errors='coerce')
+             if 'BASIC_EPS' in income_df.columns else
+             pd.Series(index=index, dtype='float64'))
+    out = diluted.combine_first(basic)
+    out.name = '稀释后 每年/季度每股收益 元'
+    return out
+
+
+def calculate_fcf_with_direct_fallback(cashflow_df, balance_df):
+    """Calculate A-share FCF, using direct cash flow where indirect is missing.
+
+    Existing indirect values remain unchanged. Missing values fall back to
+    NETCASH_OPERATE - CONSTRUCT_LONG_ASSET, which is available for companies
+    such as 600104 even when NETPROFIT/FA_IR_DEPR or prior working capital are
+    unavailable in quarterly feeds.
+    """
+    index = cashflow_df.index
+
+    def series(frame, column, use_index=index):
+        if column not in frame.columns:
+            return pd.Series(index=use_index, dtype='float64')
+        return pd.to_numeric(frame[column], errors='coerce').reindex(use_index)
+
+    net_profit = series(cashflow_df, 'NETPROFIT')
+    depreciation = series(cashflow_df, 'FA_IR_DEPR')
+    capex = series(cashflow_df, 'CONSTRUCT_LONG_ASSET')
+    current_assets = series(balance_df, 'TOTAL_CURRENT_ASSETS')
+    current_liab = series(balance_df, 'TOTAL_CURRENT_LIAB')
+    delta_working_capital = (current_assets - current_liab).diff(-1)
+    indirect = net_profit + depreciation - capex - delta_working_capital
+    direct = series(cashflow_df, 'NETCASH_OPERATE') - capex
+    out = indirect.combine_first(direct) / 100000000
+    out.name = '自由现金流 亿元'
+    return out
+
 # To Get the Dividend data for each stock from Eas Mon ##############################################
 
 
@@ -320,12 +362,8 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
         stock_0_EBIT_y.name = '营业收入 息税前利润 亿元'
 
         ### Profit Stability of The Company ###
-        # 每股稀释后收益 季度，每股收益
-        if bool(df_income_stock['DILUTED_EPS'].isna().all()) == True:
-            stock_0_profit_margin_y = df_income_stock['BASIC_EPS']
-        else:
-            stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
-        stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
+        # Prefer diluted EPS per period; use basic EPS for individual blanks.
+        stock_0_profit_margin_y = select_eps_with_fallback(df_income_stock)
 
         ### Profit Margin of The Company ###
         if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，此时无法计算
@@ -376,14 +414,8 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
         # 资本支出 : 现金流量表里面 的 投资活动现金流出小计中, 购建固定资产支付的现金, in Cash Flow, it is "CONSTRUCT_LONG_ASSET"
         # 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
         # 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
-        stock_0_NetProfit_y = df_cash_flow['NETPROFIT']
-        stock_0_FixAsset_Depr_y = df_cash_flow['FA_IR_DEPR']
-        stock_0_Cash_OutFlow_y = df_cash_flow['CONSTRUCT_LONG_ASSET']
-        stock_0_Delta_Working_Capital = (
-            df_balance_sheet['TOTAL_CURRENT_ASSETS'] - df_balance_sheet['TOTAL_CURRENT_LIAB']).diff(-1)
-        stock_0_Free_Cash_Flow = (stock_0_NetProfit_y + stock_0_FixAsset_Depr_y -
-                                  stock_0_Cash_OutFlow_y - stock_0_Delta_Working_Capital)/100000000
-        stock_0_Free_Cash_Flow.name = "自由现金流 亿元"
+        stock_0_Free_Cash_Flow = calculate_fcf_with_direct_fallback(
+            df_cash_flow, df_balance_sheet)
 
         ### Stock price vs Assets ratio ###
         # 无形资产
@@ -576,12 +608,8 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_0_EBIT_y.name = '营业收入 息税前利润 亿元'
 
         ### Profit Stability of The Company ###
-        # 每股稀释后收益 季度，每股收益
-        if bool(df_income_stock['DILUTED_EPS'].isna().all()) == True:
-            stock_0_profit_margin_y = df_income_stock['BASIC_EPS']
-        else:
-            stock_0_profit_margin_y = df_income_stock['DILUTED_EPS']
-        stock_0_profit_margin_y.name = '稀释后 每年/季度每股收益 元'
+        # Prefer diluted EPS per period; use basic EPS for individual blanks.
+        stock_0_profit_margin_y = select_eps_with_fallback(df_income_stock)
 
         ### Profit Margin of The Company ###
         if any(map(lambda x: x == None, stock_0_profit_margin_y)):  # 查看利润是否有空值，此时无法计算
