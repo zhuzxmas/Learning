@@ -19,10 +19,11 @@ from onedrive_personal import OneDrivePersonal, load_config_cfg_env
 
 notifymsg = 'today\'s Bing wallpaper'
 
-def get_weeks_remaining():
+def get_countdown_remaining():
     today = date.today()
     target = date(2029, 4, 30)
-    return (target - today).days // 7
+    days = (target - today).days
+    return f"{days // 7}-{days}"
 
 def save_img(img_url):  # save downloaded file to directory: dirname
     # get the image name,  including suffix
@@ -87,18 +88,18 @@ def add_img_description(notifymsg, filepath):
         x += font.getlength(char)  # For Pillow version >= 9.0.1
         # x += font.getbbox(char)[0]   # for pillow version >= 10.4.1, but further updates are needed, this sentence is not correct.
 
-    # Draw week countdown number — same font/height as description, right-aligned 50px from right edge
-    week_text = str(get_weeks_remaining())
-    bbox = font_english.getbbox(week_text)
+    # Draw weeks-days countdown, right-aligned 50px from the right edge
+    countdown_text = get_countdown_remaining()
+    bbox = font_english.getbbox(countdown_text)
     text_w = bbox[2] - bbox[0]
     img_w, img_h = imagetemp.size
     wx = img_w - text_w - 50
     wy = 1970  # same y as description text
     # Draw text border
     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-        draw.text((wx + dx, wy + dy), week_text, fill=(112, 39, 77), font=font_english)
+        draw.text((wx + dx, wy + dy), countdown_text, fill=(112, 39, 77), font=font_english)
     # Draw text
-    draw.text((wx, wy), week_text, fill=(250, 250, 250), font=font_english)
+    draw.text((wx, wy), countdown_text, fill=(250, 250, 250), font=font_english)
 
     imagetemp.save(filepath)
 
