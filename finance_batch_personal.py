@@ -166,7 +166,8 @@ def find_history_name(history_names, stock, marker):
 
 
 # ---- per-stock report handling (yearly + monthly) -------------------------
-def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=False):
+def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=False,
+                    force_refresh=False):
     """Return (stock_output_yearly, stock_output_Seasonly_or_None, stock_name).
 
     Loads any cached pkl from history/, decides whether an update is due, fetches
@@ -181,6 +182,13 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
     stock_output_yearly = None
     stock_output_Seasonly = None
     stock_name = ''
+    report_fetch_ok = True
+
+    has_report_cache = all(find_history_name(history_names, stock, marker)
+                           for marker in ('-Y-', '-M-'))
+    refresh_kinds, probe_key = report_refresh_decision(
+        od, stock_cn, 'A', has_report_cache, proxies,
+        light_mode=skip_fetch, force_refresh=force_refresh)
 
     for check_item_name in ('yearly', 'monthly'):
         marker = '-Y-' if check_item_name == 'yearly' else '-M-'
@@ -205,7 +213,7 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
                 latest_report_notice_date, '%Y-%m-%d').date()
 
             if check_item_name == 'yearly':
-                if skip_fetch or (day_one - latest_report_notice_date).days < 365:
+                if skip_fetch or 'yearly' not in refresh_kinds:
                     if skip_fetch:
                         print('LIGHT_MODE: serving cached Yearly data for {}.\n'.format(stock_cn))
                     else:
@@ -221,23 +229,21 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
                     stock_output_yearly = yearly_report_raw_out[0]
                     stock_name = yearly_report_raw_out[1]
 
-                    unique_in_report_from_OD = yearly_report_from_OD.index.difference(
-                        stock_output_yearly.index).tolist()
-                    df_merged = yearly_report_from_OD.copy()
-                    df_merged.update(stock_output_yearly)
-                    new_cols = stock_output_yearly.columns.difference(df_merged.columns)
-                    if len(new_cols) > 0:
-                        df_merged = pd.concat(
-                            [df_merged, stock_output_yearly[new_cols].rename_axis(columns=None)],
-                            axis=1)
+                    # Fresh data wins while retaining old metrics/dividend rows;
+                    # combine_first also adds brand-new rows and columns.
+                    df_merged = stock_output_yearly.combine_first(yearly_report_from_OD)
                     sorted_cols = pd.to_datetime(df_merged.columns).sort_values(ascending=False)
                     df_final = df_merged[sorted_cols.strftime('%Y-%m-%d')]
                     df_final.loc['每股利润增长率 x 100%'] = pd.to_numeric(
                         df_final.loc['稀释后 每年/季度每股收益 元'], errors='coerce').pct_change(-1).round(2)
                     stock_output_yearly = df_final
-                    _save_history(od, stock, stock_name, marker, stock_output_yearly)
+                    if not stock_output_yearly.equals(yearly_report_from_OD):
+                        _save_history(od, stock, stock_name, marker, stock_output_yearly)
+                    else:
+                        print('Yearly report content unchanged for {}; not writing pkl.\n'.format(
+                            stock_cn))
             else:
-                if skip_fetch or (day_one - latest_report_notice_date).days < 40:
+                if skip_fetch or 'monthly' not in refresh_kinds:
                     if skip_fetch:
                         print('LIGHT_MODE: serving cached Seasonly data for {}.\n'.format(stock_cn))
                     else:
@@ -255,9 +261,16 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
                             url=url_seasonly, proxies=proxies, stock_cn=stock_cn)
                         stock_output_Seasonly = Seasonly_report_raw_out[0]
                         stock_name = Seasonly_report_raw_out[1]
-                        _save_history(od, stock, stock_name, marker, stock_output_Seasonly)
-                    except Exception:  # noqa: BLE001
-                        print('No seasonly report available as of now for {}.\n'.format(stock_cn))
+                        if not stock_output_Seasonly.equals(Seasonly_report_from_OD):
+                            _save_history(od, stock, stock_name, marker, stock_output_Seasonly)
+                        else:
+                            print('Seasonly report content unchanged for {}; not writing pkl.\n'.format(
+                                stock_cn))
+                    except Exception as e:  # noqa: BLE001
+                        report_fetch_ok = False
+                        stock_output_Seasonly = Seasonly_report_from_OD
+                        print('Seasonly refresh failed for {} ({}); keeping cache.\n'.format(
+                            stock_cn, e))
         else:
             # No cached history yet.
             if skip_fetch:
@@ -287,9 +300,15 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
                     stock_output_Seasonly = Seasonly_report_raw_out[0]
                     stock_name = Seasonly_report_raw_out[1]
                     _save_history(od, stock, stock_name, marker, stock_output_Seasonly)
-                except Exception:  # noqa: BLE001
-                    print('No seasonly report available as of now for {}.\n'.format(stock_cn))
+                except Exception as e:  # noqa: BLE001
+                    report_fetch_ok = False
+                    print('No seasonly report available as of now for {} ({}).\n'.format(
+                        stock_cn, e))
 
+    if refresh_kinds and report_fetch_ok and stock_output_yearly is not None:
+        mark_report_full_check(
+            od, stock_cn, 'A', probe_key,
+            full_validation=refresh_kinds == {'yearly', 'monthly'})
     return stock_output_yearly, stock_output_Seasonly, stock_name
 
 
@@ -391,7 +410,8 @@ def _reorder_hk_tail(df):
     return df.reindex(idx + tail)
 
 
-def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
+def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False,
+                       force_refresh=False):
     """HK equivalent of process_reports.
 
     skip_fetch=True (LIGHT_MODE): never hit the network — serve the cached pkl
@@ -413,6 +433,9 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
     dps_map = {}
     stock_name = ''
     existing = find_history_name(history_names, stock, '-Y-')
+    needs_full_fetch, probe_key = report_refresh_decision(
+        od, stock, 'HK', bool(existing), proxies,
+        light_mode=skip_fetch, force_refresh=force_refresh)
 
     def _fetch_fresh():
         url_yearly = z_Func.Year_report_url_HK(day_one=day_one, stock_hk=stock)
@@ -430,30 +453,12 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
             stock_name = existing.split('-Y-', 1)[1].split('.pkl')[0]
         except Exception:  # noqa: BLE001
             pass
-        # Freshness: newest report column within ~365 days of today.
-        try:
-            newest = max(cached.columns)
-            newest_date = datetime.datetime.strptime(str(newest)[:10], '%Y-%m-%d').date()
-            fresh = (day_one - newest_date).days < 365
-        except Exception:  # noqa: BLE001
-            fresh = False
-
-        # One-time upgrade: a cache created before the quarterly/interim feature
-        # holds only annual (-12-31) columns. Even when its newest annual column
-        # is still "fresh", force a re-fetch so interim/quarterly columns get
-        # merged in (via the merge path below, which preserves existing data).
-        # Once any interim column is present this is a no-op, so we don't re-fetch
-        # on every run.
-        has_interim = any(not str(c).endswith('-12-31') for c in cached.columns)
-        if fresh and not has_interim:
-            fresh = False
-
         # LIGHT_MODE: never fetch — always serve the cached frame.
         if skip_fetch:
             print('LIGHT_MODE: serving cached HK data for {}.\n'.format(stock))
             return _finish(cached)
 
-        if fresh:
+        if not needs_full_fetch:
             print('~~~ HK data in OneDrive is up to date for {}.\n'.format(stock))
             return _finish(cached)
 
@@ -471,6 +476,7 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
         sorted_cols = pd.to_datetime(df_merged.columns).sort_values(ascending=False)
         df_final = df_merged[sorted_cols.strftime('%Y-%m-%d')]
         _save_history(od, stock, stock_name, '-Y-', df_final)
+        mark_report_full_check(od, stock, 'HK', probe_key)
         return _finish(df_final)
 
     if skip_fetch:
@@ -482,6 +488,7 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False):
     if fresh_df is None:
         return None, None, stock_name, dps_map
     _save_history(od, stock, stock_name, '-Y-', fresh_df)
+    mark_report_full_check(od, stock, 'HK', probe_key)
     return _finish(fresh_df)
 
 
@@ -788,6 +795,8 @@ def load_existing_output(od, stock_cn):
 
 
 DIVIDEND_CACHE_DAYS = 21
+REPORT_PROBE_DAYS = 14
+REPORT_FULL_CHECK_DAYS = 28
 
 
 def load_dividend_records(od, stock_cn, fetcher, light_mode=False,
@@ -862,6 +871,112 @@ def preserve_dividend_check(checks, old_output, cache_available):
         checks['dividends'] = (
             bool(old_check.get('pass')), str(old_check.get('text') or ''))
     return checks
+
+
+def _parse_utc(value):
+    try:
+        dt = datetime.datetime.fromisoformat(str(value or '').replace('Z', '+00:00'))
+        return dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _a_report_probe_key(rows):
+    """Split latest A-share identities into annual and non-annual keys."""
+    annual = None
+    seasonal = None
+    for row in (rows or []):
+        report_type = str(row[1] if len(row) > 1 else '')
+        if ('年报' in report_type or '年度' in report_type):
+            if annual is None:
+                annual = tuple(row)
+        elif seasonal is None:
+            seasonal = tuple(row)
+    return {'yearly': annual, 'monthly': seasonal}
+
+
+def report_refresh_decision(od, stock_cn, market, has_cache, proxies,
+                            light_mode=False, force_refresh=False):
+    """Return (needs_full_fetch, probe_key) using persistent report metadata.
+
+    Full runs probe at most every 14 days. A changed probe key triggers a full
+    report download; unchanged identities use the cached DataFrame. Every 28
+    days a full validation is forced to catch same-period restatements. HK probe
+    keys intentionally contain no Notice Date because that feed does not expose
+    a reliable publication date.
+    """
+    if light_mode:
+        return set(), None
+
+    path = 'history/{}-F-Meta.pkl'.format(stock_cn)
+    try:
+        meta = od.get_pickle(path) or {}
+    except Exception as e:  # noqa: BLE001
+        print('WARN: report meta read failed for {} ({}).\n'.format(stock_cn, e))
+        meta = {}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    last_checked = _parse_utc(meta.get('last_checked'))
+    last_full = _parse_utc(meta.get('last_full_check'))
+
+    if has_cache and not force_refresh and last_checked is not None:
+        if (now - last_checked).total_seconds() < REPORT_PROBE_DAYS * 86400:
+            print('Report probe cache is fresh for {}; skipping probe.\n'.format(stock_cn))
+            return set(), meta.get('probe_key')
+
+    try:
+        probe = (z_Func.probe_latest_reports_a(stock_cn, proxies)
+                 if market == 'A' else
+                 z_Func.probe_latest_report_hk(stock_cn, proxies))
+        probe_key = _a_report_probe_key(probe) if market == 'A' else probe
+    except Exception as e:  # noqa: BLE001
+        print('Report probe failed for {} ({}); using cached reports.\n'.format(
+            stock_cn, e))
+        missing = ({'yearly', 'monthly'} if market == 'A' else {'hk'})
+        return (missing if not has_cache else set()), meta.get('probe_key')
+
+    # First deployment with an existing report cache: perform one full
+    # validation so a newly published report cannot be mistaken for the baseline.
+    if has_cache and not meta:
+        print('No report metadata for {}; initial full validation required.\n'.format(
+            stock_cn))
+        return ({'yearly', 'monthly'} if market == 'A' else {'hk'}), probe_key
+
+    old_key = meta.get('probe_key')
+    if market == 'A':
+        changed_kinds = {kind for kind in ('yearly', 'monthly')
+                         if probe_key.get(kind) != (old_key or {}).get(kind)}
+    else:
+        changed_kinds = ({'hk'} if probe_key != old_key else set())
+    changed = bool(changed_kinds)
+    full_due = (not has_cache or force_refresh or last_full is None or
+                (now - last_full).total_seconds() >= REPORT_FULL_CHECK_DAYS * 86400)
+    if changed:
+        print('New report identity detected for {}: {}.\n'.format(stock_cn, probe_key))
+    elif full_due:
+        print('Four-week full report validation due for {}.\n'.format(stock_cn))
+    else:
+        meta.update({'market': market, 'probe_key': probe_key,
+                     'last_checked': now.isoformat()})
+        od.put_pickle(path, meta)
+        print('Report identity unchanged for {}; using cached reports.\n'.format(stock_cn))
+        return set(), probe_key
+    if full_due:
+        return ({'yearly', 'monthly'} if market == 'A' else {'hk'}), probe_key
+    return changed_kinds, probe_key
+
+
+def mark_report_full_check(od, stock_cn, market, probe_key, full_validation=True):
+    """Persist successful report-refresh metadata."""
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    path = 'history/{}-F-Meta.pkl'.format(stock_cn)
+    try:
+        meta = od.get_pickle(path) or {}
+    except Exception:  # noqa: BLE001
+        meta = {}
+    meta.update({'market': market, 'probe_key': probe_key, 'last_checked': now})
+    if full_validation:
+        meta['last_full_check'] = now
+    od.put_pickle(path, meta)
 
 
 def merge_with_existing(od, stock_cn, payload, old=None):
@@ -1070,6 +1185,8 @@ def main():
     light_mode = os.environ.get('LIGHT_MODE', '').strip().lower() in ('1', 'true', 'yes')
     force_dividend_refresh = os.environ.get(
         'FORCE_DIVIDEND_REFRESH', '').strip().lower() in ('1', 'true', 'yes')
+    force_report_refresh = os.environ.get(
+        'FORCE_REPORT_REFRESH', '').strip().lower() in ('1', 'true', 'yes')
     if light_mode:
         print('LIGHT_MODE on: daily price+chip refresh (reports/dividends from '
               'cache, short sleeps).\n')
@@ -1093,7 +1210,10 @@ def main():
             old_output = load_existing_output(od, stock_cn)
             try:
                 stock_output_yearly, stock_output_seasonly, stock_name, dps_map = \
-                    process_reports_hk(od, history_names, stock, proxies, skip_fetch=light_mode)
+                    process_reports_hk(
+                        od, history_names, stock, proxies,
+                        skip_fetch=light_mode,
+                        force_refresh=force_report_refresh)
             except Exception as e:  # noqa: BLE001
                 print('HK report processing failed for {} ({}: {}); skipping.\n'.format(
                     stock, type(e).__name__, e))
@@ -1238,7 +1358,9 @@ def main():
 
         try:
             stock_output_yearly, stock_output_Seasonly, stock_name = process_reports(
-                od, history_names, stock, stock_cn, proxies, skip_fetch=light_mode)
+                od, history_names, stock, stock_cn, proxies,
+                skip_fetch=light_mode,
+                force_refresh=force_report_refresh)
         except Exception as e:  # noqa: BLE001
             print('Report processing failed for {} ({}: {}); skipping.\n'.format(
                 stock_cn, type(e).__name__, e))

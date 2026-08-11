@@ -93,7 +93,9 @@ def Year_report_url(stock, stock_cn, p_income_year, p_cash_flow, p_balance_sheet
 
         url_easmon_balance_sheet = 'https://dat{}nter.eas{}ney.com/securities/api/data/get?type=RPT_F10_FINANCE_G{}&sty=F10_FINANCE_G{}&filter=(SECUCODE%3D%22{}%22)(REPORT_DATE%20in%20(%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27%2C%27{}-12-31%27))&p=1&ps=5&sr=-1&st=REPORT_DATE&source=HSF10&client=PC&v={}'.format(
             'ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, str(int(day_one.year)-1), str(int(day_one.year)-2), str(int(day_one.year)-3), str(int(day_one.year)-4), str(int(day_one.year)-5), str(int(day_one.year)-6), str(int(day_one.year)-7), str(int(day_one.year)-8), string_v3)
-    return [url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet]
+    # Eight annual periods are requested above; ps=5 silently truncates them.
+    return [u.replace('&ps=5&', '&ps=10&') for u in
+            (url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet)]
 
 
 def Year_report_url_HK(day_one= day_one, stock_hk = '02359.HK'):
@@ -151,6 +153,66 @@ def Seasonly_report_url(report_date_yearly, stock, stock_cn, p_income, p_cash_fl
             'ace', 'tmo', p_balance_sheet, p_balance_sheet, stock_cn, next_year, next_year, next_year, string_v3)
 
     return [url_easmon_income, url_easmon_cash_flow, url_easmon_balance_sheet]
+
+
+def _eastmoney_probe_get(params, proxies=None):
+    """Small strict F10 probe request; raises on network/schema failures."""
+    url = 'https://datacenter.eastmoney.com/securities/api/data/v1/get'
+    try:
+        resp = requests.get(url, params=params, headers=headers_easmon, timeout=25)
+    except requests.exceptions.RequestException:
+        resp = requests.get(
+            url, params=params, headers=headers_easmon,
+            proxies=proxies, timeout=25)
+    resp.raise_for_status()
+    result = resp.json().get('result') or {}
+    data = result.get('data')
+    if data is None:
+        raise RuntimeError('EastMoney report probe returned no data field')
+    return data
+
+
+def probe_latest_reports_a(stock_cn, proxies=None):
+    """Return the latest four A-share report identity tuples.
+
+    Each tuple is (REPORT_DATE, REPORT_TYPE, NOTICE_DATE). NOTICE_DATE is the
+    real disclosure date; UPDATE_DATE is intentionally not used.
+    """
+    rows = _eastmoney_probe_get({
+        'reportName': 'RPT_F10_FINANCE_GINCOME',
+        'columns': ('SECUCODE,REPORT_DATE,REPORT_TYPE,REPORT_DATE_NAME,'
+                    'NOTICE_DATE,UPDATE_DATE'),
+        'filter': '(SECUCODE="{}")'.format(stock_cn),
+        'pageNumber': '1', 'pageSize': '4',
+        'sortTypes': '-1', 'sortColumns': 'REPORT_DATE',
+        'source': 'F10', 'client': 'PC',
+    }, proxies=proxies)
+    return [(str(r.get('REPORT_DATE') or '')[:10],
+             str(r.get('REPORT_TYPE') or r.get('REPORT_DATE_NAME') or ''),
+             str(r.get('NOTICE_DATE') or '')[:10]) for r in rows]
+
+
+def probe_latest_report_hk(stock_hk, proxies=None):
+    """Return latest HK report identity (period, type code, type name).
+
+    The HK main-indicator feed has no reliable publication date; REPORT_DATE is
+    a period end and is never treated as Notice Date.
+    """
+    rows = _eastmoney_probe_get({
+        'reportName': 'RPT_HKF10_FN_MAININDICATOR',
+        'columns': ('SECUCODE,STD_REPORT_DATE,REPORT_DATE,'
+                    'DATE_TYPE_CODE,REPORT_TYPE'),
+        'filter': '(SECUCODE="{}")'.format(stock_hk),
+        'pageNumber': '1', 'pageSize': '1',
+        'sortTypes': '-1', 'sortColumns': 'STD_REPORT_DATE',
+        'source': 'F10', 'client': 'PC',
+    }, proxies=proxies)
+    if not rows:
+        return None
+    r = rows[0]
+    return (str(r.get('STD_REPORT_DATE') or '')[:10],
+            str(r.get('DATE_TYPE_CODE') or ''),
+            str(r.get('REPORT_TYPE') or ''))
 
 
 def report_from_Eas_Mon(url, proxies, stock_cn):
