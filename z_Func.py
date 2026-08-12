@@ -1817,13 +1817,11 @@ def fetch_tencent_float_shares(tx_secid, proxies=None):
     """Return free-float share count from the Tencent snapshot (qt.gtimg.cn),
     or None on failure.
 
-    Snapshot is a '~'-delimited string. Field layout (0-based):
-      idx 3  = current price
-      idx 45 = 流通市值 in 亿 (100M units) — present for BOTH A-shares and HK
-    We derive float shares = 流通市值 * 1e8 / price, which works uniformly across
-    A-share and HK snapshots (their raw share-count fields sit at different
-    indices). Cross-checked: 600519 -> ~1.25e9, 000001 -> ~1.94e10, 01548.HK
-    -> ~2.19e9, all matching known free-float counts.
+    Snapshot is a '~'-delimited string. For A-shares, field 72 (then 76 as a
+    fallback) is the explicit circulating-share count. This matters for STAR
+    stocks where field 45 is total market cap, not circulating market cap.
+    For HK (whose layout differs), and as a final A-share fallback, derive
+    shares from field 44 circulating market cap: cap(亿元) * 1e8 / current price.
     """
     url = 'https://qt.gtimg.cn/q={}'.format(tx_secid)
     try:
@@ -1840,7 +1838,16 @@ def fetch_tencent_float_shares(tx_secid, proxies=None):
         body = txt.split('"', 2)[1]
         parts = body.split('~')
         price = float(parts[3])
-        float_mktcap_yi = float(parts[45])   # 流通市值, 单位: 亿
+        if not tx_secid.startswith('hk'):
+            for idx in (72, 76):
+                if idx < len(parts):
+                    try:
+                        shares = float(parts[idx])
+                        if shares > 0:
+                            return shares
+                    except (TypeError, ValueError):
+                        pass
+        float_mktcap_yi = float(parts[44])   # 流通市值, 单位: 亿
         if price > 0 and float_mktcap_yi > 0:
             return float_mktcap_yi * 1e8 / price
     except Exception as e:  # noqa: BLE001
@@ -1850,13 +1857,16 @@ def fetch_tencent_float_shares(tx_secid, proxies=None):
 
 
 def compute_chip_distribution(daily_df, float_shares, is_hk=False,
-                              window=240, factor=150):
+                              window=240, factor=150,
+                              volume_in_shares=False):
     """Port of EastMoney's official CYQCalculator (from akshare) — triangular
     chip distribution with per-day turnover decay — over the last `window` days.
 
     daily_df: DataFrame with columns date/open/close/high/low/volume (oldest->newest).
     float_shares: free-float share count (for turnover% = volume_shares/float*100).
-    is_hk: Tencent HK volume is already in shares; A-share volume is in 手 (×100).
+    is_hk: retained for compatibility; Tencent HK volume is already shares.
+    volume_in_shares: True for markets such as STAR (688xxx), where Tencent's
+      kline volume is already shares rather than 手/lots.
 
     Returns a dict:
       {prices, weights, avg_cost, profit_ratio,
@@ -1873,7 +1883,7 @@ def compute_chip_distribution(daily_df, float_shares, is_hk=False,
     opens = df_w['open'].tolist()
     closes = df_w['close'].tolist()
     vols = df_w['volume'].tolist()
-    share_mult = 1.0 if is_hk else 100.0  # 手 -> shares for A-shares
+    share_mult = 1.0 if (is_hk or volume_in_shares) else 100.0
 
     maxprice = max(highs)
     minprice = min(lows)
@@ -1984,7 +1994,10 @@ def get_chip_distribution_from_price_df(stock_cn, stock_price_df, proxies=None,
             'close': stock_price_df['收盘'], 'high': stock_price_df['最高'],
             'low': stock_price_df['最低'], 'volume': stock_price_df['成交量只'],
         }).tail(300).reset_index(drop=True)
-        return compute_chip_distribution(daily, float_shares, is_hk=is_hk)
+        star_market = secid.startswith('sh688')
+        return compute_chip_distribution(
+            daily, float_shares, is_hk=is_hk,
+            volume_in_shares=star_market)
     except Exception as e:  # noqa: BLE001
         print('Chip distribution compute failed for {} ({}: {}).\n'.format(
             stock_cn, type(e).__name__, e))
