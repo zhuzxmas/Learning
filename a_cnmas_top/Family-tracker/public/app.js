@@ -2596,7 +2596,7 @@ function incStartEdit(id) {
   els.incFormTitle.textContent = "编辑收入";
   els.incAddBtn.textContent = "保存修改";
   show(els.incCancelBtn);
-  incSwitchTab("list");
+  incSwitchTab("add");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
