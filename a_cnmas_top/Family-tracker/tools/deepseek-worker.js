@@ -46,7 +46,10 @@ const ALLOWED_ORIGINS = [
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 // Aliyun Bailian (DashScope) OpenAI-compatible endpoint, default workspace.
-const BAILIAN_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+// Dedicated Bailian workspace gateway. This Worker sends OpenAI-compatible
+// chat-completion payloads, so use the compatible-mode base (NOT /api/v1,
+// which is the native DashScope protocol) and append /chat/completions.
+const BAILIAN_URL = "https://llm-sa9owbvbbcplr8fy.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions";
 const GRAPH_ME = "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,otherMails";
 
 function corsHeaders(origin) {
