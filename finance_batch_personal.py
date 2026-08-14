@@ -235,7 +235,8 @@ def process_reports(od, history_names, stock, stock_cn, proxies, skip_fetch=Fals
                     sorted_cols = pd.to_datetime(df_merged.columns).sort_values(ascending=False)
                     df_final = df_merged[sorted_cols.strftime('%Y-%m-%d')]
                     df_final.loc['每股利润增长率 x 100%'] = pd.to_numeric(
-                        df_final.loc['稀释后 每年/季度每股收益 元'], errors='coerce').pct_change(-1).round(2)
+                        df_final.loc['稀释后 每年/季度每股收益 元'],
+                        errors='coerce').pct_change(-1, fill_method=None).round(2)
                     stock_output_yearly = df_final
                     if not stock_output_yearly.equals(yearly_report_from_OD):
                         _save_history(od, stock, stock_name, marker, stock_output_yearly)
