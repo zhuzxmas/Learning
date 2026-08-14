@@ -733,17 +733,53 @@ def apply_dividend_rows(stock_output_yearly, stock_0_dividends):
 
 
 # ---- checks (profit / liabilities / dividends) ----------------------------
+def evaluate_profit_check(stock_output_yearly, max_years=5,
+                          min_growth=-0.03):
+    """Evaluate recent annual EPS stability using unrounded EPS values.
+
+    Uses the latest `max_years` annual columns (normally already newest-first).
+    EPS must be non-negative. Adjacent-year comparisons pass when growth is at
+    least -3%; missing values or a zero prior-year EPS are not computable and
+    are skipped rather than implicitly filled.
+    """
+    eps = pd.to_numeric(
+        stock_output_yearly.loc['稀释后 每年/季度每股收益 元'],
+        errors='coerce')
+    try:
+        ordered = sorted(eps.index, key=lambda c: pd.to_datetime(str(c)),
+                         reverse=True)
+        eps = eps.reindex(ordered)
+    except Exception:  # noqa: BLE001
+        pass
+    eps = eps.iloc[:max_years]
+    years_used = len(eps)
+
+    if (eps.dropna() < 0).any():
+        return (False, 'xxxxxxxxx  最近{}年存在年度EPS<0  xxxxxxxxx'.format(
+            years_used))
+
+    growth_values = []
+    for i in range(max(0, len(eps) - 1)):
+        current = eps.iloc[i]
+        previous = eps.iloc[i + 1]
+        if pd.isna(current) or pd.isna(previous) or previous == 0:
+            continue
+        growth_values.append(float(current / previous - 1.0))
+
+    if any(g < min_growth - 1e-12 for g in growth_values):
+        return (False,
+                'xxxxxxxxx  最近{}年存在年度EPS同比降幅超过3%  xxxxxxxxx'.format(
+                    years_used))
+
+    return (True,
+            '√√√√  最近{}年年度EPS均非负，且可计算同比降幅不超过3%（{}组可计算） √√√√'.format(
+                years_used, len(growth_values)))
+
+
 def evaluate_checks(stock_output_yearly, stock_0_dividends):
     checks = {}
 
-    profit = stock_output_yearly.loc['稀释后 每年/季度每股收益 元']
-    profit_inc = stock_output_yearly.loc['每股利润增长率 x 100%']
-    if any(map(lambda x: x < 0, profit)):
-        checks['profit'] = (False, 'xxxxxxxxx  利润 <0,  不是 一直在增长 xxxxxxx')
-    elif any(map(lambda x: x < 0, profit_inc)):
-        checks['profit'] = (False, 'xxxxxxxxx  利润 下降  xxxxxxxxx')
-    else:
-        checks['profit'] = (True, '√√√√√√√√√√  利润  Yes  最近几年一直在增长 √√√√')
+    checks['profit'] = evaluate_profit_check(stock_output_yearly)
 
     ca_vs_l = stock_output_yearly.loc['流动资产/流动负债>2']
     if any(map(lambda x: x < 1.5, ca_vs_l)):
