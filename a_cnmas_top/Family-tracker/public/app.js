@@ -3157,8 +3157,14 @@ function sbtChipCollapse(keepHighlight) {
 
 // Expand the chip chart for `code` directly below its ranking row `tr`.
 function sbtChipExpandRow(tr, code) {
-  // toggle off if same row already open
-  if (sbtChipExpandCode === code) { sbtChipCollapse(false); return; }
+  // Toggle off only when this exact row is genuinely expanded. A highlighted
+  // row may remain after blank-area collapse, so the code alone is insufficient.
+  const openRow = els.sbtChipRankBody &&
+    els.sbtChipRankBody.querySelector("tr.sbt-chip-expand");
+  if (sbtChipExpandCode === code && openRow) {
+    sbtChipCollapse(false);
+    return;
+  }
   sbtChipCollapse(false);
   sbtChipExpandCode = code;
   tr.classList.add("sbt-rank-active");
@@ -3568,6 +3574,9 @@ function sbtWireEvents() {
    document.addEventListener("click", (e) => {
      if (!sbtChipExpandCode) return;
      if (els.sbtTabChip && els.sbtTabChip.classList.contains("hidden")) return;
+     // Returning via the 筹码排行 tab must preserve the existing expanded row.
+     if (els.sbtTabChipBtn &&
+         (e.target === els.sbtTabChipBtn || els.sbtTabChipBtn.contains(e.target))) return;
      if (e.target.closest && e.target.closest(".sbt-rank-row, .sbt-chip-expand")) return;
      sbtChipCollapse(true);   // keep highlight
    });
