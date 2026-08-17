@@ -368,6 +368,7 @@ const els = {
   aiConvMenu: $("aiConvMenu"),
   aiNewChatBtn: $("aiNewChatBtn"),
   aiMessages: $("aiMessages"),
+  aiStreamStatus: $("aiStreamStatus"),
   aiInput: $("aiInput"),
   aiSendBtn: $("aiSendBtn"),
   aiModel: $("aiModel"),
@@ -9177,6 +9178,7 @@ var chatMessages = [];       // messages of the open conversation [{role,content
 var chatCurEtag = null;      // eTag of chats/<id>.json (optimistic concurrency)
 var chatSending = false;     // guard against concurrent sends
 var chatLastModel = "";      // last valid model selection (for revert on cancel)
+var chatStatusTimer = null;  // auto-hide timer for stream completion status
 var chatWired = false;       // idempotency guard for chatWireEvents()
 var chatSearchQuery = "";    // lower-cased sidebar title filter (title-only search)
 var chatMenuId = null;       // conversation id the ⋯ popup menu currently targets
@@ -9415,6 +9417,7 @@ async function chatRename(id) {
 
 // ---- open / new / delete -------------------------------------------------
 async function chatOpen(id) {
+  chatSetStreamStatus("", "", 0);
   // Respond instantly: highlight the item, set the title, and close the mobile
   // sidebar BEFORE the (slow) network read so the UI never feels laggy.
   chatCurId = id;
@@ -9452,6 +9455,7 @@ async function chatOpen(id) {
   chatRenderMessages();
 }
 function chatNew() {
+  chatSetStreamStatus("", "", 0);
   chatCurId = null;
   chatMessages = [];
   chatCurEtag = null;
@@ -9516,6 +9520,19 @@ function chatScrollBottom() {
   const box = els.aiMessages;
   box.scrollTop = box.scrollHeight;
 }
+function chatSetStreamStatus(text, cls, autoHideMs) {
+  if (!els.aiStreamStatus) return;
+  if (chatStatusTimer) { clearTimeout(chatStatusTimer); chatStatusTimer = null; }
+  els.aiStreamStatus.textContent = text || "";
+  els.aiStreamStatus.className = "ai-stream-status" + (cls ? " " + cls : "");
+  els.aiStreamStatus.classList.toggle("hidden", !text);
+  if (text && autoHideMs) {
+    chatStatusTimer = setTimeout(() => {
+      els.aiStreamStatus.classList.add("hidden");
+      chatStatusTimer = null;
+    }, autoHideMs);
+  }
+}
 
 // ---- send (streaming) ----------------------------------------------------
 async function chatSend() {
@@ -9525,10 +9542,12 @@ async function chatSend() {
   if (!text) return;
   chatSending = true;
   if (els.aiSendBtn) els.aiSendBtn.disabled = true;
+  chatSetStreamStatus("正在输出…", "", 0);
 
   let acc = "";      // assistant content
   let reasoning = "";// reasoning content
   let liveBody = null;
+  const savedScrollTop = els.aiMessages.scrollTop;
   try {
     els.aiInput.value = "";
 
@@ -9536,7 +9555,6 @@ async function chatSend() {
     chatMessages.push({ role: "user", content: text });
     els.aiMessages.querySelector(".ai-empty")?.remove();
     els.aiMessages.appendChild(chatBubble({ role: "user", content: text }));
-    chatScrollBottom();
 
     // Create a live assistant bubble to stream into.
     const liveWrap = document.createElement("div");
@@ -9551,7 +9569,8 @@ async function chatSend() {
     liveBody.innerHTML = '<span class="ai-cursor">▋</span>';
     liveWrap.appendChild(reDet); liveWrap.appendChild(liveBody);
     els.aiMessages.appendChild(liveWrap);
-    chatScrollBottom();
+    // Appending messages must not drag the user's viewport to the bottom.
+    requestAnimationFrame(() => { els.aiMessages.scrollTop = savedScrollTop; });
 
     const token = await getToken();
     // A "Qwen-" prefix in the dropdown value marks an Aliyun Bailian model.
@@ -9611,26 +9630,27 @@ async function chatSend() {
           acc += delta.content;
           liveBody.innerHTML = blogRenderMarkdown(acc) + '<span class="ai-cursor">▋</span>';
         }
-        chatScrollBottom();
       }
     }
     liveBody.innerHTML = blogRenderMarkdown(acc);
 
     // Persist the assistant message.
+    chatSetStreamStatus("正在保存…", "", 0);
     const msg = { role: "assistant", content: acc };
     if (reasoning) msg.reasoning = reasoning;
     chatMessages.push(msg);
     await chatPersistAfterTurn(text);
+    chatSetStreamStatus("输出完成", "done", 3000);
   } catch (e) {
     const errHtml = '<span class="ai-error">出错了：' + escapeHtml(e.message || String(e)) + "</span>";
     if (liveBody) liveBody.innerHTML = errHtml;
     else setStatus("发送失败：" + (e.message || e), "error");
+    chatSetStreamStatus("输出失败", "error", 5000);
     // Roll back the user message we optimistically added so a retry is clean.
     if (chatMessages.length && chatMessages[chatMessages.length - 1].role === "user") chatMessages.pop();
   } finally {
     chatSending = false;
     if (els.aiSendBtn) els.aiSendBtn.disabled = false;
-    chatScrollBottom();
   }
 }
 
