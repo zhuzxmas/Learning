@@ -3267,6 +3267,7 @@ async function sbtRenderChipRank() {
     const nm = r.stock_name || sbtNameFor(code) || "";
     const tr = document.createElement("tr");
     tr.className = "sbt-rank-row" + (code === sbtChipExpandCode ? " sbt-rank-active" : "");
+    tr.dataset.stockCode = code;
     tr.innerHTML =
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
@@ -3291,7 +3292,27 @@ async function sbtRenderChip(code) {
   const d = await sbtLoadStock(code);
   if (!d) { els.sbtChipCard.classList.add("hidden"); return; }
   els.sbtChipCard.classList.remove("hidden");
-  els.sbtChipTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""} 筹码分布`;
+  els.sbtChipTitle.innerHTML = "";
+  const stockLink = document.createElement("button");
+  stockLink.type = "button";
+  stockLink.className = "sbt-chip-title-link";
+  stockLink.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`.trim();
+  stockLink.title = "查看该股票详情";
+  stockLink.onclick = async (e) => {
+    e.stopPropagation();
+    if (els.sbtSelect && Array.from(els.sbtSelect.options).some((o) => o.value === code)) {
+      els.sbtSelect.value = code;
+    }
+    sbtSwitchTab("detail");
+    try {
+      await sbtRenderDetail(code);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setStatus("载入详情失败：" + (err.message || err), "error");
+    }
+  };
+  els.sbtChipTitle.appendChild(stockLink);
+  els.sbtChipTitle.appendChild(document.createTextNode(" 筹码分布"));
 
   const cyq = d.chip_distribution;
   const hasData = cyq && Array.isArray(cyq.prices) && Array.isArray(cyq.weights)
@@ -3500,8 +3521,18 @@ async function sbtRenderChip(code) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chip") {
-    sbtRenderChipRank().catch((e) =>
-      setStatus("载入筹码排行失败：" + (e.message || e), "error"));
+    const activeRow = els.sbtChipRankBody && sbtChipExpandCode
+      ? Array.from(els.sbtChipRankBody.querySelectorAll("tr.sbt-rank-row"))
+        .find((tr) => tr.dataset.stockCode === sbtChipExpandCode)
+      : null;
+    if (activeRow) {
+      requestAnimationFrame(() => activeRow.scrollIntoView({
+        behavior: "smooth", block: "center", inline: "nearest",
+      }));
+    } else {
+      sbtRenderChipRank().catch((e) =>
+        setStatus("载入筹码排行失败：" + (e.message || e), "error"));
+    }
   }
   if (name === "settings") {
     sbtLoadStockList().catch((e) =>

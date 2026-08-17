@@ -1312,3 +1312,9 @@ tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none;
   display: flex; align-items: center; justify-content: flex-start; gap: 10px;
   margin-bottom: 6px;
 }
+.sbt-chip-title-link {
+  appearance: none; border: 0; padding: 0; margin: 0;
+  background: transparent; color: #1a73e8;
+  font: inherit; font-weight: inherit; cursor: pointer;
+}
+.sbt-chip-title-link:hover { text-decoration: underline; }
