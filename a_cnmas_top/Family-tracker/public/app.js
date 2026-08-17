@@ -9520,6 +9520,22 @@ function chatScrollBottom() {
   const box = els.aiMessages;
   box.scrollTop = box.scrollHeight;
 }
+function chatClearTurnSpacer() {
+  els.aiMessages?.querySelector(".ai-turn-spacer")?.remove();
+}
+function chatPositionTurnAtTop(userWrap, spacer) {
+  const box = els.aiMessages;
+  if (!box || !userWrap || !spacer) return;
+  requestAnimationFrame(() => {
+    // Reserve enough space below this turn for the user bubble to sit at the
+    // top even while the assistant response is still short.
+    const reserve = Math.max(0, box.clientHeight - userWrap.offsetHeight - 24);
+    spacer.style.height = reserve + "px";
+    const boxTop = box.getBoundingClientRect().top;
+    const userTop = userWrap.getBoundingClientRect().top;
+    box.scrollTop += userTop - boxTop - 6;
+  });
+}
 function chatSetStreamStatus(text, cls, autoHideMs) {
   if (!els.aiStreamStatus) return;
   if (chatStatusTimer) { clearTimeout(chatStatusTimer); chatStatusTimer = null; }
@@ -9547,14 +9563,15 @@ async function chatSend() {
   let acc = "";      // assistant content
   let reasoning = "";// reasoning content
   let liveBody = null;
-  const savedScrollTop = els.aiMessages.scrollTop;
   try {
     els.aiInput.value = "";
+    chatClearTurnSpacer();
 
     // Append the user message, render it.
     chatMessages.push({ role: "user", content: text });
     els.aiMessages.querySelector(".ai-empty")?.remove();
-    els.aiMessages.appendChild(chatBubble({ role: "user", content: text }));
+    const userWrap = chatBubble({ role: "user", content: text });
+    els.aiMessages.appendChild(userWrap);
 
     // Create a live assistant bubble to stream into.
     const liveWrap = document.createElement("div");
@@ -9569,8 +9586,11 @@ async function chatSend() {
     liveBody.innerHTML = '<span class="ai-cursor">▋</span>';
     liveWrap.appendChild(reDet); liveWrap.appendChild(liveBody);
     els.aiMessages.appendChild(liveWrap);
-    // Appending messages must not drag the user's viewport to the bottom.
-    requestAnimationFrame(() => { els.aiMessages.scrollTop = savedScrollTop; });
+    const turnSpacer = document.createElement("div");
+    turnSpacer.className = "ai-turn-spacer";
+    turnSpacer.setAttribute("aria-hidden", "true");
+    els.aiMessages.appendChild(turnSpacer);
+    chatPositionTurnAtTop(userWrap, turnSpacer);
 
     const token = await getToken();
     // A "Qwen-" prefix in the dropdown value marks an Aliyun Bailian model.

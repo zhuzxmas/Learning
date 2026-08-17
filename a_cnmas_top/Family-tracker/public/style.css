@@ -1114,6 +1114,7 @@ td:nth-child(6) {
 }
 .ai-stream-status.error { color: var(--red); }
 .ai-stream-status.done { color: var(--green-dark); }
+.ai-turn-spacer { flex: 0 0 auto; width: 1px; min-height: 0; pointer-events: none; }
 .ai-empty { color: #999; text-align: center; margin: auto; }
 .ai-empty-note { margin-top: 10px; font-size: 12px; color: #b0b3b8; line-height: 1.6; }
 .ai-msg { max-width: 86%; display: flex; flex-direction: column; gap: 6px; }
