@@ -25,7 +25,6 @@ const HOT_FILE = "records-current.json";   // current-month bucket (hot)
 const COLD_FILE = "records-archive.json";   // older records bucket (cold)
 const LEGACY_FILE = "records.json";         // single-file layout (auto-migrated)
 const CATS_FILE = "categories-custom.json"; // user-added categories (delta tree)
-const SPENDING_SETTINGS_FILE = "spending-settings.json";
 
 /* ------------------------ IndexedDB record cache -------------------------- *
  * Best-effort local cache of the (large) archive file keyed by its eTag, so a
@@ -203,8 +202,7 @@ let etagCold = null;       // eTag of the cold file
 let customCats = {};       // user-added categories (delta over base CATEGORIES)
 let hiddenCats = { l1: [], l2: {}, l3: {} }; // hidden categories per level
 let etagCats = null;       // eTag of categories-custom.json
-let spendingSettings = { secretExpiry: null };
-let etagSpendingSettings = null;
+let secretExpiry = null;   // {createdDate, validityDays, modified}, stored with categories
 let dirty = false;         // unsaved changes flag
 let spendingLoaded = false; // spending data fetched once per session (lazy + cached)
 let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显示全部 etc.
@@ -1082,15 +1080,27 @@ function mergeHidden(target, src) {
   }
 }
 
-// Interpret the stored file: new format {custom, hidden} or legacy bare tree.
+function normalizeSecretExpiry(value) {
+  const secret = (value && typeof value === "object") ? value : null;
+  const createdDate = secret && /^\d{4}-\d{2}-\d{2}$/.test(secret.createdDate || "")
+    ? secret.createdDate : "";
+  const validityDays = secret ? Math.floor(Number(secret.validityDays)) : 0;
+  return createdDate && validityDays > 0
+    ? { createdDate, validityDays, modified: secret.modified || "" }
+    : null;
+}
+
+// Interpret the stored file: {custom, hidden, secretExpiry} or legacy bare tree.
 function parseCatsFile(data) {
   const d = (data && typeof data === "object") ? data : {};
-  if ("custom" in d || "hidden" in d) {
+  if ("custom" in d || "hidden" in d || "secretExpiry" in d) {
     customCats = (d.custom && typeof d.custom === "object") ? d.custom : {};
     hiddenCats = normalizeHidden(d.hidden);
+    secretExpiry = normalizeSecretExpiry(d.secretExpiry);
   } else {
     customCats = d;                     // legacy: whole file was the add-tree
     hiddenCats = normalizeHidden(null);
+    secretExpiry = null;
   }
 }
 
@@ -1112,7 +1122,7 @@ async function saveCustomCats() {
       "Content-Type": "application/json",
     };
     if (etagCats) headers["If-Match"] = etagCats;
-    const body = JSON.stringify({ custom: customCats, hidden: hiddenCats });
+    const body = JSON.stringify({ custom: customCats, hidden: hiddenCats, secretExpiry });
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -1122,10 +1132,16 @@ async function saveCustomCats() {
     if (res.status === 412) {
       const fresh = await readJson(token, CATS_FILE);
       const d = (fresh.data && typeof fresh.data === "object") ? fresh.data : {};
-      const otherCustom = ("custom" in d || "hidden" in d) ? (d.custom || {}) : d;
-      const otherHidden = ("custom" in d || "hidden" in d) ? d.hidden : null;
+      const structured = "custom" in d || "hidden" in d || "secretExpiry" in d;
+      const otherCustom = structured ? (d.custom || {}) : d;
+      const otherHidden = structured ? d.hidden : null;
+      const otherSecret = structured ? normalizeSecretExpiry(d.secretExpiry) : null;
       deepMergeCats(customCats, otherCustom);
       mergeHidden(hiddenCats, otherHidden);
+      if (otherSecret && (!secretExpiry ||
+          String(otherSecret.modified) > String(secretExpiry.modified))) {
+        secretExpiry = otherSecret;
+      }
       applyCustomCats();
       etagCats = fresh.etag;
       continue;
@@ -1133,27 +1149,6 @@ async function saveCustomCats() {
     throw new Error("保存分类失败：" + res.status);
   }
   throw new Error("保存分类冲突，重试多次仍失败。");
-}
-
-function normalizeSpendingSettings(data) {
-  const d = (data && typeof data === "object") ? data : {};
-  const secret = (d.secretExpiry && typeof d.secretExpiry === "object")
-    ? d.secretExpiry : null;
-  const createdDate = secret && /^\d{4}-\d{2}-\d{2}$/.test(secret.createdDate || "")
-    ? secret.createdDate : "";
-  const validityDays = secret ? Math.floor(Number(secret.validityDays)) : 0;
-  return {
-    secretExpiry: createdDate && validityDays > 0
-      ? { createdDate, validityDays, modified: secret.modified || "" }
-      : null,
-  };
-}
-
-async function loadSpendingSettings(token) {
-  const r = await readJson(token, SPENDING_SETTINGS_FILE);
-  spendingSettings = normalizeSpendingSettings(r.data);
-  etagSpendingSettings = r.etag;
-  renderSecretExpiry();
 }
 
 function localDateFromYmd(value) {
@@ -1172,7 +1167,7 @@ function formatLocalYmd(date) {
 
 function renderSecretExpiry() {
   if (!els.secretExpirySummary) return;
-  const secret = spendingSettings.secretExpiry;
+  const secret = secretExpiry;
   els.secretCreatedDate.value = secret ? secret.createdDate : "";
   els.secretValidityDays.value = secret ? secret.validityDays : "";
   els.secretExpirySummary.className = "secret-expiry-summary muted";
@@ -1205,35 +1200,16 @@ async function saveSecretExpiry(e) {
     setStatus("请填写有效的创建日期和有效期天数。", "warn", 5000);
     return;
   }
-  const desired = { createdDate, validityDays, modified: new Date().toISOString() };
+  const previous = secretExpiry;
+  secretExpiry = { createdDate, validityDays, modified: new Date().toISOString() };
   els.secretExpirySaveBtn.disabled = true;
   try {
-    const token = await getToken();
-    const { content } = fileUrls(SPENDING_SETTINGS_FILE);
-    let etag = etagSpendingSettings;
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
-      if (etag) headers["If-Match"] = etag;
-      const res = await fetch(content, {
-        method: "PUT", headers, body: JSON.stringify({ secretExpiry: desired }),
-      });
-      if (res.ok) {
-        const item = await res.json();
-        spendingSettings = { secretExpiry: desired };
-        etagSpendingSettings = item.eTag || (await readETag(token, SPENDING_SETTINGS_FILE));
-        renderSecretExpiry();
-        setStatus("客户端密码有效期已保存。", "ok", 3000);
-        return;
-      }
-      if (res.status === 412) {
-        const fresh = await readJson(token, SPENDING_SETTINGS_FILE);
-        etag = fresh.etag;
-        continue;
-      }
-      throw new Error("保存设置失败：" + res.status + " " + (await res.text()));
-    }
-    throw new Error("保存设置冲突，重试多次仍失败。");
+    await saveCustomCats();
+    renderSecretExpiry();
+    setStatus("客户端密码有效期已保存。", "ok", 3000);
   } catch (err) {
+    secretExpiry = previous;
+    renderSecretExpiry();
     setStatus(err.message || String(err), "error", 7000);
   } finally {
     els.secretExpirySaveBtn.disabled = false;
@@ -1245,7 +1221,7 @@ async function loadRecords() {
   setStatus("正在从 OneDrive 载入…");
   const token = await getToken();
   await resolveFolder(token);
-  await Promise.all([loadCustomCats(token), loadSpendingSettings(token)]);
+  await loadCustomCats(token);
   rebuildLevel1();
   // Recompute visible defaults now that hiddenCats is loaded — but ONLY when the
   // form is still pristine. Records load asynchronously, so the user may already
