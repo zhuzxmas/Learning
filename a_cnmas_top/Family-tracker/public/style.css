@@ -189,6 +189,29 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   }
   .secret-expiry-form .form-actions { margin-top: 2px; }
 }
+@media (hover: none) and (pointer: coarse) {
+  .secret-expiry-form {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .secret-expiry-form .field {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  #secretCreatedDate {
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    inline-size: -webkit-fill-available;
+    min-inline-size: 0;
+  }
+  .secret-expiry-form .form-actions { margin-top: 2px; }
+}
 .hidden-row {
   display: flex;
   align-items: center;
