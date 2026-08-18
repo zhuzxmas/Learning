@@ -214,6 +214,24 @@
         <div class="secret-guide">
           <h3>MS365 Azure 应用密钥管理</h3>
           <p>MS365 自动化使用 Entra Application：<code>Microsoft_Graph_API_CNMAS_New</code>。</p>
+          <div class="secret-expiry-card">
+            <h4>当前客户端密码有效期</h4>
+            <form id="secretExpiryForm" class="secret-expiry-form">
+              <div class="field">
+                <label for="secretCreatedDate">创建日期</label>
+                <input type="date" id="secretCreatedDate" required />
+              </div>
+              <div class="field">
+                <label for="secretValidityDays">有效期（天）</label>
+                <input type="number" id="secretValidityDays" min="1" step="1" inputmode="numeric" required placeholder="如 730" />
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="secretExpirySaveBtn">保存有效期</button>
+              </div>
+            </form>
+            <div id="secretExpirySummary" class="secret-expiry-summary muted">尚未设置客户端密码有效期。</div>
+            <p class="muted mini">仅保存创建日期和有效期天数，不保存客户端密码内容；设置会通过 OneDrive 在家庭设备间共享。</p>
+          </div>
           <p>当前认证组合为 <code>CLIENT_ID + CLIENT_SECRET + TENANT_ID</code>：</p>
           <ul>
             <li>GitHub Actions：仓库 Secrets <code>CLIENT_ID</code>、<code>CLIENT_SECRET</code>、<code>TENANT_ID</code></li>
@@ -1805,6 +1823,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>

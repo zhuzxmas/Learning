@@ -25,6 +25,7 @@ const HOT_FILE = "records-current.json";   // current-month bucket (hot)
 const COLD_FILE = "records-archive.json";   // older records bucket (cold)
 const LEGACY_FILE = "records.json";         // single-file layout (auto-migrated)
 const CATS_FILE = "categories-custom.json"; // user-added categories (delta tree)
+const SPENDING_SETTINGS_FILE = "spending-settings.json";
 
 /* ------------------------ IndexedDB record cache -------------------------- *
  * Best-effort local cache of the (large) archive file keyed by its eTag, so a
@@ -202,6 +203,8 @@ let etagCold = null;       // eTag of the cold file
 let customCats = {};       // user-added categories (delta over base CATEGORIES)
 let hiddenCats = { l1: [], l2: {}, l3: {} }; // hidden categories per level
 let etagCats = null;       // eTag of categories-custom.json
+let spendingSettings = { secretExpiry: null };
+let etagSpendingSettings = null;
 let dirty = false;         // unsaved changes flag
 let spendingLoaded = false; // spending data fetched once per session (lazy + cached)
 let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显示全部 etc.
@@ -230,6 +233,11 @@ const els = {
   tabSettingsBtn: $("tabSettingsBtn"),
   tabSettings: $("tabSettings"),
   hiddenList: $("hiddenList"),
+  secretExpiryForm: $("secretExpiryForm"),
+  secretCreatedDate: $("secretCreatedDate"),
+  secretValidityDays: $("secretValidityDays"),
+  secretExpirySaveBtn: $("secretExpirySaveBtn"),
+  secretExpirySummary: $("secretExpirySummary"),
   amount: $("amount"),
   date: $("date"),
   note: $("note"),
@@ -1127,12 +1135,117 @@ async function saveCustomCats() {
   throw new Error("保存分类冲突，重试多次仍失败。");
 }
 
+function normalizeSpendingSettings(data) {
+  const d = (data && typeof data === "object") ? data : {};
+  const secret = (d.secretExpiry && typeof d.secretExpiry === "object")
+    ? d.secretExpiry : null;
+  const createdDate = secret && /^\d{4}-\d{2}-\d{2}$/.test(secret.createdDate || "")
+    ? secret.createdDate : "";
+  const validityDays = secret ? Math.floor(Number(secret.validityDays)) : 0;
+  return {
+    secretExpiry: createdDate && validityDays > 0
+      ? { createdDate, validityDays, modified: secret.modified || "" }
+      : null,
+  };
+}
+
+async function loadSpendingSettings(token) {
+  const r = await readJson(token, SPENDING_SETTINGS_FILE);
+  spendingSettings = normalizeSpendingSettings(r.data);
+  etagSpendingSettings = r.etag;
+  renderSecretExpiry();
+}
+
+function localDateFromYmd(value) {
+  const parts = String(value || "").split("-").map(Number);
+  if (parts.length !== 3 || parts.some((x) => !isFinite(x))) return null;
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.getFullYear() === parts[0] && d.getMonth() === parts[1] - 1 &&
+    d.getDate() === parts[2] ? d : null;
+}
+
+function formatLocalYmd(date) {
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+function renderSecretExpiry() {
+  if (!els.secretExpirySummary) return;
+  const secret = spendingSettings.secretExpiry;
+  els.secretCreatedDate.value = secret ? secret.createdDate : "";
+  els.secretValidityDays.value = secret ? secret.validityDays : "";
+  els.secretExpirySummary.className = "secret-expiry-summary muted";
+  if (!secret) {
+    els.secretExpirySummary.textContent = "尚未设置客户端密码有效期。";
+    return;
+  }
+  const created = localDateFromYmd(secret.createdDate);
+  if (!created) {
+    els.secretExpirySummary.textContent = "保存的创建日期无效，请重新设置。";
+    els.secretExpirySummary.classList.add("error");
+    return;
+  }
+  const expires = new Date(created);
+  expires.setDate(expires.getDate() + secret.validityDays);
+  const today = localDateFromYmd(todayStr());
+  const remaining = Math.ceil((expires - today) / 86400000);
+  const status = remaining < 0 ? `已到期 ${Math.abs(remaining)} 天`
+    : remaining === 0 ? "今天到期" : `剩余 ${remaining} 天`;
+  els.secretExpirySummary.textContent =
+    `创建日期：${secret.createdDate}　到期日期：${formatLocalYmd(expires)}　${status}`;
+  els.secretExpirySummary.classList.add(remaining > 30 ? "ok" : remaining >= 0 ? "warn" : "error");
+}
+
+async function saveSecretExpiry(e) {
+  e.preventDefault();
+  const createdDate = els.secretCreatedDate.value;
+  const validityDays = Math.floor(Number(els.secretValidityDays.value));
+  if (!localDateFromYmd(createdDate) || !isFinite(validityDays) || validityDays < 1) {
+    setStatus("请填写有效的创建日期和有效期天数。", "warn", 5000);
+    return;
+  }
+  const desired = { createdDate, validityDays, modified: new Date().toISOString() };
+  els.secretExpirySaveBtn.disabled = true;
+  try {
+    const token = await getToken();
+    const { content } = fileUrls(SPENDING_SETTINGS_FILE);
+    let etag = etagSpendingSettings;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+      if (etag) headers["If-Match"] = etag;
+      const res = await fetch(content, {
+        method: "PUT", headers, body: JSON.stringify({ secretExpiry: desired }),
+      });
+      if (res.ok) {
+        const item = await res.json();
+        spendingSettings = { secretExpiry: desired };
+        etagSpendingSettings = item.eTag || (await readETag(token, SPENDING_SETTINGS_FILE));
+        renderSecretExpiry();
+        setStatus("客户端密码有效期已保存。", "ok", 3000);
+        return;
+      }
+      if (res.status === 412) {
+        const fresh = await readJson(token, SPENDING_SETTINGS_FILE);
+        etag = fresh.etag;
+        continue;
+      }
+      throw new Error("保存设置失败：" + res.status + " " + (await res.text()));
+    }
+    throw new Error("保存设置冲突，重试多次仍失败。");
+  } catch (err) {
+    setStatus(err.message || String(err), "error", 7000);
+  } finally {
+    els.secretExpirySaveBtn.disabled = false;
+  }
+}
+
 
 async function loadRecords() {
   setStatus("正在从 OneDrive 载入…");
   const token = await getToken();
   await resolveFolder(token);
-  await loadCustomCats(token);
+  await Promise.all([loadCustomCats(token), loadSpendingSettings(token)]);
   rebuildLevel1();
   // Recompute visible defaults now that hiddenCats is loaded — but ONLY when the
   // form is still pristine. Records load asynchronously, so the user may already
@@ -2128,7 +2241,7 @@ function switchTab(name) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chart") { ensureArchive().then(() => renderChart()); }
-  if (name === "settings") { renderHiddenList(); }
+  if (name === "settings") { renderHiddenList(); renderSecretExpiry(); }
 }
 
 /* --------------------------- Wire up ------------------------------------- */
@@ -2149,6 +2262,7 @@ function wireEvents() {
   els.tabListBtn.onclick = () => switchTab("list");
   if (els.tabChartBtn) els.tabChartBtn.onclick = () => switchTab("chart");
   if (els.tabSettingsBtn) els.tabSettingsBtn.onclick = () => switchTab("settings");
+  if (els.secretExpiryForm) els.secretExpiryForm.addEventListener("submit", saveSecretExpiry);
   if (els.chartYear) els.chartYear.onchange = () => { chartYearVal = els.chartYear.value; renderChart(); };
   if (els.topSelect) els.topSelect.querySelectorAll(".top-btn").forEach((b) => {
     b.onclick = () => {

@@ -145,6 +145,33 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
 .secret-guide p { margin: 5px 0; }
 .secret-guide ul, .secret-guide ol { margin: 5px 0 5px 22px; padding: 0; }
 .secret-guide code { overflow-wrap: anywhere; }
+.secret-expiry-card {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #cbd9ea;
+  border-radius: 8px;
+  background: #fff;
+}
+.secret-expiry-card h4 { margin-top: 0; }
+.secret-expiry-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.secret-expiry-form .form-actions { grid-column: 1 / -1; }
+.secret-expiry-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #f1f5f9;
+}
+.secret-expiry-summary.ok { color: #166534; background: #f0fdf4; }
+.secret-expiry-summary.warn { color: #92400e; background: #fffbeb; }
+.secret-expiry-summary.error { color: #991b1b; background: #fef2f2; }
+@media (max-width: 600px) {
+  .secret-expiry-form { grid-template-columns: 1fr; }
+}
 .hidden-row {
   display: flex;
   align-items: center;
