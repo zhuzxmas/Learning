@@ -172,7 +172,22 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
 .secret-expiry-summary.warn { color: #92400e; background: #fffbeb; }
 .secret-expiry-summary.error { color: #991b1b; background: #fef2f2; }
 @media (max-width: 600px) {
-  .secret-expiry-form { grid-template-columns: minmax(0, 1fr); }
+  .secret-expiry-card { padding: 10px 8px; }
+  .secret-expiry-form {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .secret-expiry-form .field { width: 100%; margin-bottom: 10px; }
+  .secret-expiry-form input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+  .secret-expiry-form .form-actions { margin-top: 2px; }
 }
 .hidden-row {
   display: flex;
