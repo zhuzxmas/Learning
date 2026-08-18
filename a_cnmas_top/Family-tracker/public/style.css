@@ -207,6 +207,9 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    height: 40px;
+    min-height: 40px;
+    line-height: 20px;
     inline-size: -webkit-fill-available;
     min-inline-size: 0;
   }
