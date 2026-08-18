@@ -203,6 +203,7 @@ let customCats = {};       // user-added categories (delta over base CATEGORIES)
 let hiddenCats = { l1: [], l2: {}, l3: {} }; // hidden categories per level
 let etagCats = null;       // eTag of categories-custom.json
 let secretExpiry = null;   // {createdDate, validityDays, modified}, stored with categories
+let secretExpiryLoaded = false;
 let dirty = false;         // unsaved changes flag
 let spendingLoaded = false; // spending data fetched once per session (lazy + cached)
 let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显示全部 etc.
@@ -857,6 +858,7 @@ function logout() {
   archiveRecords = [];
   etagHot = null;
   etagCold = null;
+  secretExpiryLoaded = false;
   setDirty(false);
   spendingLoaded = false;
   archiveLoaded = false;
@@ -1108,10 +1110,10 @@ async function loadCustomCats(token) {
   const r = await readJson(token, CATS_FILE);
   parseCatsFile(r.data);
   etagCats = r.etag;
+  secretExpiryLoaded = true;
   applyCustomCats();
   fillCatFilters();
   renderSecretExpiry();
-  if (els.secretExpirySaveBtn) els.secretExpirySaveBtn.disabled = false;
 }
 
 // Persist custom + hidden categories with optimistic concurrency.
@@ -1167,11 +1169,22 @@ function formatLocalYmd(date) {
     String(date.getDate()).padStart(2, "0");
 }
 
+function updateSecretExpirySaveState() {
+  if (!els.secretExpirySaveBtn) return;
+  const createdDate = els.secretCreatedDate.value;
+  const validityDays = Math.floor(Number(els.secretValidityDays.value));
+  const savedDate = secretExpiry ? secretExpiry.createdDate : "";
+  const savedDays = secretExpiry ? secretExpiry.validityDays : 0;
+  els.secretExpirySaveBtn.disabled = !secretExpiryLoaded ||
+    (createdDate === savedDate && validityDays === savedDays);
+}
+
 function renderSecretExpiry() {
   if (!els.secretExpirySummary) return;
   const secret = secretExpiry;
   els.secretCreatedDate.value = secret ? secret.createdDate : "";
   els.secretValidityDays.value = secret ? secret.validityDays : "";
+  updateSecretExpirySaveState();
   els.secretExpirySummary.className = "secret-expiry-summary muted";
   if (!secret) {
     els.secretExpirySummary.textContent = "尚未设置客户端密码有效期。";
@@ -1214,7 +1227,7 @@ async function saveSecretExpiry(e) {
     renderSecretExpiry();
     setStatus(err.message || String(err), "error", 7000);
   } finally {
-    els.secretExpirySaveBtn.disabled = false;
+    updateSecretExpirySaveState();
   }
 }
 
@@ -2241,6 +2254,8 @@ function wireEvents() {
   if (els.tabChartBtn) els.tabChartBtn.onclick = () => switchTab("chart");
   if (els.tabSettingsBtn) els.tabSettingsBtn.onclick = () => switchTab("settings");
   if (els.secretExpiryForm) els.secretExpiryForm.addEventListener("submit", saveSecretExpiry);
+  if (els.secretCreatedDate) els.secretCreatedDate.addEventListener("change", updateSecretExpirySaveState);
+  if (els.secretValidityDays) els.secretValidityDays.addEventListener("input", updateSecretExpirySaveState);
   if (els.chartYear) els.chartYear.onchange = () => { chartYearVal = els.chartYear.value; renderChart(); };
   if (els.topSelect) els.topSelect.querySelectorAll(".top-btn").forEach((b) => {
     b.onclick = () => {
