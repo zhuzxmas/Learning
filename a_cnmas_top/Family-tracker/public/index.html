@@ -211,6 +211,26 @@
           <h3>管理隐藏分类</h3>
           <div id="hiddenList"></div>
         </div>
+        <div class="secret-guide">
+          <h3>MS365 Azure 应用密钥管理</h3>
+          <p>MS365 自动化使用 Entra Application：<code>Microsoft_Graph_API_CNMAS_New</code>。</p>
+          <p>当前认证组合为 <code>CLIENT_ID + CLIENT_SECRET + TENANT_ID</code>：</p>
+          <ul>
+            <li>GitHub Actions：仓库 Secrets <code>CLIENT_ID</code>、<code>CLIENT_SECRET</code>、<code>TENANT_ID</code></li>
+            <li>本地运行：<code>config.cfg</code> → <code>[azure]</code> → <code>client_id / client_secret / tenant_id</code></li>
+          </ul>
+          <h4>客户端密码到期后的更新步骤</h4>
+          <ol>
+            <li>打开 Microsoft Entra 管理中心 → 应用注册 → <code>Microsoft_Graph_API_CNMAS_New</code>。</li>
+            <li>进入“证书和密码”→“新客户端密码”，在旧密码到期前创建新密码。</li>
+            <li>立即复制新密码的 <b>Value</b>（不是 Secret ID）。</li>
+            <li>更新 GitHub 仓库 Secret <code>CLIENT_SECRET</code>。</li>
+            <li>更新本地 <code>config.cfg</code> 的 <code>[azure].client_secret</code>。</li>
+            <li>测试邮件发送和 MS365 / OneDrive for Business 工作流。</li>
+            <li>确认新密码正常后，再删除旧密码；建议新旧密码短期重叠。</li>
+          </ol>
+          <p class="muted mini">通常无需修改 CLIENT_ID 或 TENANT_ID；Personal OneDrive 的 ONEDRIVE_CLIENT_ID / refresh token 与此客户端密码无关。到期日期请在 Entra Portal 查看。</p>
+        </div>
       </div>
       </div>
 

@@ -135,6 +135,16 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   background: #fafafa;
 }
 .cat-manager h3 { margin: 0 0 8px; font-size: 15px; }
+.secret-guide {
+  margin-top: 14px; padding: 12px 14px;
+  border: 1px solid #dbe4f0; border-radius: 8px;
+  background: #f8fbff; font-size: 13px; line-height: 1.55;
+}
+.secret-guide h3 { margin: 0 0 8px; font-size: 15px; }
+.secret-guide h4 { margin: 12px 0 6px; font-size: 14px; }
+.secret-guide p { margin: 5px 0; }
+.secret-guide ul, .secret-guide ol { margin: 5px 0 5px 22px; padding: 0; }
+.secret-guide code { overflow-wrap: anywhere; }
 .hidden-row {
   display: flex;
   align-items: center;
