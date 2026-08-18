@@ -1110,6 +1110,8 @@ async function loadCustomCats(token) {
   etagCats = r.etag;
   applyCustomCats();
   fillCatFilters();
+  renderSecretExpiry();
+  if (els.secretExpirySaveBtn) els.secretExpirySaveBtn.disabled = false;
 }
 
 // Persist custom + hidden categories with optimistic concurrency.
@@ -5288,6 +5290,7 @@ function stkWireEvents() {
   initCategoryDropdowns();
   resetForm();
   wireEvents();
+  if (els.secretExpirySaveBtn) els.secretExpirySaveBtn.disabled = true;
   els.filterDate.value = todayStr(); // show today's date instead of a blank box
   fillCatFilters();                  // populate 分类 filter dropdowns
 
