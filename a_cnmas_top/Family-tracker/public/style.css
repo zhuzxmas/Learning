@@ -639,6 +639,8 @@ td:nth-child(6) {
 .money-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .money-grid > .field { min-width: 0; }
 .mini { font-size: 12px; margin-top: 6px; }
+.inc-generated td { background: #f7fbff; }
+.inc-generated-label { color: #64748b; font-size: 12px; white-space: nowrap; }
 
 /* Income table: 备注 is 9th col, strong = 实际收入 */
 #incTable td:nth-child(6) { white-space: nowrap; min-width: 0; max-width: none; }

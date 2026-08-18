@@ -2581,6 +2581,10 @@ async function incOnSubmit(e) {
 function incStartEdit(id) {
   const r = incomeRecords.find((x) => x.id === id);
   if (!r) return;
+  if (stkIsGeneratedIncome(r)) {
+    setStatus("该收入由股票清仓自动同步，只能在股票交易中修改。", "warn", 5000);
+    return;
+  }
   els.incEditId.value = r.id;
   incRebuildSelects(r.title, r.payee);
   els.incDate.value = r.date;
@@ -2605,6 +2609,10 @@ async function incDelete(id) {
   if (!incomeLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = incomeRecords.find((x) => x.id === id);
   if (!r) return;
+  if (stkIsGeneratedIncome(r)) {
+    setStatus("该收入由股票清仓自动同步，只能在股票交易中删除或调整。", "warn", 5000);
+    return;
+  }
   if (!confirm(`确定删除这条收入记录吗？\n${r.date} ${r.title} ${r.payee} ${fmtAmount(r.netAmount)}`)) return;
   const snap = incomeRecords.slice();
   incomeRecords = incomeRecords.filter((x) => x.id !== id);
@@ -2723,13 +2731,17 @@ function incRenderTable() {
       <td>${escapeHtml(r.note || "")}</td>
       <td class="actions"></td>`;
     const actions = tr.querySelector(".actions");
-    const editB = document.createElement("button");
-    editB.className = "btn btn-mini"; editB.textContent = "编辑";
-    editB.onclick = () => incStartEdit(r.id);
-    const delB = document.createElement("button");
-    delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
-    delB.onclick = () => incDelete(r.id);
-    actions.appendChild(editB); actions.appendChild(delB);
+    if (stkIsGeneratedIncome(r)) {
+      actions.innerHTML = '<span class="inc-generated-label">自动同步·只读</span>';
+    } else {
+      const editB = document.createElement("button");
+      editB.className = "btn btn-mini"; editB.textContent = "编辑";
+      editB.onclick = () => incStartEdit(r.id);
+      const delB = document.createElement("button");
+      delB.className = "btn btn-mini btn-danger"; delB.textContent = "删除";
+      delB.onclick = () => incDelete(r.id);
+      actions.appendChild(editB); actions.appendChild(delB);
+    }
     els.incBody.appendChild(tr);
   }
 
@@ -2807,8 +2819,9 @@ function incRenderChart() {
   const grand = monthTotals.reduce((a, b) => a + b, 0);
   els.incChartTitle.textContent = year + " 年度家庭收入";
   els.incChartTotal.textContent = fmtAmount(grand);
+  els.incChartTotal.classList.toggle("neg", grand < 0);
 
-  const has = grand > 0;
+  const has = rows.length > 0;
   els.incChartEmpty.classList.toggle("hidden", has);
   if (!has) { els.incWaterfall.innerHTML = ""; els.incMonthBars.innerHTML = ""; els.incCatLegend.innerHTML = ""; return; }
 
@@ -2817,7 +2830,9 @@ function incRenderChart() {
   const colorOf = new Map();
   catOrder.forEach((name, i) => colorOf.set(name, incCatColor(name, i)));
 
-  incBuildWaterfall(monthTotals, grand);
+  stkBuildWaterfall(els.incWaterfall,
+    monthTotals.map((val, i) => ({ name: MONTH_LABELS[i], val })),
+    { labelSuffix: "" });
   incBuildMonthBars(monthTotals, monthCat, colorOf);
   incBuildCatLegend(catOrder, catTotals, colorOf);
 }
@@ -2865,7 +2880,12 @@ function incBuildWaterfall(monthTotals, grand) {
 
 // Chart 2: per-month stacked bar, colored by income category.
 function incBuildMonthBars(monthTotals, monthCat, colorOf) {
-  const max = Math.max(...monthTotals, 1);
+  let maxSide = 1;
+  for (const m of monthCat) {
+    let pos = 0, neg = 0;
+    for (const v of m.values()) { if (v >= 0) pos += v; else neg += -v; }
+    maxSide = Math.max(maxSide, pos, neg);
+  }
   const TRACK_PX = 190; // approx track pixel height for label-fit estimation
   els.incMonthBars.innerHTML = "";
   for (let m = 0; m < 12; m++) {
@@ -2874,15 +2894,27 @@ function incBuildMonthBars(monthTotals, monthCat, colorOf) {
     col.className = "mb-col";
     const segs = [...monthCat[m].entries()].sort((a, b) => b[1] - a[1]);
     let inner = "";
-    for (const [name, val] of segs) {
-      const h = (val / max) * 100;
-      const px = (val / max) * TRACK_PX;
+    let posCum = 0, negCum = 0;
+    for (const [name, val] of segs.filter((x) => x[1] >= 0)) {
+      const h = (val / maxSide) * 50;
+      const bottom = 50 + (posCum / maxSide) * 50;
+      const px = (val / maxSide) * (TRACK_PX / 2);
       const label = px >= 16 ? `<span class="mb-seg-label">${fmtInt(val)}</span>` : "";
-      inner += `<div class="mb-seg" style="height:${h}%;background:${colorOf.get(name) || "#118DFF"}" title="${escapeHtml(name)}：${fmtInt(val)}">${label}</div>`;
+      inner += `<div class="mb-seg" style="position:absolute;left:0;bottom:${bottom}%;height:${h}%;background:${colorOf.get(name) || "#118DFF"}" title="${escapeHtml(name)}：${fmtInt(val)}">${label}</div>`;
+      posCum += val;
+    }
+    for (const [name, val] of segs.filter((x) => x[1] < 0)) {
+      const mag = -val;
+      const h = (mag / maxSide) * 50;
+      const bottom = 50 - ((negCum + mag) / maxSide) * 50;
+      const px = (mag / maxSide) * (TRACK_PX / 2);
+      const label = px >= 16 ? `<span class="mb-seg-label">${fmtInt(val)}</span>` : "";
+      inner += `<div class="mb-seg" style="position:absolute;left:0;bottom:${bottom}%;height:${h}%;background:${colorOf.get(name) || "#D64550"}" title="${escapeHtml(name)}：${fmtInt(val)}">${label}</div>`;
+      negCum += mag;
     }
     col.innerHTML =
       `<div class="mb-val">${total ? fmtInt(total) : ""}</div>` +
-      `<div class="mb-track">${inner}</div>` +
+      `<div class="mb-track"><div class="stk-zero" style="bottom:50%"></div>${inner}</div>` +
       `<div class="mb-name">${MONTH_LABELS[m]}</div>`;
     els.incMonthBars.appendChild(col);
   }
@@ -3991,6 +4023,133 @@ function stkNormFees(f) {
 function stkCloneFees(f) {
   return { a: Object.assign({}, f.a), h: Object.assign({}, f.h) };
 }
+
+const STK_INCOME_SOURCE_TYPE = "closed-cycle";
+const STK_INCOME_ID_PREFIX = "generated:stock-close:v1:";
+
+function stkIncomePayee(accountName) {
+  const s = String(accountName || "").trim();
+  if (/^8/.test(s)) return "Nathan Zhu";
+  if (/^15/.test(s) && /教|教育/.test(s)) return "Cloud Zhu";
+  return "";
+}
+
+function stkSortTrades(records) {
+  return records.map((r, i) => ({ r, i })).sort((a, b) => {
+    const byDate = String(a.r.date || "").localeCompare(String(b.r.date || ""));
+    if (byDate) return byDate;
+    const ao = Number(a.r.tradeOrder), bo = Number(b.r.tradeOrder);
+    if (isFinite(ao) && isFinite(bo) && ao !== bo) return ao - bo;
+    return a.i - b.i;
+  }).map((x) => x.r);
+}
+
+function stkDeriveClosedCycles(records) {
+  const groups = new Map();
+  for (const r of records) {
+    const key = (r.code || "") + "\u0000" + (r.account || "");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const cycles = [];
+  const unmatchedDividends = [];
+  for (const [key, unsorted] of groups) {
+    const trades = stkSortTrades(unsorted);
+    const split = key.indexOf("\u0000");
+    const code = key.slice(0, split), accountName = key.slice(split + 1);
+    const completed = [];
+    let net = 0, sum = 0, startDate = "", txIds = [];
+    for (const r of trades) {
+      const sh = Number(r.shares) || 0;
+      const total = Number(r.total) || 0;
+      if (sh === 0) {
+        if (Math.abs(net) >= 0.5) {
+          sum += total; txIds.push(r.id);
+        } else if (completed.length) {
+          const last = completed[completed.length - 1];
+          last.pnl = round2(last.pnl + total);
+          last.transactionIds.push(r.id);
+          if (!last.eligible) unmatchedDividends.push(r);
+          if (String(r.modified || r.createdAt || "") > String(last.modified || "")) {
+            last.modified = r.modified || r.createdAt || last.modified;
+          }
+        } else {
+          unmatchedDividends.push(r);
+        }
+        continue;
+      }
+      if (!startDate) startDate = String(r.date || "");
+      net += sh;
+      sum += total;
+      txIds.push(r.id);
+      if (Math.abs(net) < 0.5) {
+        const cycle = {
+          code, account: accountName, startDate,
+          endDate: String(r.date || ""), closingTransactionId: r.id,
+          transactionIds: txIds.slice(), pnl: round2(sum),
+          eligible: r.incomeSyncEligible === true,
+          modified: r.modified || r.createdAt || "",
+        };
+        completed.push(cycle); cycles.push(cycle);
+        net = 0; sum = 0; startDate = ""; txIds = [];
+      }
+    }
+  }
+  return { cycles, unmatchedDividends };
+}
+
+function stkFindOversell(records, onlyCode, onlyAccount) {
+  const groups = new Map();
+  for (const r of records) {
+    const key = (r.code || "") + "\u0000" + (r.account || "");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  for (const [key, rows] of groups) {
+    const [groupCode, groupAccount] = key.split("\u0000");
+    if (onlyCode && (groupCode !== onlyCode || groupAccount !== onlyAccount)) continue;
+    let net = 0;
+    for (const r of stkSortTrades(rows)) {
+      const sh = Number(r.shares) || 0;
+      if (sh === 0) continue;
+      if (sh > 0 && net + sh > 0.5) {
+        return { code: groupCode, account: groupAccount, date: r.date,
+          available: Math.max(0, -net), selling: sh };
+      }
+      net += sh;
+      if (Math.abs(net) < 0.5) net = 0;
+    }
+  }
+  return null;
+}
+
+function stkIsGeneratedIncome(r) {
+  return !!(r && r.generated === true && r.source &&
+    r.source.module === "stock" && r.source.type === STK_INCOME_SOURCE_TYPE);
+}
+
+function stkBuildGeneratedIncome(cycle) {
+  const payee = stkIncomePayee(cycle.account);
+  if (!payee || !cycle.eligible) return null;
+  const pnl = round2(cycle.pnl);
+  return {
+    id: STK_INCOME_ID_PREFIX + cycle.closingTransactionId,
+    title: "股票投资收入", payee,
+    date: cycle.endDate,
+    baseSalary: 0, overtime: 0, bonus: 0, otherIncome: pnl,
+    grossTotal: pnl, socialSecurity: 0, housingFund: 0,
+    incomeTax: 0, netAmount: pnl,
+    note: `自动同步清仓：${cycle.code} / ${cycle.account}；周期 ${cycle.startDate} 至 ${cycle.endDate}；${cycle.transactionIds.length} 笔，含手续费及红利`,
+    createdBy: "股票模块自动同步", modified: cycle.modified,
+    generated: true,
+    source: {
+      module: "stock", type: STK_INCOME_SOURCE_TYPE, version: 1,
+      sourceKey: cycle.code + "\u0000" + cycle.account,
+      closingTransactionId: cycle.closingTransactionId,
+      transactionIds: cycle.transactionIds.slice(),
+    },
+  };
+}
 function stkMergeMeta(target, src) {
   src = stkNormMeta(src);
   const uni = (t, s) => { for (const x of s) if (!t.includes(x)) t.push(x); };
@@ -4135,6 +4294,16 @@ async function stkLoad() {
   stkRender();
   stkRenderHidden();
   setStatus("已载入 " + stockRecords.length + " 条交易记录。", "ok", 2000);
+  try {
+    const sync = await stkReconcileIncome();
+    if (sync.unmappedCycles) {
+      setStatus("股票已载入；存在未配置家庭成员的账户，清仓收入同步待处理。", "warn", 7000);
+    } else if (sync.unmatchedDividends) {
+      setStatus("股票已载入；有红利未匹配到上线后的自动清仓周期。", "warn", 7000);
+    }
+  } catch (e) {
+    setStatus("股票已载入，家庭收入同步待重试：" + (e.message || e), "warn", 7000);
+  }
 }
 
 async function stkSaveMeta() {
@@ -4164,7 +4333,12 @@ async function stkPersist(op) {
     token, STOCK_RECORDS_FILE, () => ({ records: stockRecords }), stkEtag,
     (fresh) => {
       const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
-      stockRecords = stkApplyOp(list, op);
+      const merged = stkApplyOp(list, op);
+      const oversell = stkFindOversell(merged);
+      if (oversell) {
+        throw new Error(`合并最新交易后会超卖：${oversell.code} / ${oversell.account}`);
+      }
+      stockRecords = merged;
     }
   );
   setStatus("已保存。", "ok", 3000);
@@ -4175,6 +4349,62 @@ async function stkPersist(op) {
   } catch (e) {
     setStatus("交易已保存，但 Excel(CSV) 同步失败：" + (e.message || e), "warn", 6000);
   }
+}
+
+async function stkReconcileIncome() {
+  const token = await getToken();
+  await incResolveFolder(token);
+  const derived = stkDeriveClosedCycles(stockRecords);
+  const desired = derived.cycles
+    .map(stkBuildGeneratedIncome).filter(Boolean);
+  const unmappedCycles = derived.cycles
+    .filter((c) => c.eligible && !stkIncomePayee(c.account)).length;
+  const unmatchedDividends = derived.unmatchedDividends.length;
+  let current = await incReadJson(token, INCOME_RECORDS_FILE);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const all = (current.data && Array.isArray(current.data.records))
+      ? current.data.records : [];
+    const manual = all.filter((r) => !stkIsGeneratedIncome(r));
+    const existingGenerated = all.filter(stkIsGeneratedIncome)
+      .slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const desiredSorted = desired.slice()
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted)) {
+      return {
+        generatedCount: desired.length,
+        unmappedCycles,
+        unmatchedDividends,
+      };
+    }
+    const merged = manual.concat(desired);
+    const { content } = incFileUrls(INCOME_RECORDS_FILE);
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (current.etag) headers["If-Match"] = current.etag;
+    const res = await fetch(content, {
+      method: "PUT", headers, body: JSON.stringify({ records: merged }),
+    });
+    if (res.ok) {
+      const item = await res.json();
+      const newEtag = item.eTag || (await incReadETag(token, INCOME_RECORDS_FILE));
+      await idbSet(INCOME_RECORDS_FILE, newEtag, merged);
+      if (incomeLoaded) {
+        incomeRecords = merged;
+        incEtag = newEtag;
+        incRender();
+      }
+      return {
+        generatedCount: desired.length,
+        unmappedCycles,
+        unmatchedDividends,
+      };
+    }
+    if (res.status === 412) {
+      current = await incReadJson(token, INCOME_RECORDS_FILE);
+      continue;
+    }
+    throw new Error("家庭收入同步失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("家庭收入同步冲突，重试多次仍失败。");
 }
 
 /* ---------------------------- Stock form --------------------------------- */
@@ -4298,6 +4528,8 @@ async function stkOnSubmit(e) {
         total: round2(stkNum(els.stkTotal)),
       }
     : stkComputeDerived(code, price, shares, fx);
+  const oldRec = isEdit ? stockRecords.find((r) => r.id === els.stkEditId.value) : null;
+  const nowIso = new Date().toISOString();
   const rec = {
     id: els.stkEditId.value || uuid(),
     code: code,
@@ -4312,7 +4544,10 @@ async function stkOnSubmit(e) {
     transferFee: d.transferFee,
     total: d.total,
     createdBy: (account && (account.name || account.username)) || "",
-    modified: new Date().toISOString(),
+    createdAt: (oldRec && oldRec.createdAt) || nowIso,
+    tradeOrder: oldRec ? oldRec.tradeOrder : Date.now(),
+    incomeSyncEligible: oldRec ? oldRec.incomeSyncEligible === true : true,
+    modified: nowIso,
   };
 
   const snap = stockRecords.slice();
@@ -4323,13 +4558,37 @@ async function stkOnSubmit(e) {
   } else {
     stockRecords.push(rec);
   }
+  let oversell = stkFindOversell(stockRecords, code, els.stkAccount.value);
+  if (!oversell && oldRec && (oldRec.code !== code || oldRec.account !== els.stkAccount.value)) {
+    oversell = stkFindOversell(stockRecords, oldRec.code, oldRec.account);
+  }
+  if (oversell) {
+    stockRecords = snap;
+    setStatus(`卖出股数超过当前持仓，不能保存：${oversell.code} / ${oversell.account}，可卖 ${fmtInt(oversell.available)}，本次卖出 ${fmtInt(oversell.selling)}。`, "warn", 8000);
+    return;
+  }
+  const isNewClose = !isEdit && stkDeriveClosedCycles(stockRecords).cycles
+    .some((c) => c.closingTransactionId === rec.id && c.eligible);
   els.stkAddBtn.disabled = true;
   stkFillFilters();
   stkRender();
   try {
     await stkPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
     stkResetForm();
-    setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
+    try {
+      const sync = await stkReconcileIncome();
+      if (sync.unmappedCycles) {
+        setStatus("股票已保存；存在未配置家庭成员的账户，清仓收入同步待处理。", "warn", 8000);
+      } else if (sync.unmatchedDividends) {
+        setStatus("股票已保存；红利未匹配到上线后的自动清仓周期，请手工调整家庭收入。", "warn", 8000);
+      } else {
+        setStatus(isNewClose
+          ? "已添加并保存；清仓盈亏已自动添加到家庭收入。"
+          : (isEdit ? "已保存修改；家庭收入已同步。" : "已添加并保存。"), "ok", 5000);
+      }
+    } catch (syncErr) {
+      setStatus("股票已保存，家庭收入同步待重试：" + (syncErr.message || syncErr), "warn", 8000);
+    }
   } catch (err) {
     stockRecords = snap; stkRender();
     setStatus("保存出错：" + (err.message || err), "error");
@@ -4370,9 +4629,21 @@ async function stkDelete(id) {
   if (!confirm(`确定删除这条交易记录吗？\n${r.date} ${r.code} ${r.account} ${fmtAmount(r.total)}`)) return;
   const snap = stockRecords.slice();
   stockRecords = stockRecords.filter((x) => x.id !== id);
+  const oversell = stkFindOversell(stockRecords, r.code, r.account);
+  if (oversell) {
+    stockRecords = snap;
+    setStatus(`删除后会导致卖出股数超过持仓，不能删除：${oversell.code} / ${oversell.account}，可卖 ${fmtInt(oversell.available)}，已有卖出 ${fmtInt(oversell.selling)}。`, "warn", 8000);
+    return;
+  }
   stkRender();
   try {
     await stkPersist({ type: "delete", id });
+    try {
+      await stkReconcileIncome();
+      setStatus("交易已删除，家庭收入已同步。", "ok", 4000);
+    } catch (syncErr) {
+      setStatus("交易已删除，家庭收入同步待重试：" + (syncErr.message || syncErr), "warn", 8000);
+    }
   } catch (err) {
     stockRecords = snap; stkRender();
     setStatus("删除失败：" + (err.message || err), "error");
@@ -4675,6 +4946,7 @@ function stkFeesByYear() {
 function stkBuildWaterfall(container, steps, opts) {
   opts = opts || {};
   const hl = opts.highlightYear;
+  const labelSuffix = opts.labelSuffix === undefined ? " 年" : opts.labelSuffix;
   const posColor = opts.posColor || "#26890D";
   const negColor = opts.negColor || "#D64550";
   const colorOf = opts.colorOf || null;
@@ -4743,7 +5015,7 @@ function stkBuildWaterfall(container, steps, opts) {
         fills +
         (r.val ? `<div class="wf-val" style="bottom:${pct(r.high)}%">${fmtInt(r.val)}</div>` : "") +
       `</div>` +
-      `<div class="wf-name">${r.name} 年</div>`;
+      `<div class="wf-name">${r.name}${labelSuffix}</div>`;
     container.appendChild(col);
   });
 
@@ -5947,7 +6219,8 @@ function celRender() {
     if (r.date !== prevDate) { if (prevDate !== null) dateBand ^= 1; prevDate = r.date; }
     const amt = Number(r.amount) || 0;
     const tr = document.createElement("tr");
-    tr.className = dateBand ? "date-band-b" : "date-band-a";
+    tr.className = (dateBand ? "date-band-b" : "date-band-a") +
+      (stkIsGeneratedIncome(r) ? " inc-generated" : "");
     tr.dataset.date = r.date || "";
     tr.innerHTML = `
       <td>${escapeHtml(r.date)}</td>
