@@ -4139,7 +4139,7 @@ function stkBuildGeneratedIncome(cycle) {
     baseSalary: 0, overtime: 0, bonus: 0, otherIncome: pnl,
     grossTotal: pnl, socialSecurity: 0, housingFund: 0,
     incomeTax: 0, netAmount: pnl,
-    note: `自动同步清仓：${cycle.code} / ${cycle.account}；周期 ${cycle.startDate} 至 ${cycle.endDate}；${cycle.transactionIds.length} 笔，含手续费及红利`,
+    note: `${cycle.code} / ${cycle.account}；周期 ${cycle.startDate} 至 ${cycle.endDate}`,
     createdBy: "股票模块自动同步", modified: cycle.modified,
     generated: true,
     source: {
