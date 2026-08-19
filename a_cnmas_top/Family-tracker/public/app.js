@@ -9953,6 +9953,7 @@ let travelMarkerLayer = null;  // TMap.MultiMarker layer
 let travelInfoWindow = null;   // currently open info window
 let travelMapInited = false;   // map + script ready
 let travelPickedCoords = null; // {lat, lng} from the latest map click
+let travelMarkerClickAt = 0;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelPeoplePool() {
@@ -10128,6 +10129,7 @@ async function travelEnsureMap() {
     viewMode: "2D",
   });
   travelMapObj.on("click", (e) => {
+    if (Date.now() - travelMarkerClickAt < 500) return;
     const ll = travelLL(e.latLng);
     if (travelInfoWindow) travelInfoWindow.close();
     travelShowCoords(ll.lat, ll.lng);
@@ -10183,17 +10185,23 @@ function travelCreateMarkerLayer(geometries) {
     },
     geometries,
   });
+  if (travelMarkerLayer.setStopPropagation) travelMarkerLayer.setStopPropagation(true);
   travelMarkerLayer.on("click", (e) => {
+    travelMarkerClickAt = Date.now();
     const g = e.geometry;
-    const r = travelRecords.find((x) => x.id === g.id);
+    const recordId = (g.properties && g.properties.id) || g.id;
+    const r = travelRecords.find((x) => x.id === recordId);
     if (!r) return;
     if (travelInfoWindow) travelInfoWindow.close();
-    const pos = travelLL(g.position);
+    const pos = g.position ? travelLL(g.position) : {
+      lat: Number(r.latitude), lng: Number(r.longitude),
+    };
     travelInfoWindow = new TMap.InfoWindow({
       map: travelMapObj,
       position: new TMap.LatLng(pos.lat, pos.lng),
       content: travelInfoHtml(r),
     });
+    if (travelInfoWindow.open) travelInfoWindow.open();
   });
 }
 
