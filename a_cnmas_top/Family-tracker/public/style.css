@@ -1238,20 +1238,17 @@ td:nth-child(6) {
   color: #888; background: #fafafa; margin: 0;
 }
 .travel-coord-panel {
-  position: absolute;
-  top: 12px; left: 12px;
-  z-index: 10;
-  background: rgba(255, 255, 255, .96);
+  margin-top: 10px;
+  background: #fff;
   border: 1px solid #ddd;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
   padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 6px;
-  min-width: 210px;
+  align-items: end;
 }
-.travel-coord-title { font-weight: 700; font-size: 13px; color: #1b3a12; }
+.travel-coord-title { grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #1b3a12; }
 .travel-coord-row {
   display: flex;
   align-items: center;
@@ -1269,6 +1266,10 @@ td:nth-child(6) {
   font-family: ui-monospace, Consolas, monospace;
   user-select: text;
   -webkit-user-select: text;
+}
+.travel-coord-panel > .btn { align-self: stretch; }
+@media (max-width: 640px) {
+  .travel-coord-panel { grid-template-columns: 1fr; }
 }
 .travel-people { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 6px; }
 .travel-people-item { font-size: 14px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }

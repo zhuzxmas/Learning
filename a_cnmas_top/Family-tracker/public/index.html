@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=31" />
+  <link rel="stylesheet" href="style.css?v=32" />
 </head>
 <body>
   <header class="topbar">
@@ -746,21 +746,21 @@
           </div>
           <div class="travel-map-wrap">
             <div id="travelMap"></div>
-            <div id="travelCoordPanel" class="travel-coord-panel hidden">
-              <div class="travel-coord-title">点击地图取坐标</div>
-              <div class="travel-coord-row">
-                <span>经度</span>
-                <code id="travelCoordLng">—</code>
-                <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLngBtn">复制</button>
-              </div>
-              <div class="travel-coord-row">
-                <span>纬度</span>
-                <code id="travelCoordLat">—</code>
-                <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLatBtn">复制</button>
-              </div>
-              <button type="button" class="btn btn-primary btn-mini" id="travelCoordFillBtn">填入新记录</button>
-            </div>
             <p class="muted" id="travelMapEmpty">正在加载地图…</p>
+          </div>
+          <div id="travelCoordPanel" class="travel-coord-panel hidden">
+            <div class="travel-coord-title">地图坐标</div>
+            <div class="travel-coord-row">
+              <span>经度</span>
+              <code id="travelCoordLng">—</code>
+              <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLngBtn">复制</button>
+            </div>
+            <div class="travel-coord-row">
+              <span>纬度</span>
+              <code id="travelCoordLat">—</code>
+              <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLatBtn">复制</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-mini" id="travelCoordFillBtn">填入新记录</button>
           </div>
         </div>
       </div>
@@ -1984,6 +1984,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>

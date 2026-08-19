@@ -9952,8 +9952,6 @@ let travelMapObj = null;       // TMap.Map instance
 let travelMarkerLayer = null;  // TMap.MultiMarker layer
 let travelInfoWindow = null;   // currently open info window
 let travelMapInited = false;   // map + script ready
-let travelIgnoreNextMapClick = false;
-let travelPanelPointerAt = 0;   // timestamp of the last pointerdown on the coord panel
 let travelPickedCoords = null; // {lat, lng} from the latest map click
 let travelEventsWired = false;
 
@@ -10131,15 +10129,6 @@ async function travelEnsureMap() {
     viewMode: "2D",
   });
   travelMapObj.on("click", (e) => {
-    if (travelIgnoreNextMapClick) { travelIgnoreNextMapClick = false; return; }
-    // A click that began on the floating coord panel (pointerdown within the
-    // last 500ms) must never re-trigger the picker — TMap's document-level
-    // click listener also fires for panel clicks and originalEvent is not
-    // always present to check the target.
-    if (Date.now() - travelPanelPointerAt < 500) return;
-    // Belt-and-suspenders: also ignore clicks whose native target lives inside
-    // the panel, when originalEvent is available.
-    if (e.originalEvent && els.travelCoordPanel.contains(e.originalEvent.target)) return;
     const ll = travelLL(e.latLng);
     if (travelInfoWindow) travelInfoWindow.close();
     travelShowCoords(ll.lat, ll.lng);
@@ -10183,13 +10172,9 @@ function travelValidCoords(r) {
 }
 
 function travelCreateMarkerLayer(geometries) {
-  if (travelMarkerLayer) {
-    try { travelMarkerLayer.setGeometries([]); } catch {}
-    try { travelMarkerLayer.setMap(null); } catch {}
-    travelMarkerLayer = null;
-  }
   travelMarkerLayer = new TMap.MultiMarker({
     map: travelMapObj,
+    isStopPropagation: true,
     styles: {
       default: new TMap.MarkerStyle({
         width: 25, height: 35,
@@ -10200,7 +10185,6 @@ function travelCreateMarkerLayer(geometries) {
     geometries,
   });
   travelMarkerLayer.on("click", (e) => {
-    travelIgnoreNextMapClick = true;
     const g = e.geometry;
     const r = travelRecords.find((x) => x.id === g.id);
     if (!r) return;
@@ -10226,7 +10210,13 @@ function travelRenderMarkers() {
     properties: { id: r.id },
   }));
   if (travelInfoWindow) { travelInfoWindow.close(); travelInfoWindow = null; }
-  travelCreateMarkerLayer(geoms);
+  if (!travelMarkerLayer) {
+    travelCreateMarkerLayer(geoms);
+    return;
+  }
+  const oldIds = travelMarkerLayer.getGeometries().map((g) => g.id);
+  if (oldIds.length) travelMarkerLayer.remove(oldIds);
+  if (geoms.length) travelMarkerLayer.add(geoms);
 }
 
 // ---- click-to-copy coordinates -------------------------------------------
@@ -10458,16 +10448,7 @@ async function travelDelete(id) {
 function travelWireEvents() {
   if (travelEventsWired) return;
   travelEventsWired = true;
-  // Bind floating controls first; unrelated wiring failures must not disable them.
-  if (els.travelCoordPanel) {
-    const blockMap = (e) => {
-      travelPanelPointerAt = Date.now();
-      e.stopPropagation();
-    };
-    els.travelCoordPanel.addEventListener("pointerdown", blockMap, true);
-    els.travelCoordPanel.addEventListener("touchstart", blockMap, true);
-    els.travelCoordPanel.addEventListener("click", blockMap);
-  }
+  // Bind coordinate controls first; unrelated wiring failures must not disable them.
   if (els.travelCopyLngBtn) els.travelCopyLngBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lng"); };
   if (els.travelCopyLatBtn) els.travelCopyLatBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lat"); };
   if (els.travelCoordFillBtn) els.travelCoordFillBtn.onclick = (e) => { e.stopPropagation(); travelCoordFill(); };
