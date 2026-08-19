@@ -1267,6 +1267,8 @@ td:nth-child(6) {
   padding: 4px 8px;
   font-size: 13px;
   font-family: ui-monospace, Consolas, monospace;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .travel-people { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 6px; }
 .travel-people-item { font-size: 14px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }

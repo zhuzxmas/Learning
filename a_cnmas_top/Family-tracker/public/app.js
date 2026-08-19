@@ -9954,6 +9954,8 @@ let travelInfoWindow = null;   // currently open info window
 let travelMapInited = false;   // map + script ready
 let travelIgnoreNextMapClick = false;
 let travelPanelPointerAt = 0;   // timestamp of the last pointerdown on the coord panel
+let travelPickedCoords = null; // {lat, lng} from the latest map click
+let travelEventsWired = false;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelPeoplePool() {
@@ -10045,6 +10047,7 @@ async function travelLoad(force) {
 
 // ---- person filter -------------------------------------------------------
 function travelRenderPersonFilter() {
+  const selected = els.travelPersonFilter.value || "__all__";
   const names = {};
   travelRecords.forEach((r) => travelPeopleOf(r).forEach((n) => { names[n] = true; }));
   const opts = Object.keys(names).sort();
@@ -10057,6 +10060,7 @@ function travelRenderPersonFilter() {
     o.value = n; o.textContent = n;
     els.travelPersonFilter.appendChild(o);
   });
+  els.travelPersonFilter.value = opts.includes(selected) ? selected : "__all__";
 }
 
 // ---- list rendering ------------------------------------------------------
@@ -10140,33 +10144,6 @@ async function travelEnsureMap() {
     if (travelInfoWindow) travelInfoWindow.close();
     travelShowCoords(ll.lat, ll.lng);
   });
-  // Create the marker layer ONCE with empty geometries, then keep it and refresh
-  // via setGeometries() (the documented way to update marker data). Rebuilding
-  // the layer on every render is unreliable and made markers disappear.
-  travelMarkerLayer = new TMap.MultiMarker({
-    map: travelMapObj,
-    styles: {
-      default: new TMap.MarkerStyle({
-        width: 25, height: 35,
-        anchor: { x: 12, y: 35 },
-        src: TRAVEL_MARKER_SRC,
-      }),
-    },
-    geometries: [],
-  });
-  travelMarkerLayer.on("click", (e) => {
-    travelIgnoreNextMapClick = true;
-    const g = e.geometry;
-    const r = travelRecords.find((x) => x.id === g.id);
-    if (!r) return;
-    if (travelInfoWindow) travelInfoWindow.close();
-    const pos = travelLL(g.position);
-    travelInfoWindow = new TMap.InfoWindow({
-      map: travelMapObj,
-      position: new TMap.LatLng(pos.lat, pos.lng),
-      content: travelInfoHtml(r),
-    });
-  });
   window.addEventListener("resize", () => { if (travelMapObj) travelMapObj.resize(); });
   travelMapInited = true;
   travelMapObj.resize();
@@ -10200,62 +10177,96 @@ function travelLL(ll) {
 }
 
 const TRAVEL_MARKER_SRC = "https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png";
-// Refresh marker data via setGeometries() — the documented way to update a
-// MultiMarker. Each geometry explicitly references the "default" styleId so the
-// marker icon is applied (per docs, a geometry without a matching styleId falls
-// back to the default drawing style).
+function travelValidCoords(r) {
+  const lat = Number(r && r.latitude), lng = Number(r && r.longitude);
+  return isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+function travelCreateMarkerLayer(geometries) {
+  if (travelMarkerLayer) {
+    try { travelMarkerLayer.setGeometries([]); } catch {}
+    try { travelMarkerLayer.setMap(null); } catch {}
+    travelMarkerLayer = null;
+  }
+  travelMarkerLayer = new TMap.MultiMarker({
+    map: travelMapObj,
+    styles: {
+      default: new TMap.MarkerStyle({
+        width: 25, height: 35,
+        anchor: { x: 12, y: 35 },
+        src: TRAVEL_MARKER_SRC,
+      }),
+    },
+    geometries,
+  });
+  travelMarkerLayer.on("click", (e) => {
+    travelIgnoreNextMapClick = true;
+    const g = e.geometry;
+    const r = travelRecords.find((x) => x.id === g.id);
+    if (!r) return;
+    if (travelInfoWindow) travelInfoWindow.close();
+    const pos = travelLL(g.position);
+    travelInfoWindow = new TMap.InfoWindow({
+      map: travelMapObj,
+      position: new TMap.LatLng(pos.lat, pos.lng),
+      content: travelInfoHtml(r),
+    });
+  });
+}
+
 function travelRenderMarkers() {
-  if (!travelMarkerLayer || typeof TMap === "undefined") return;
   const filtered = travelFilteredRecords();
-  const geoms = filtered.map((r) => ({
+  const valid = filtered.filter(travelValidCoords);
+  els.travelMapCount.textContent = "显示 " + valid.length + " / " + travelRecords.length + " 处";
+  if (!travelMapObj || typeof TMap === "undefined") return;
+  const geoms = valid.map((r) => ({
     id: r.id,
     styleId: "default",
     position: new TMap.LatLng(r.latitude, r.longitude),
     properties: { id: r.id },
   }));
-  // A single setGeometries() call doesn't reliably repaint this GL build (data
-  // updates but the canvas keeps old markers). Clear-then-set plus a visibility
-  // toggle forces the renderer to redraw the refreshed marker set.
-  travelMarkerLayer.setGeometries([]);
-  travelMarkerLayer.setGeometries(geoms);
-  travelMarkerLayer.setVisible(false);
-  travelMarkerLayer.setVisible(true);
-  els.travelMapCount.textContent = "显示 " + filtered.length + " / " + travelRecords.length + " 处";
+  if (travelInfoWindow) { travelInfoWindow.close(); travelInfoWindow = null; }
+  travelCreateMarkerLayer(geoms);
 }
 
 // ---- click-to-copy coordinates -------------------------------------------
 function travelShowCoords(lat, lng) {
   if (lat == null || lng == null) {
+    travelPickedCoords = null;
     els.travelCoordPanel.classList.add("hidden");
     return;
   }
+  travelPickedCoords = { lat: Number(lat), lng: Number(lng) };
   els.travelCoordPanel.classList.remove("hidden");
-  els.travelCoordLat.textContent = lat.toFixed(6);
-  els.travelCoordLng.textContent = lng.toFixed(6);
-  els.travelCoordFillBtn.dataset.lat = lat.toFixed(6);
-  els.travelCoordFillBtn.dataset.lng = lng.toFixed(6);
+  els.travelCoordLat.textContent = travelPickedCoords.lat.toFixed(6);
+  els.travelCoordLng.textContent = travelPickedCoords.lng.toFixed(6);
 }
 async function travelCopyCoord(which) {
-  const v = which === "lng" ? els.travelCoordLng.textContent : els.travelCoordLat.textContent;
-  if (v === "—") { setStatus("请先点击地图取坐标。", "warn", 2000); return; }
+  if (!travelPickedCoords) { setStatus("请先点击地图取坐标。", "warn", 2000); return; }
+  const v = travelPickedCoords[which].toFixed(6);
+  let copied = false;
+  const ta = document.createElement("textarea");
+  ta.value = v;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { copied = document.execCommand("copy") === true; } catch { copied = false; }
+  ta.remove();
   try {
-    await navigator.clipboard.writeText(v);
+    if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(v);
+      copied = true;
+    }
   } catch {
-    const ta = document.createElement("textarea");
-    ta.value = v; document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); } catch {}
-    ta.remove();
+    // The synchronous fallback above already had the original user gesture.
   }
+  if (!copied) { setStatus("复制失败，请长按坐标手动复制。", "error", 3000); return; }
   setStatus(which === "lng" ? "经度已复制：" + v : "纬度已复制：" + v, "ok", 1500);
 }
 function travelCoordFill() {
-  const lat = els.travelCoordFillBtn.dataset.lat;
-  const lng = els.travelCoordFillBtn.dataset.lng;
-  travelIgnoreNextMapClick = true;   // swallow any map click from this interaction
-  travelNew();                        // always jump to the 旅行记录 new-record form
-  if (lat && lng) {
-    els.travelLatInput.value = lat;
-    els.travelLngInput.value = lng;
+  const picked = travelPickedCoords;
+  travelNew(picked);
+  if (picked) {
     setStatus("经纬度已填入表单，可补充地点/日期后保存。", "ok", 2500);
   } else {
     setStatus("未选择坐标，请在地图上点击后再填入。", "warn", 2500);
@@ -10347,7 +10358,8 @@ async function travelRemoveCustom(name) {
     setStatus("已删除，但同步到云端失败：" + (e.message || e), "error");
   }
 }
-function travelNew() {
+function travelNew(coords) {
+  travelSwitchTab("edit");
   els.travelEditTitle.textContent = "新建记录";
   els.travelEditId.value = "";
   els.travelTitleInput.value = "";
@@ -10358,7 +10370,10 @@ function travelNew() {
   // The people-box render must never block navigation to the form.
   try { travelRenderPeopleBox(new Set()); } catch (e) { console.warn("travelRenderPeopleBox:", e); }
   els.travelPeopleExtra.value = "";
-  travelSwitchTab("edit");
+  if (coords) {
+    els.travelLatInput.value = Number(coords.lat).toFixed(6);
+    els.travelLngInput.value = Number(coords.lng).toFixed(6);
+  }
 }
 function travelEdit(id) {
   const r = travelRecords.find((x) => x.id === id);
@@ -10441,24 +10456,27 @@ async function travelDelete(id) {
 
 // ---- wiring --------------------------------------------------------------
 function travelWireEvents() {
+  if (travelEventsWired) return;
+  travelEventsWired = true;
+  // Bind floating controls first; unrelated wiring failures must not disable them.
+  if (els.travelCoordPanel) {
+    const blockMap = (e) => {
+      travelPanelPointerAt = Date.now();
+      e.stopPropagation();
+    };
+    els.travelCoordPanel.addEventListener("pointerdown", blockMap, true);
+    els.travelCoordPanel.addEventListener("touchstart", blockMap, true);
+    els.travelCoordPanel.addEventListener("click", blockMap);
+  }
+  if (els.travelCopyLngBtn) els.travelCopyLngBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lng"); };
+  if (els.travelCopyLatBtn) els.travelCopyLatBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lat"); };
+  if (els.travelCoordFillBtn) els.travelCoordFillBtn.onclick = (e) => { e.stopPropagation(); travelCoordFill(); };
   els.travelTabMapBtn.onclick = () => travelSwitchTab("map");
   els.travelTabListBtn.onclick = () => { travelLoad(); travelSwitchTab("list"); };
   els.travelPersonFilter.addEventListener("change", () => travelRenderMarkers());
   els.travelRefreshBtn.onclick = () => { travelLoad(true); travelEnsureMap(); };
   els.travelSearch.addEventListener("input", () => travelRenderList());
   els.travelNewBtn.onclick = () => travelNew();
-  // The coord panel floats over the map — stop propagation so clicks on it
-  // never reach the map's click-to-pick-coordinates handler, and record when a
-  // pointer interaction starts on it so the map's document-level click
-  // listener (which fires even for panel clicks) ignores the follow-up click.
-  // Bound FIRST so a failure in any later binding can never leave these buttons dead.
-  if (els.travelCoordPanel) {
-    els.travelCoordPanel.addEventListener("click", (e) => e.stopPropagation());
-    els.travelCoordPanel.addEventListener("pointerdown", () => { travelPanelPointerAt = Date.now(); }, true);
-  }
-  if (els.travelCopyLngBtn) els.travelCopyLngBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lng"); };
-  if (els.travelCopyLatBtn) els.travelCopyLatBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lat"); };
-  if (els.travelCoordFillBtn) els.travelCoordFillBtn.onclick = (e) => { e.stopPropagation(); travelCoordFill(); };
   els.travelSaveBtn.onclick = () => travelSave();
   els.travelCancelBtn.onclick = () => travelSwitchTab("list");
   if (els.travelPeopleAddBtn) els.travelPeopleAddBtn.onclick = () => travelAddCustomFromInput();
