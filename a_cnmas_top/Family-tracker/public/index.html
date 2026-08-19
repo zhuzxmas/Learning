@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="style.css?v=33" />
 </head>
 <body>
   <header class="topbar">
@@ -792,23 +792,23 @@
         <div class="card">
           <h2 id="travelEditTitle">新建记录</h2>
           <input type="hidden" id="travelEditId" />
-          <div class="field">
+          <div class="field travel-inline-field">
             <label for="travelTitleInput">地点</label>
             <input type="text" id="travelTitleInput" autocomplete="off" placeholder="如：南京玄武湖" />
           </div>
-          <div class="field">
+          <div class="field travel-inline-field">
             <label for="travelDateInput">日期</label>
             <input type="date" id="travelDateInput" />
           </div>
-          <div class="field">
+          <div class="field travel-inline-field">
             <label for="travelLngInput">经度</label>
             <input type="number" id="travelLngInput" step="0.000001" inputmode="decimal" placeholder="120.123456" />
           </div>
-          <div class="field">
+          <div class="field travel-inline-field">
             <label for="travelLatInput">纬度</label>
             <input type="number" id="travelLatInput" step="0.000001" inputmode="decimal" placeholder="31.123456" />
           </div>
-          <div class="field field-wide">
+          <div class="field field-wide travel-inline-field">
             <label for="travelRemarkInput">备注</label>
             <input type="text" id="travelRemarkInput" autocomplete="off" placeholder="可选" />
           </div>
@@ -819,7 +819,6 @@
               <label class="travel-people-item"><input type="checkbox" value="Celine Rao" /> Celine Rao</label>
               <label class="travel-people-item"><input type="checkbox" value="Cloud Zhu" /> Cloud Zhu</label>
             </div>
-            <p class="muted mini">可勾选已记住的人员，或添加新的其他人员（用 ; 分隔多个）</p>
             <div class="travel-people-add-row">
               <input type="text" id="travelPeopleExtra" list="travelPeopleList" autocomplete="off" placeholder="其他人员，用 ; 分隔" />
               <button type="button" class="btn btn-ghost" id="travelPeopleAddBtn">＋ 添加</button>

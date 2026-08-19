@@ -1281,6 +1281,14 @@ td:nth-child(6) {
 .travel-chip-del:hover { background: #fbe9e7; }
 .travel-people-add-row { display: flex; gap: 8px; margin-top: 2px; }
 .travel-people-add-row input { flex: 1; }
+#travelTabEdit .travel-inline-field {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+#travelTabEdit .travel-inline-field > label { margin: 0; }
+#travelTabEdit .travel-inline-field > input { min-width: 0; }
 #travelTabEdit .form-actions { margin-top: 14px; }
 
 /* ===================== AI 对话 (chat) module ============================ */
