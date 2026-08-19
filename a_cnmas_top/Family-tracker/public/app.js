@@ -9953,7 +9953,6 @@ let travelMarkerLayer = null;  // TMap.MultiMarker layer
 let travelInfoWindow = null;   // currently open info window
 let travelMapInited = false;   // map + script ready
 let travelPickedCoords = null; // {lat, lng} from the latest map click
-let travelEventsWired = false;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelPeoplePool() {
@@ -10446,8 +10445,6 @@ async function travelDelete(id) {
 
 // ---- wiring --------------------------------------------------------------
 function travelWireEvents() {
-  if (travelEventsWired) return;
-  travelEventsWired = true;
   // Bind coordinate controls first; unrelated wiring failures must not disable them.
   if (els.travelCopyLngBtn) els.travelCopyLngBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lng"); };
   if (els.travelCopyLatBtn) els.travelCopyLatBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lat"); };
