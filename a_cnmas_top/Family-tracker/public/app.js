@@ -130,11 +130,24 @@ const VEHICLE_FILE = "vehicle-maintenance.json";
 const HEALTH_WEIGHT_FILE = "health-weight.json";
 const HEALTH_BP_FILE = "health-bp.json";
 
+/* --------------------------- TRAVEL CONFIG ------------------------------- */
+// Travel records live in the shared "OtherTracker" folder (the same one that
+// holds Celine income, 借还款, 理财, 储值卡, 车辆保养, 健康). File: travel.json
+const TRAVEL_FOLDER_SHARE_URL = EXTRA_FOLDER_SHARE_URL;
+const TRAVEL_RECORDS_FILE = "travel.json";
+// Tencent Map (GL JS API) key — a public client-side key, protected by the
+// domain whitelist (a.cnmas.top) set in the Tencent LBS console (lbs.qq.com).
+const TENCENT_MAP_KEY = "X4DBZ-ZKUCQ-UCE5T-4ARHR-2DF67-BZBKL";
+const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geometry&key=";
+
 /* --------------------------- BLOG CONFIG -------------------------------- */
 // The blog/life-journal lives in its OWN dedicated OneDrive shared folder.
 // Structure inside it:  blog-index.json  +  posts/<id>.md  +  images/<file>
 const BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM";
 const BLOG_INDEX_FILE = "blog-index.json";
+// 贴吧 (forum) lives in the SAME OneDrive folder as the blog (family members
+// already have edit access). Structure: forum-index.json + forum/<id>.json
+const FORUM_INDEX_FILE = "forum-index.json";
 
 /* --------------------------- AI 对话 (chat) CONFIG ---------------------- */
 // DeepSeek is reached through our own Cloudflare Worker (keeps the API key
@@ -777,8 +790,66 @@ const els = {
   blogImgPickerPrev: $("blogImgPickerPrev"),
   blogImgPickerNext: $("blogImgPickerNext"),
   blogImgPickerPageInfo: $("blogImgPickerPageInfo"),
-  blogSaveBtn: $("blogSaveBtn"),
+blogSaveBtn: $("blogSaveBtn"),
   blogCancelBtn: $("blogCancelBtn"),
+  // 贴吧 (forum*)
+  blogTabForumBtn: $("blogTabForumBtn"),
+  blogTabForum: $("blogTabForum"),
+  forumTopicList: $("forumTopicList"),
+  forumTopicEdit: $("forumTopicEdit"),
+  forumTopicView: $("forumTopicView"),
+  forumNewTopicBtn: $("forumNewTopicBtn"),
+  forumSearch: $("forumSearch"),
+  forumCount: $("forumCount"),
+  forumList: $("forumList"),
+  forumEmpty: $("forumEmpty"),
+  forumTitleInput: $("forumTitleInput"),
+  forumBodyInput: $("forumBodyInput"),
+  forumSaveBtn: $("forumSaveBtn"),
+  forumCancelBtn: $("forumCancelBtn"),
+  forumBackBtn: $("forumBackBtn"),
+  forumDeleteBtn: $("forumDeleteBtn"),
+  forumViewTitle: $("forumViewTitle"),
+  forumViewMeta: $("forumViewMeta"),
+  forumPosts: $("forumPosts"),
+  forumReplyInput: $("forumReplyInput"),
+  forumReplyBtn: $("forumReplyBtn"),
+  // 旅行地图 (travel*)
+  travelApp: $("travelApp"),
+  travelTabMapBtn: $("travelTabMapBtn"),
+  travelTabListBtn: $("travelTabListBtn"),
+  travelTabMap: $("travelTabMap"),
+  travelTabList: $("travelTabList"),
+  travelTabEdit: $("travelTabEdit"),
+  travelPersonFilter: $("travelPersonFilter"),
+  travelMapCount: $("travelMapCount"),
+  travelMap: $("travelMap"),
+  travelMapEmpty: $("travelMapEmpty"),
+  travelRefreshBtn: $("travelRefreshBtn"),
+  travelCoordPanel: $("travelCoordPanel"),
+  travelCoordLng: $("travelCoordLng"),
+  travelCoordLat: $("travelCoordLat"),
+  travelCopyLngBtn: $("travelCopyLngBtn"),
+  travelCopyLatBtn: $("travelCopyLatBtn"),
+  travelCoordFillBtn: $("travelCoordFillBtn"),
+  travelNewBtn: $("travelNewBtn"),
+  travelSearch: $("travelSearch"),
+  travelListCount: $("travelListCount"),
+  travelTableBody: $("travelTableBody"),
+  travelListEmpty: $("travelListEmpty"),
+  travelEditTitle: $("travelEditTitle"),
+  travelEditId: $("travelEditId"),
+  travelTitleInput: $("travelTitleInput"),
+  travelDateInput: $("travelDateInput"),
+  travelLngInput: $("travelLngInput"),
+  travelLatInput: $("travelLatInput"),
+  travelRemarkInput: $("travelRemarkInput"),
+  travelPeopleBox: $("travelPeopleBox"),
+  travelPeopleExtra: $("travelPeopleExtra"),
+  travelPeopleAddBtn: $("travelPeopleAddBtn"),
+  travelPeopleList: $("travelPeopleList"),
+  travelSaveBtn: $("travelSaveBtn"),
+  travelCancelBtn: $("travelCancelBtn"),
 };
 
 /* --------------------------- Helpers ------------------------------------- */
@@ -3973,7 +4044,7 @@ async function setMode(next) {
   els.modeChatBtn.classList.toggle("active", next === "ai");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
   if (els.modeStocksBtn) els.modeStocksBtn.classList.toggle("active", next === "stocks");
-  els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk);
+els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "travel");
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
@@ -3990,6 +4061,7 @@ async function setMode(next) {
   els.healthApp.classList.toggle("hidden", next !== "health");
   els.blogApp.classList.toggle("hidden", next !== "blog");
   els.aiApp.classList.toggle("hidden", next !== "ai");
+  els.travelApp.classList.toggle("hidden", next !== "travel");
   els.modeMoreMenu.classList.add("hidden");
   if (!account) return;
   if (isInc) {
@@ -4026,9 +4098,12 @@ async function setMode(next) {
   } else if (next === "blog") {
     try { await blogLoad(); }
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
-  } else if (next === "ai") {
+} else if (next === "ai") {
     try { await chatLoad(); }
     catch (e) { setStatus("聊天载入失败：" + (e.message || e), "error"); }
+  } else if (next === "travel") {
+    try { await travelLoad(); travelSwitchTab("map"); }
+    catch (e) { setStatus("旅行数据载入失败：" + (e.message || e), "error"); }
   } else if (!spendingLoaded) {
     // Load spending only if it hasn't been fetched yet this session.
     try { await loadRecords(); }
@@ -5361,9 +5436,18 @@ function stkWireEvents() {
   els.hwFilterDate.value = todayStr();
   els.hbFilterDate.value = todayStr();
 
-  // 生活博客 module UI (data loads lazily when switching to that mode).
+// 生活博客 module UI (data loads lazily when switching to that mode).
   blogWireEvents();
   blogResetForm();
+
+  // 贴吧 (forum) module UI (data loads lazily when the 贴吧 tab is opened).
+  forumWireEvents();
+
+  // 旅行地图 (travel) module UI (data loads lazily when switching to 旅行 mode).
+  // Wrapped so a failure here can never abort boot() before MSAL init/login
+  // (which would also break the global error handlers registered below).
+  try { travelWireEvents(); }
+  catch (e) { console.warn("travelWireEvents failed:", e); }
 
 
   // AI 对话 module UI (data loads lazily when switching to that mode).
@@ -9226,10 +9310,12 @@ function blogSwitchTab(tab) {
   els.blogTabListBtn.classList.toggle("active", tab === "list");
   els.blogTabViewBtn.classList.toggle("active", tab === "view");
   els.blogTabEditBtn.classList.toggle("active", tab === "edit");
+  els.blogTabForumBtn.classList.toggle("active", tab === "forum");
   els.blogTabList.classList.toggle("hidden", tab !== "list");
   els.blogTabView.classList.toggle("hidden", tab !== "view");
   els.blogTabEdit.classList.toggle("hidden", tab !== "edit");
-  els.blogTabViewBtn.classList.toggle("hidden", !blogViewId);
+  els.blogTabForum.classList.toggle("hidden", tab !== "forum");
+  els.blogTabViewBtn.classList.toggle("hidden", !blogViewId || tab === "forum");
 }
 
 // ---- edit / new ----------------------------------------------------------
@@ -9542,7 +9628,840 @@ function blogWireEvents() {
   els.blogDeleteThisBtn.onclick = () => blogDeleteThis();
   els.blogSaveBtn.onclick = () => blogSave();
   els.blogCancelBtn.onclick = () => { blogViewId ? blogSwitchTab("view") : blogSwitchTab("list"); };
-  els.blogImageInput.addEventListener("change", () => blogOnPickImages(els.blogImageInput.files));
+els.blogImageInput.addEventListener("change", () => blogOnPickImages(els.blogImageInput.files));
+}
+
+/* ========================================================================= *
+ *                        贴吧 (forum*)  —  主题 + 回帖                        *
+ *   Topics live in the SAME OneDrive folder as the blog (family members       *
+ *   already have edit access). Structure:  forum-index.json  +                *
+ *   forum/<topicId>.json  ({ topic, posts:[{id,author,content,created}] }).   *
+ *   Posts are Markdown, rendered with the blog renderer + image resolver.     *
+ * ========================================================================= */
+let forumDriveBase = "";
+let forumTopics = [];          // index entries [{id,title,author,created,postCount,lastUpdated}]
+let forumIndexEtag = null;
+let forumLoaded = false;
+let forumCurTopicId = null;    // id of the open topic
+let forumCurPosts = [];        // posts of the open topic
+let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrency)
+let forumSearchText = "";      // topic-title search filter
+
+// ---- folder addressing (reuses the blog folder via blogDriveBase) ---------
+async function forumResolveFolder(token) {
+  await blogResolveFolder(token);   // same folder as the blog
+  forumDriveBase = blogDriveBase;
+}
+function forumEncPath(p) { return p.split("/").map(encodeURIComponent).join("/"); }
+function forumContentUrl(path) { return `${forumDriveBase}:/${forumEncPath(path)}:/content`; }
+
+// ---- index JSON read/write (eTag optimistic concurrency) -----------------
+async function forumReadIndex(token) {
+  const res = await fetch(forumContentUrl(FORUM_INDEX_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { topics: [], etag: null };
+  if (!res.ok) throw new Error("载入贴吧索引失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const topics = (data && Array.isArray(data.topics)) ? data.topics : [];
+  return { topics, etag: res.headers.get("ETag") };
+}
+async function forumWriteIndex(token) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (forumIndexEtag) headers["If-Match"] = forumIndexEtag;
+    const res = await fetch(forumContentUrl(FORUM_INDEX_FILE), {
+      method: "PUT", headers, body: JSON.stringify({ topics: forumTopics }),
+    });
+    if (res.ok) { const it = await res.json(); forumIndexEtag = it.eTag; return; }
+    if (res.status === 412) { // someone else changed it — reload & keep our edits by id
+      const fresh = await forumReadIndex(token);
+      const byId = {}; fresh.topics.forEach((t) => { byId[t.id] = t; });
+      forumTopics.forEach((t) => { byId[t.id] = t; });
+      forumTopics = Object.values(byId).sort(forumCmp);
+      forumIndexEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存贴吧索引失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存贴吧索引冲突，重试多次仍失败。");
+}
+
+// ---- single topic read/write (posts merged by id on conflict) ------------
+async function forumReadTopic(token, id) {
+  const res = await fetch(forumContentUrl("forum/" + id + ".json"), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { posts: [], etag: null };
+  if (!res.ok) throw new Error("载入主题失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
+  return { posts, etag: res.headers.get("ETag") };
+}
+async function forumWriteTopic(token, topic, posts) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (forumCurEtag) headers["If-Match"] = forumCurEtag;
+    const res = await fetch(forumContentUrl("forum/" + topic.id + ".json"), {
+      method: "PUT", headers, body: JSON.stringify({ topic, posts }),
+    });
+    if (res.ok) { const it = await res.json(); forumCurEtag = it.eTag; return; }
+    if (res.status === 412) { // concurrent reply — merge posts by id, retry
+      const fresh = await forumReadTopic(token, topic.id);
+      const byId = {}; fresh.posts.forEach((p) => { byId[p.id] = p; });
+      posts.forEach((p) => { byId[p.id] = p; });
+      posts = Object.values(byId);
+      forumCurEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存主题失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存主题冲突，重试多次仍失败。");
+}
+
+// newest-activity first (lastUpdated desc, then id desc)
+function forumCmp(a, b) {
+  const ka = a.lastUpdated || a.created || "", kb = b.lastUpdated || b.created || "";
+  if (ka !== kb) return kb < ka ? -1 : 1;
+  return (b.id || "") < (a.id || "") ? -1 : 1;
+}
+
+// ---- load ----------------------------------------------------------------
+async function forumLoad() {
+  if (forumLoaded) return;
+  setStatus("正在载入贴吧…");
+  const token = await getToken();
+  await forumResolveFolder(token);
+  const idx = await forumReadIndex(token);
+  forumTopics = idx.topics.slice().sort(forumCmp);
+  forumIndexEtag = idx.etag;
+  forumLoaded = true;
+  forumRenderList();
+  forumSwitchTab("list");
+  setStatus("已载入 " + forumTopics.length + " 个主题。", "ok", 2000);
+}
+
+// ---- sub-view switching (inside #blogTabForum) ---------------------------
+function forumSwitchTab(tab) {
+  els.forumTopicList.classList.toggle("hidden", tab !== "list");
+  els.forumTopicEdit.classList.toggle("hidden", tab !== "edit");
+  els.forumTopicView.classList.toggle("hidden", tab !== "view");
+}
+
+// ---- topic list rendering -------------------------------------------------
+function forumRenderList() {
+  const q = forumSearchText.trim().toLowerCase();
+  const list = forumTopics.slice().filter((t) => !q || (t.title || "").toLowerCase().includes(q));
+  els.forumCount.textContent = "共 " + list.length + " 个主题";
+  els.forumList.innerHTML = "";
+  els.forumEmpty.classList.toggle("hidden", list.length > 0);
+  list.forEach((t) => {
+    const item = document.createElement("div");
+    item.className = "forum-item";
+    item.tabIndex = 0;
+    const h = document.createElement("div");
+    h.className = "forum-item-title";
+    h.textContent = t.title || "(无标题)";
+    const meta = document.createElement("div");
+    meta.className = "forum-item-meta";
+    meta.textContent = (t.author || "匿名") + " 发起 · " + (t.created || "").slice(0, 10) + " · " + (t.postCount || 0) + " 楼";
+    item.appendChild(h); item.appendChild(meta);
+    item.onclick = () => forumOpenTopic(t.id);
+    item.onkeydown = (e) => { if (e.key === "Enter") forumOpenTopic(t.id); };
+    els.forumList.appendChild(item);
+  });
+}
+
+// ---- open / view a topic --------------------------------------------------
+async function forumOpenTopic(id) {
+  const topic = forumTopics.find((t) => t.id === id);
+  if (!topic) return;
+  forumCurTopicId = id;
+  forumSwitchTab("view");
+  els.forumViewTitle.textContent = topic.title || "(无标题)";
+  els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + (topic.created || "").slice(0, 10) + " · " + (topic.postCount || 0) + " 楼";
+  els.forumPosts.innerHTML = "<p class='muted'>正在载入…</p>";
+  els.forumReplyInput.value = "";
+  try {
+    const token = await getToken();
+    await forumResolveFolder(token);
+    const data = await forumReadTopic(token, id);
+    forumCurPosts = data.posts;
+    forumCurEtag = data.etag;
+    await forumRenderPosts(token);
+  } catch (e) {
+    els.forumPosts.innerHTML = "";
+    setStatus("打开主题失败：" + (e.message || e), "error");
+  }
+}
+
+async function forumRenderPosts(token) {
+  els.forumPosts.innerHTML = "";
+  if (!forumCurPosts.length) {
+    els.forumPosts.innerHTML = "<p class='muted'>暂无回帖。</p>";
+    return;
+  }
+  forumCurPosts.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "forum-post" + (i === 0 ? " forum-post-op" : "");
+    const meta = document.createElement("div");
+    meta.className = "forum-post-meta";
+    meta.textContent = (i === 0 ? "楼主 " : (i + 1) + "楼 ") + (p.author || "匿名") + " · " + (p.created || "").slice(0, 16);
+    const body = document.createElement("div");
+    body.className = "blog-body forum-post-body";
+    body.innerHTML = blogRenderMarkdown(p.content || "");
+    div.appendChild(meta); div.appendChild(body);
+    els.forumPosts.appendChild(div);
+  });
+  if (token) await blogResolveImages(token, els.forumPosts);
+}
+
+// ---- new topic ------------------------------------------------------------
+function forumNewTopic() {
+  els.forumTitleInput.value = "";
+  els.forumBodyInput.value = "";
+  forumSwitchTab("edit");
+}
+function forumNextTopicId() {
+  const d = todayStr();
+  let n = 0;
+  forumTopics.forEach((t) => {
+    const m = (t.id || "").match(new RegExp("^" + d + "-(\\d+)$"));
+    if (m) n = Math.max(n, parseInt(m[1], 10));
+  });
+  let id;
+  do { n++; id = d + "-" + String(n).padStart(2, "0"); }
+  while (forumTopics.some((t) => t.id === id));
+  return id;
+}
+async function forumSaveTopic() {
+  const title = els.forumTitleInput.value.trim();
+  const content = els.forumBodyInput.value.trim();
+  if (!title) { setStatus("请填写主题标题。", "warn"); els.forumTitleInput.focus(); return; }
+  if (!content) { setStatus("请填写首楼正文。", "warn"); els.forumBodyInput.focus(); return; }
+  els.forumSaveBtn.disabled = true;
+  try {
+    setStatus("正在发布主题…");
+    const token = await getToken();
+    await forumResolveFolder(token);
+    const id = forumNextTopicId();
+    const created = new Date().toISOString();
+    const author = (account && (account.name || account.username)) || "";
+    const topic = { id, title, author, created, postCount: 1, lastUpdated: created };
+    forumCurEtag = null;                       // brand-new file — no If-Match
+    await forumWriteTopic(token, topic, [{ id: "p1", author, content, created }]);
+    forumTopics.push(topic);
+    forumTopics.sort(forumCmp);
+    await forumWriteIndex(token);
+    forumRenderList();
+    await forumOpenTopic(id);
+    setStatus("主题已发布。", "ok", 2500);
+  } catch (e) {
+    setStatus("发布失败：" + (e.message || e), "error");
+  } finally {
+    els.forumSaveBtn.disabled = false;
+  }
+}
+
+// ---- reply ---------------------------------------------------------------
+async function forumReply() {
+  const content = els.forumReplyInput.value.trim();
+  if (!content) { setStatus("请填写回复内容。", "warn"); els.forumReplyInput.focus(); return; }
+  if (!forumCurTopicId) return;
+  let post = null;
+  els.forumReplyBtn.disabled = true;
+  try {
+    setStatus("正在发表回复…");
+    const token = await getToken();
+    await forumResolveFolder(token);
+    const author = (account && (account.name || account.username)) || "";
+    post = { id: "p" + Date.now(), author, content, created: new Date().toISOString() };
+    forumCurPosts.push(post);
+    const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+    await forumWriteTopic(token, topic, forumCurPosts);
+    if (topic) {
+      topic.postCount = forumCurPosts.length;
+      topic.lastUpdated = post.created;
+    }
+    forumTopics.sort(forumCmp);
+    await forumWriteIndex(token);
+    els.forumReplyInput.value = "";
+    await forumRenderPosts(token);
+    forumRenderList();
+    setStatus("已回复。", "ok", 2000);
+  } catch (e) {
+    if (post) forumCurPosts = forumCurPosts.filter((p) => p.id !== post.id);
+    setStatus("回复失败：" + (e.message || e), "error");
+  } finally {
+    els.forumReplyBtn.disabled = false;
+  }
+}
+
+// ---- delete topic ---------------------------------------------------------
+async function forumDeleteTopic() {
+  const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+  if (!topic) return;
+  if (!confirm("确定删除该主题吗？\n「" + (topic.title || "") + "」\n（其下所有回帖将一并删除）")) return;
+  try {
+    setStatus("正在删除…");
+    const token = await getToken();
+    await forumResolveFolder(token);
+    forumTopics = forumTopics.filter((t) => t.id !== topic.id);
+    await forumWriteIndex(token);
+    await fetch(`${forumDriveBase}:/${forumEncPath("forum/" + topic.id + ".json")}`, {
+      method: "DELETE", headers: { Authorization: "Bearer " + token },
+    });
+    forumCurTopicId = null;
+    forumCurPosts = [];
+    forumCurEtag = null;
+    forumRenderList();
+    forumSwitchTab("list");
+    setStatus("已删除。", "ok", 2500);
+  } catch (e) {
+    setStatus("删除失败：" + (e.message || e), "error");
+  }
+}
+
+// ---- wiring --------------------------------------------------------------
+function forumWireEvents() {
+  els.blogTabForumBtn.onclick = () => { blogSwitchTab("forum"); forumLoad(); };
+  els.forumNewTopicBtn.onclick = () => forumNewTopic();
+  els.forumSearch.addEventListener("input", () => { forumSearchText = els.forumSearch.value; forumRenderList(); });
+  els.forumSaveBtn.onclick = () => forumSaveTopic();
+  els.forumCancelBtn.onclick = () => forumSwitchTab("list");
+  els.forumBackBtn.onclick = () => forumSwitchTab("list");
+  els.forumDeleteBtn.onclick = () => forumDeleteTopic();
+  els.forumReplyBtn.onclick = () => forumReply();
+  els.forumReplyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) forumReply();
+  });
+}
+
+/* ========================================================================= *
+ *                    旅行地图 (travel*)  —  腾讯地图 + 记录                     *
+ *   Records live in the shared OtherTracker folder (EXTRA_FOLDER_SHARE_URL)  *
+ *   as travel.json:  { records: [{id,title,date,latitude,longitude,          *
+ *   remark,people,createdBy,modified}], customPeople: [name, ...] }. The map *
+ *   is Tencent Map GL JS. customPeople is the shared pool of extra people    *
+ *   (besides Nathan/Celine/Cloud) remembered across the family.              *
+ * ========================================================================= */
+let travelDriveBase = "";
+let travelRecords = [];        // travel.json records
+let travelCustomPeople = [];   // travel.json customPeople (shared extra people)
+let travelEtag = null;
+let travelLoaded = false;
+let travelMapObj = null;       // TMap.Map instance
+let travelMarkerLayer = null;  // TMap.MultiMarker layer
+let travelInfoWindow = null;   // currently open info window
+let travelMapInited = false;   // map + script ready
+let travelIgnoreNextMapClick = false;
+let travelPanelPointerAt = 0;   // timestamp of the last pointerdown on the coord panel
+
+const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
+function travelPeoplePool() {
+  return TRAVEL_FAMILY.concat(travelCustomPeople).filter((n) => n && n.trim());
+}
+
+// Names in the CSV look like "Nathan Zhu CN" — strip a trailing 2-letter
+// country suffix for display/filtering so form checkboxes ("Nathan Zhu") match.
+function travelNormalizeName(n) {
+  return (n || "").trim().replace(/\s+[A-Za-z]{2}$/, "");
+}
+function travelPeopleOf(r) {
+  return (r && Array.isArray(r.people) ? r.people : []).map(travelNormalizeName).filter(Boolean);
+}
+function travelCmp(a, b) {
+  if ((a.date || "") !== (b.date || "")) return (b.date || "") < (a.date || "") ? -1 : 1;
+  return (b.title || "") < (a.title || "") ? -1 : 1;
+}
+
+// ---- folder + file addressing (OtherTracker folder) -----------------------
+async function travelResolveFolder(token) {
+  if (travelDriveBase) return;
+  const sid = encodeShareUrl(TRAVEL_FOLDER_SHARE_URL);
+  const res = await fetch(
+    `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  if (!res.ok) throw new Error("无法访问 OtherTracker 文件夹：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  const driveId = item.parentReference && item.parentReference.driveId;
+  travelDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+}
+function travelEncPath(p) { return p.split("/").map(encodeURIComponent).join("/"); }
+function travelContentUrl(path) { return `${travelDriveBase}:/${travelEncPath(path)}:/content`; }
+
+// ---- travel.json read/write (eTag optimistic concurrency) ----------------
+async function travelRead(token) {
+  const res = await fetch(travelContentUrl(TRAVEL_RECORDS_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { records: [], customPeople: [], etag: null };
+  if (!res.ok) throw new Error("载入旅行数据失败：" + res.status);
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const records = (data && Array.isArray(data.records)) ? data.records : [];
+  const customPeople = (data && Array.isArray(data.customPeople))
+    ? data.customPeople.map(travelNormalizeName).filter((n) => n && !TRAVEL_FAMILY.includes(n))
+    : [];
+  return { records, customPeople, etag: res.headers.get("ETag") };
+}
+async function travelWrite(token) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (travelEtag) headers["If-Match"] = travelEtag;
+    const res = await fetch(travelContentUrl(TRAVEL_RECORDS_FILE), {
+      method: "PUT", headers, body: JSON.stringify({ records: travelRecords, customPeople: travelCustomPeople }),
+    });
+    if (res.ok) { const it = await res.json(); travelEtag = it.eTag; return; }
+    if (res.status === 412) { // merge by id, keep our edits
+      const fresh = await travelRead(token);
+      const byId = {}; fresh.records.forEach((r) => { byId[r.id] = r; });
+      travelRecords.forEach((r) => { byId[r.id] = r; });
+      travelRecords = Object.values(byId).sort(travelCmp);
+      travelCustomPeople = travelPeoplePool().concat(fresh.customPeople || [])
+        .filter((n, i, a) => n && a.indexOf(n) === i);
+      travelEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存旅行数据失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存旅行数据冲突，重试多次仍失败。");
+}
+
+// ---- load ----------------------------------------------------------------
+async function travelLoad(force) {
+  if (travelLoaded && !force) return;
+  setStatus("正在载入旅行数据…");
+  const token = await getToken();
+  await travelResolveFolder(token);
+  const data = await travelRead(token);
+  travelRecords = data.records.slice().sort(travelCmp);
+  travelCustomPeople = (data.customPeople || []).slice();
+  travelEtag = data.etag;
+  travelLoaded = true;
+  travelRenderPersonFilter();
+  travelRenderList();
+  travelRenderMarkers();
+  travelEnsureMap();
+  setStatus("已载入 " + travelRecords.length + " 条旅行记录。", "ok", 2000);
+}
+
+// ---- person filter -------------------------------------------------------
+function travelRenderPersonFilter() {
+  const names = {};
+  travelRecords.forEach((r) => travelPeopleOf(r).forEach((n) => { names[n] = true; }));
+  const opts = Object.keys(names).sort();
+  els.travelPersonFilter.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "__all__"; all.textContent = "全部";
+  els.travelPersonFilter.appendChild(all);
+  opts.forEach((n) => {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    els.travelPersonFilter.appendChild(o);
+  });
+}
+
+// ---- list rendering ------------------------------------------------------
+function travelRenderList() {
+  const q = (els.travelSearch.value || "").trim().toLowerCase();
+  const list = travelRecords.filter((r) =>
+    !q || ((r.title || "") + " " + (r.remark || "")).toLowerCase().includes(q));
+  els.travelListCount.textContent = "共 " + list.length + " 条";
+  const tbody = els.travelTableBody;
+  tbody.innerHTML = "";
+  els.travelListEmpty.classList.toggle("hidden", list.length > 0);
+  list.forEach((r) => {
+    const tr = document.createElement("tr");
+    const td = (t) => { const c = document.createElement("td"); c.textContent = t; return c; };
+    tr.appendChild(td(r.date || ""));
+    tr.appendChild(td(r.title || ""));
+    tr.appendChild(td(r.longitude != null ? String(r.longitude) : ""));
+    tr.appendChild(td(r.latitude != null ? String(r.latitude) : ""));
+    tr.appendChild(td(travelPeopleOf(r).join(", ")));
+    tr.appendChild(td(r.remark || ""));
+    const ops = document.createElement("td");
+    const editBtn = document.createElement("button");
+    editBtn.type = "button"; editBtn.className = "btn btn-ghost btn-mini";
+    editBtn.textContent = "编辑"; editBtn.onclick = () => travelEdit(r.id);
+    const delBtn = document.createElement("button");
+    delBtn.type = "button"; delBtn.className = "btn btn-danger btn-mini";
+    delBtn.textContent = "删除"; delBtn.onclick = () => travelDelete(r.id);
+    ops.appendChild(editBtn); ops.appendChild(document.createTextNode(" ")); ops.appendChild(delBtn);
+    tr.appendChild(ops);
+    tbody.appendChild(tr);
+  });
+}
+
+// ---- map (Tencent GL JS) -------------------------------------------------
+let travelMapScriptPromise = null;
+function travelLoadMapScript() {
+  if (window.TMap) return Promise.resolve();
+  if (travelMapScriptPromise) return travelMapScriptPromise;
+  travelMapScriptPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = TENCENT_MAP_LIB_URL + encodeURIComponent(TENCENT_MAP_KEY);
+    s.async = true;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("腾讯地图脚本加载失败（检查网络或 Key）"));
+    document.head.appendChild(s);
+  });
+  return travelMapScriptPromise;
+}
+
+async function travelEnsureMap() {
+  if (travelMapInited) return;
+  if (!TENCENT_MAP_KEY || TENCENT_MAP_KEY.startsWith("PASTE-")) {
+    els.travelMapEmpty.classList.remove("hidden");
+    els.travelMapEmpty.textContent = "请先在 app.js 配置 TENCENT_MAP_KEY（腾讯地图开发者 key）。";
+    return;
+  }
+  try {
+    await travelLoadMapScript();
+  } catch (e) {
+    els.travelMapEmpty.classList.remove("hidden");
+    els.travelMapEmpty.textContent = "加载腾讯地图失败：" + (e.message || e);
+    return;
+  }
+  els.travelMapEmpty.classList.add("hidden");
+  travelMapObj = new TMap.Map(els.travelMap, {
+    center: new TMap.LatLng(31.2, 121.5),
+    zoom: 5,
+    viewMode: "2D",
+  });
+  travelMapObj.on("click", (e) => {
+    if (travelIgnoreNextMapClick) { travelIgnoreNextMapClick = false; return; }
+    // A click that began on the floating coord panel (pointerdown within the
+    // last 500ms) must never re-trigger the picker — TMap's document-level
+    // click listener also fires for panel clicks and originalEvent is not
+    // always present to check the target.
+    if (Date.now() - travelPanelPointerAt < 500) return;
+    // Belt-and-suspenders: also ignore clicks whose native target lives inside
+    // the panel, when originalEvent is available.
+    if (e.originalEvent && els.travelCoordPanel.contains(e.originalEvent.target)) return;
+    const ll = travelLL(e.latLng);
+    if (travelInfoWindow) travelInfoWindow.close();
+    travelShowCoords(ll.lat, ll.lng);
+  });
+  // Create the marker layer ONCE with empty geometries, then keep it and refresh
+  // via setGeometries() (the documented way to update marker data). Rebuilding
+  // the layer on every render is unreliable and made markers disappear.
+  travelMarkerLayer = new TMap.MultiMarker({
+    map: travelMapObj,
+    styles: {
+      default: new TMap.MarkerStyle({
+        width: 25, height: 35,
+        anchor: { x: 12, y: 35 },
+        src: TRAVEL_MARKER_SRC,
+      }),
+    },
+    geometries: [],
+  });
+  travelMarkerLayer.on("click", (e) => {
+    travelIgnoreNextMapClick = true;
+    const g = e.geometry;
+    const r = travelRecords.find((x) => x.id === g.id);
+    if (!r) return;
+    if (travelInfoWindow) travelInfoWindow.close();
+    const pos = travelLL(g.position);
+    travelInfoWindow = new TMap.InfoWindow({
+      map: travelMapObj,
+      position: new TMap.LatLng(pos.lat, pos.lng),
+      content: travelInfoHtml(r),
+    });
+  });
+  window.addEventListener("resize", () => { if (travelMapObj) travelMapObj.resize(); });
+  travelMapInited = true;
+  travelMapObj.resize();
+  travelShowCoords(null);
+  travelRenderMarkers();
+}
+
+function travelInfoHtml(r) {
+  const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const people = travelPeopleOf(r).map(esc).join(", ");
+  const remark = r.remark ? "<div style='margin-top:4px;color:#555;'>" + esc(r.remark) + "</div>" : "";
+  return "<div style='font-size:13px;line-height:1.5;'>" +
+    "<b>" + esc(r.title) + "</b>" +
+    "<div style='color:#888;font-size:12px;'>" + esc(r.date) + (people ? " · " + people : "") + "</div>" +
+    remark + "</div>";
+}
+
+function travelFilteredRecords() {
+  const sel = els.travelPersonFilter.value;
+  if (!sel || sel === "__all__") return travelRecords.slice();
+  return travelRecords.filter((r) => travelPeopleOf(r).includes(sel));
+}
+
+// TMap.LatLng exposes both .lat/.lng properties and getLat()/getLng() methods
+// depending on API version — read whichever is available.
+function travelLL(ll) {
+  return {
+    lat: Number(ll.lat != null ? ll.lat : ll.getLat()),
+    lng: Number(ll.lng != null ? ll.lng : ll.getLng()),
+  };
+}
+
+const TRAVEL_MARKER_SRC = "https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png";
+// Refresh marker data via setGeometries() — the documented way to update a
+// MultiMarker. Each geometry explicitly references the "default" styleId so the
+// marker icon is applied (per docs, a geometry without a matching styleId falls
+// back to the default drawing style).
+function travelRenderMarkers() {
+  if (!travelMarkerLayer || typeof TMap === "undefined") return;
+  const filtered = travelFilteredRecords();
+  const geoms = filtered.map((r) => ({
+    id: r.id,
+    styleId: "default",
+    position: new TMap.LatLng(r.latitude, r.longitude),
+    properties: { id: r.id },
+  }));
+  // A single setGeometries() call doesn't reliably repaint this GL build (data
+  // updates but the canvas keeps old markers). Clear-then-set plus a visibility
+  // toggle forces the renderer to redraw the refreshed marker set.
+  travelMarkerLayer.setGeometries([]);
+  travelMarkerLayer.setGeometries(geoms);
+  travelMarkerLayer.setVisible(false);
+  travelMarkerLayer.setVisible(true);
+  els.travelMapCount.textContent = "显示 " + filtered.length + " / " + travelRecords.length + " 处";
+}
+
+// ---- click-to-copy coordinates -------------------------------------------
+function travelShowCoords(lat, lng) {
+  if (lat == null || lng == null) {
+    els.travelCoordPanel.classList.add("hidden");
+    return;
+  }
+  els.travelCoordPanel.classList.remove("hidden");
+  els.travelCoordLat.textContent = lat.toFixed(6);
+  els.travelCoordLng.textContent = lng.toFixed(6);
+  els.travelCoordFillBtn.dataset.lat = lat.toFixed(6);
+  els.travelCoordFillBtn.dataset.lng = lng.toFixed(6);
+}
+async function travelCopyCoord(which) {
+  const v = which === "lng" ? els.travelCoordLng.textContent : els.travelCoordLat.textContent;
+  if (v === "—") { setStatus("请先点击地图取坐标。", "warn", 2000); return; }
+  try {
+    await navigator.clipboard.writeText(v);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = v; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch {}
+    ta.remove();
+  }
+  setStatus(which === "lng" ? "经度已复制：" + v : "纬度已复制：" + v, "ok", 1500);
+}
+function travelCoordFill() {
+  const lat = els.travelCoordFillBtn.dataset.lat;
+  const lng = els.travelCoordFillBtn.dataset.lng;
+  travelIgnoreNextMapClick = true;   // swallow any map click from this interaction
+  travelNew();                        // always jump to the 旅行记录 new-record form
+  if (lat && lng) {
+    els.travelLatInput.value = lat;
+    els.travelLngInput.value = lng;
+    setStatus("经纬度已填入表单，可补充地点/日期后保存。", "ok", 2500);
+  } else {
+    setStatus("未选择坐标，请在地图上点击后再填入。", "warn", 2500);
+  }
+}
+
+// ---- tabs ----------------------------------------------------------------
+function travelSwitchTab(tab) {
+  els.travelTabMapBtn.classList.toggle("active", tab === "map");
+  els.travelTabListBtn.classList.toggle("active", tab === "list");
+  els.travelTabMap.classList.toggle("hidden", tab !== "map");
+  els.travelTabList.classList.toggle("hidden", tab !== "list");
+  els.travelTabEdit.classList.toggle("hidden", tab !== "edit");
+  if (tab === "map") {
+    travelLoad();
+    travelEnsureMap();
+    if (travelMapObj) setTimeout(() => travelMapObj.resize(), 60);
+  }
+}
+
+// ---- add / edit / delete -------------------------------------------------
+function travelRenderPeopleBox(checkedSet) {
+  const checked = checkedSet || new Set();
+  const box = els.travelPeopleBox;
+  box.innerHTML = "";
+  travelPeoplePool().forEach((n) => {
+    const isFamily = TRAVEL_FAMILY.includes(n);
+    const lbl = document.createElement("label");
+    lbl.className = "travel-people-item";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.value = n; cb.checked = checked.has(n);
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(" " + n));
+    if (!isFamily) {
+      const del = document.createElement("span");
+      del.className = "travel-chip-del"; del.textContent = "×";
+      del.title = "删除该人员";
+      del.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        travelRemoveCustom(n);
+      });
+      lbl.appendChild(del);
+    }
+    box.appendChild(lbl);
+  });
+  if (els.travelPeopleList) {
+    const dl = els.travelPeopleList;
+    dl.innerHTML = "";
+    travelCustomPeople.forEach((n) => {
+      const o = document.createElement("option");
+      o.value = n;
+      dl.appendChild(o);
+    });
+  }
+}
+function travelCheckedSet() {
+  return new Set(Array.from(els.travelPeopleBox.querySelectorAll("input:checked")).map((c) => c.value));
+}
+async function travelAddCustomFromInput() {
+  const raw = (els.travelPeopleExtra.value || "").split(";").map(travelNormalizeName).filter(Boolean);
+  if (!raw.length) { setStatus("请先输入要添加的人员名字。", "warn"); els.travelPeopleExtra.focus(); return; }
+  const fresh = raw.filter((n) => !travelPeoplePool().includes(n));
+  if (!fresh.length) { setStatus("这些人员已在列表中。", "warn", 1800); els.travelPeopleExtra.value = ""; return; }
+  const checked = travelCheckedSet();
+  fresh.forEach((n) => checked.add(n));
+  travelCustomPeople = travelPeoplePool().concat(fresh).filter((n, i, a) => a.indexOf(n) === i);
+  els.travelPeopleExtra.value = "";
+  travelRenderPeopleBox(checked);
+  try {
+    const token = await getToken();
+    await travelResolveFolder(token);
+    await travelWrite(token);
+    setStatus("已记住人员：" + fresh.join("、"), "ok", 2000);
+  } catch (e) {
+    setStatus("已添加，但同步到云端失败：" + (e.message || e), "error");
+  }
+}
+async function travelRemoveCustom(name) {
+  const checked = travelCheckedSet();
+  checked.delete(name);
+  travelCustomPeople = travelCustomPeople.filter((n) => n !== name);
+  travelRenderPeopleBox(checked);
+  try {
+    const token = await getToken();
+    await travelResolveFolder(token);
+    await travelWrite(token);
+    setStatus("已删除人员：" + name, "ok", 2000);
+  } catch (e) {
+    setStatus("已删除，但同步到云端失败：" + (e.message || e), "error");
+  }
+}
+function travelNew() {
+  els.travelEditTitle.textContent = "新建记录";
+  els.travelEditId.value = "";
+  els.travelTitleInput.value = "";
+  els.travelDateInput.value = todayStr();
+  els.travelLatInput.value = "";
+  els.travelLngInput.value = "";
+  els.travelRemarkInput.value = "";
+  // The people-box render must never block navigation to the form.
+  try { travelRenderPeopleBox(new Set()); } catch (e) { console.warn("travelRenderPeopleBox:", e); }
+  els.travelPeopleExtra.value = "";
+  travelSwitchTab("edit");
+}
+function travelEdit(id) {
+  const r = travelRecords.find((x) => x.id === id);
+  if (!r) return;
+  travelNew();
+  els.travelEditTitle.textContent = "编辑记录";
+  els.travelEditId.value = r.id;
+  els.travelTitleInput.value = r.title || "";
+  els.travelDateInput.value = r.date || todayStr();
+  els.travelLatInput.value = r.latitude;
+  els.travelLngInput.value = r.longitude;
+  els.travelRemarkInput.value = r.remark || "";
+  const names = travelPeopleOf(r);
+  els.travelPeopleBox.querySelectorAll("input").forEach((c) => { c.checked = names.includes(c.value); });
+  const extra = names.filter((n) => !travelPeoplePool().includes(n));
+  els.travelPeopleExtra.value = extra.join(";");
+  travelSwitchTab("edit");
+}
+async function travelSave() {
+  const title = els.travelTitleInput.value.trim();
+  const lat = parseFloat(els.travelLatInput.value);
+  const lng = parseFloat(els.travelLngInput.value);
+  const date = els.travelDateInput.value || todayStr();
+  if (!title) { setStatus("请填写地点。", "warn"); els.travelTitleInput.focus(); return; }
+  if (isNaN(lat) || isNaN(lng)) { setStatus("请填写有效的经度/纬度。", "warn"); (isNaN(lat) ? els.travelLatInput : els.travelLngInput).focus(); return; }
+  const checked = Array.from(els.travelPeopleBox.querySelectorAll("input:checked")).map((c) => c.value);
+  const extra = (els.travelPeopleExtra.value || "").split(";").map(travelNormalizeName).filter(Boolean);
+  const people = checked.concat(extra).filter((n, i, a) => a.indexOf(n) === i);
+  const newCustom = people.filter((n) => !travelPeoplePool().includes(n));
+  if (newCustom.length) {
+    travelCustomPeople = travelPeoplePool().concat(newCustom).filter((n, i, a) => a.indexOf(n) === i);
+  }
+  els.travelSaveBtn.disabled = true;
+  try {
+    setStatus("正在保存…");
+    const token = await getToken();
+    await travelResolveFolder(token);
+    const id = els.travelEditId.value;
+    const rec = {
+      id: id || ("t" + Date.now() + Math.floor(Math.random() * 1000)),
+      title, date, latitude: lat, longitude: lng,
+      remark: els.travelRemarkInput.value.trim(),
+      people,
+      createdBy: (account && (account.name || account.username)) || "",
+      modified: new Date().toISOString(),
+    };
+    const idx = travelRecords.findIndex((x) => x.id === rec.id);
+    if (idx >= 0) travelRecords[idx] = rec; else travelRecords.push(rec);
+    travelRecords.sort(travelCmp);
+    await travelWrite(token);
+    travelRenderPersonFilter();
+    travelRenderList();
+    travelRenderMarkers();
+    travelSwitchTab("list");
+    setStatus("已保存。", "ok", 2500);
+  } catch (e) {
+    setStatus("保存失败：" + (e.message || e), "error");
+  } finally {
+    els.travelSaveBtn.disabled = false;
+  }
+}
+async function travelDelete(id) {
+  const r = travelRecords.find((x) => x.id === id);
+  if (!r) return;
+  if (!confirm("确定删除「" + (r.title || "") + "」吗？")) return;
+  try {
+    setStatus("正在删除…");
+    const token = await getToken();
+    await travelResolveFolder(token);
+    travelRecords = travelRecords.filter((x) => x.id !== id);
+    await travelWrite(token);
+    travelRenderPersonFilter();
+    travelRenderList();
+    travelRenderMarkers();
+    setStatus("已删除。", "ok", 2500);
+  } catch (e) {
+    setStatus("删除失败：" + (e.message || e), "error");
+  }
+}
+
+// ---- wiring --------------------------------------------------------------
+function travelWireEvents() {
+  els.travelTabMapBtn.onclick = () => travelSwitchTab("map");
+  els.travelTabListBtn.onclick = () => { travelLoad(); travelSwitchTab("list"); };
+  els.travelPersonFilter.addEventListener("change", () => travelRenderMarkers());
+  els.travelRefreshBtn.onclick = () => { travelLoad(true); travelEnsureMap(); };
+  els.travelSearch.addEventListener("input", () => travelRenderList());
+  els.travelNewBtn.onclick = () => travelNew();
+  // The coord panel floats over the map — stop propagation so clicks on it
+  // never reach the map's click-to-pick-coordinates handler, and record when a
+  // pointer interaction starts on it so the map's document-level click
+  // listener (which fires even for panel clicks) ignores the follow-up click.
+  // Bound FIRST so a failure in any later binding can never leave these buttons dead.
+  if (els.travelCoordPanel) {
+    els.travelCoordPanel.addEventListener("click", (e) => e.stopPropagation());
+    els.travelCoordPanel.addEventListener("pointerdown", () => { travelPanelPointerAt = Date.now(); }, true);
+  }
+  if (els.travelCopyLngBtn) els.travelCopyLngBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lng"); };
+  if (els.travelCopyLatBtn) els.travelCopyLatBtn.onclick = (e) => { e.stopPropagation(); travelCopyCoord("lat"); };
+  if (els.travelCoordFillBtn) els.travelCoordFillBtn.onclick = (e) => { e.stopPropagation(); travelCoordFill(); };
+  els.travelSaveBtn.onclick = () => travelSave();
+  els.travelCancelBtn.onclick = () => travelSwitchTab("list");
+  if (els.travelPeopleAddBtn) els.travelPeopleAddBtn.onclick = () => travelAddCustomFromInput();
 }
 
 /* ========================================================================= *

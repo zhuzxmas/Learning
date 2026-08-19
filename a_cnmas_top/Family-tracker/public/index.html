@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=31" />
 </head>
 <body>
   <header class="topbar">
@@ -50,8 +50,9 @@
             <button type="button" class="mode-more-item" data-mode="cards">储值卡</button>
             <button type="button" class="mode-more-item" data-mode="vehicle">车辆保养</button>
             <button type="button" class="mode-more-item" data-mode="health">健康</button>
-            <button type="button" class="mode-more-item" data-mode="medical">看病</button>
+<button type="button" class="mode-more-item" data-mode="medical">看病</button>
             <button type="button" class="mode-more-item" data-mode="stock">股票</button>
+            <button type="button" class="mode-more-item" data-mode="travel">旅行地图</button>
           </div>
         </div>
       </div>
@@ -725,7 +726,113 @@
             </div>
           </div>
         </div>
-      </div><!-- /#stocksApp -->
+</div><!-- /#stocksApp -->
+
+      <!-- ============ 旅行地图 (travel) ============ -->
+      <div id="travelApp" class="hidden">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="travelTabMapBtn">旅行地图</button>
+        <button type="button" class="tab-btn" id="travelTabListBtn">旅行记录</button>
+      </div>
+
+      <!-- 旅行地图 -->
+      <div class="tab-panel" id="travelTabMap">
+        <div class="card">
+          <div class="travel-toolbar">
+            <label for="travelPersonFilter">按人筛选</label>
+            <select id="travelPersonFilter"></select>
+            <span class="muted" id="travelMapCount"></span>
+            <button type="button" class="btn btn-ghost" id="travelRefreshBtn">刷新地图</button>
+          </div>
+          <div class="travel-map-wrap">
+            <div id="travelMap"></div>
+            <div id="travelCoordPanel" class="travel-coord-panel hidden">
+              <div class="travel-coord-title">点击地图取坐标</div>
+              <div class="travel-coord-row">
+                <span>经度</span>
+                <code id="travelCoordLng">—</code>
+                <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLngBtn">复制</button>
+              </div>
+              <div class="travel-coord-row">
+                <span>纬度</span>
+                <code id="travelCoordLat">—</code>
+                <button type="button" class="btn btn-ghost btn-mini" id="travelCopyLatBtn">复制</button>
+              </div>
+              <button type="button" class="btn btn-primary btn-mini" id="travelCoordFillBtn">填入新记录</button>
+            </div>
+            <p class="muted" id="travelMapEmpty">正在加载地图…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 旅行记录列表 -->
+      <div class="tab-panel hidden" id="travelTabList">
+        <div class="card">
+          <div class="travel-toolbar">
+            <button type="button" class="btn btn-primary" id="travelNewBtn">＋ 新建记录</button>
+            <input type="search" id="travelSearch" placeholder="搜索标题或备注…" autocomplete="off" />
+            <span class="muted" id="travelListCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table id="travelTable">
+              <thead>
+                <tr>
+                  <th>日期</th><th>地点</th><th>经度</th><th>纬度</th><th>人员</th><th>备注</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="travelTableBody"></tbody>
+            </table>
+          </div>
+          <p class="muted hidden" id="travelListEmpty">暂无记录，点「＋ 新建记录」添加。</p>
+        </div>
+      </div>
+
+      <!-- 新建 / 编辑记录 -->
+      <div class="tab-panel hidden" id="travelTabEdit">
+        <div class="card">
+          <h2 id="travelEditTitle">新建记录</h2>
+          <input type="hidden" id="travelEditId" />
+          <div class="field">
+            <label for="travelTitleInput">地点</label>
+            <input type="text" id="travelTitleInput" autocomplete="off" placeholder="如：南京玄武湖" />
+          </div>
+          <div class="field">
+            <label for="travelDateInput">日期</label>
+            <input type="date" id="travelDateInput" />
+          </div>
+          <div class="field">
+            <label for="travelLngInput">经度</label>
+            <input type="number" id="travelLngInput" step="0.000001" inputmode="decimal" placeholder="120.123456" />
+          </div>
+          <div class="field">
+            <label for="travelLatInput">纬度</label>
+            <input type="number" id="travelLatInput" step="0.000001" inputmode="decimal" placeholder="31.123456" />
+          </div>
+          <div class="field field-wide">
+            <label for="travelRemarkInput">备注</label>
+            <input type="text" id="travelRemarkInput" autocomplete="off" placeholder="可选" />
+          </div>
+          <div class="field field-wide">
+            <label>人员</label>
+            <div class="travel-people" id="travelPeopleBox">
+              <label class="travel-people-item"><input type="checkbox" value="Nathan Zhu" /> Nathan Zhu</label>
+              <label class="travel-people-item"><input type="checkbox" value="Celine Rao" /> Celine Rao</label>
+              <label class="travel-people-item"><input type="checkbox" value="Cloud Zhu" /> Cloud Zhu</label>
+            </div>
+            <p class="muted mini">可勾选已记住的人员，或添加新的其他人员（用 ; 分隔多个）</p>
+            <div class="travel-people-add-row">
+              <input type="text" id="travelPeopleExtra" list="travelPeopleList" autocomplete="off" placeholder="其他人员，用 ; 分隔" />
+              <button type="button" class="btn btn-ghost" id="travelPeopleAddBtn">＋ 添加</button>
+            </div>
+            <datalist id="travelPeopleList"></datalist>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="travelSaveBtn">保存</button>
+            <button type="button" class="btn btn-ghost" id="travelCancelBtn">取消</button>
+          </div>
+        </div>
+      </div>
+      </div><!-- /#travelApp -->
 
       <!-- ============ MEDICAL APP ============ -->
       <div id="medicalApp" class="hidden">
@@ -1699,6 +1806,7 @@
         <button type="button" class="tab-btn active" id="blogTabListBtn">文章</button>
         <button type="button" class="tab-btn hidden" id="blogTabViewBtn">阅读</button>
         <button type="button" class="tab-btn" id="blogTabEditBtn">写博文</button>
+        <button type="button" class="tab-btn" id="blogTabForumBtn">贴吧</button>
         <button type="button" class="tab-btn hidden" id="blogClearFilterBtn">清除筛选</button>
       </div>
 
@@ -1781,6 +1889,59 @@
           </div>
         </div>
       </div>
+
+      <!-- 贴吧 (forum) -->
+      <div class="tab-panel hidden" id="blogTabForum">
+        <!-- 主题列表 -->
+        <div id="forumTopicList">
+          <div class="card">
+            <div class="forum-toolbar">
+              <button type="button" class="btn btn-primary" id="forumNewTopicBtn">＋ 新建主题</button>
+              <input type="search" id="forumSearch" placeholder="搜索主题标题…" autocomplete="off" />
+              <span class="muted" id="forumCount"></span>
+            </div>
+            <div id="forumList" class="forum-list"></div>
+            <p class="muted hidden" id="forumEmpty">暂无主题，点「新建主题」开始。</p>
+          </div>
+        </div>
+
+        <!-- 新建主题 -->
+        <div id="forumTopicEdit" class="hidden">
+          <div class="card">
+            <h2>新建主题</h2>
+            <div class="field">
+              <label for="forumTitleInput">主题标题</label>
+              <input type="text" id="forumTitleInput" autocomplete="off" placeholder="主题标题" />
+            </div>
+            <div class="field field-wide">
+              <label for="forumBodyInput">首楼正文（Markdown）</label>
+              <textarea id="forumBodyInput" rows="8" placeholder="支持 Markdown：# 标题、**加粗**、- 列表、[链接](url)…"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary" id="forumSaveBtn">发布主题</button>
+              <button type="button" class="btn btn-ghost" id="forumCancelBtn">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 主题详情 + 回帖 -->
+        <div id="forumTopicView" class="hidden">
+          <div class="card">
+            <div class="blog-view-actions">
+              <button type="button" class="btn btn-ghost" id="forumBackBtn">← 返回列表</button>
+              <button type="button" class="btn btn-danger" id="forumDeleteBtn">删除主题</button>
+            </div>
+            <h2 id="forumViewTitle"></h2>
+            <p class="muted" id="forumViewMeta"></p>
+            <div id="forumPosts" class="forum-posts"></div>
+            <div class="forum-reply-box">
+              <label for="forumReplyInput">发表回复（Markdown）</label>
+              <textarea id="forumReplyInput" rows="3" placeholder="输入回复内容…"></textarea>
+              <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
+            </div>
+          </div>
+        </div>
+      </div>
       </div><!-- /#blogApp -->
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
 
@@ -1823,6 +1984,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>
