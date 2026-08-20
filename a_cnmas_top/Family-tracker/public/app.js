@@ -9116,7 +9116,6 @@ async function blogLoad() {
   blogSummaries = await blogListSummaries(token);
   blogLoaded = true;
   blogRenderList();
-  blogSwitchTab("list");
   setStatus("已载入 " + blogPosts.length + " 篇文章、" + blogSummaries.length + " 篇总结。", "ok", 2000);
 }
 
