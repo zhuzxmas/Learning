@@ -10034,6 +10034,7 @@ function forumNewTopic() {
   els.forumSaveBtn.textContent = "发布主题";
   els.forumTitleInput.value = "";
   els.forumBodyInput.value = "";
+  forumAutoGrowEditor(els.forumBodyInput);
   forumSwitchTab("edit");
 }
 function forumNextTopicId() {
@@ -10097,6 +10098,7 @@ function forumEditTopic() {
   els.forumSaveBtn.textContent = "保存修改";
   els.forumTitleInput.value = topic.title || "";
   els.forumBodyInput.value = chronological[0] ? chronological[0].content || "" : "";
+  forumAutoGrowEditor(els.forumBodyInput);
   forumSwitchTab("edit");
 }
 
@@ -10104,7 +10106,7 @@ function forumResetReplyEditor() {
   els.forumEditPostId.value = "";
   els.forumReplyInput.value = "";
   els.forumReplyInput.classList.remove("editing");
-  els.forumReplyInput.style.height = "";
+  forumAutoGrowEditor(els.forumReplyInput);
   els.forumReplyLabel.textContent = "发表回复（Markdown）";
   els.forumReplyBtn.textContent = "发表回复";
   els.forumReplyCancelBtn.classList.add("hidden");
@@ -10116,17 +10118,17 @@ function forumStartEditPost(id) {
   els.forumEditPostId.value = id;
   els.forumReplyInput.value = post.content || "";
   els.forumReplyInput.classList.add("editing");
-  forumAutoGrowReply();
+  forumAutoGrowEditor(els.forumReplyInput);
   els.forumReplyLabel.textContent = "编辑回复（Markdown）";
   els.forumReplyBtn.textContent = "保存修改";
   els.forumReplyCancelBtn.classList.remove("hidden");
   els.forumReplyInput.focus();
 }
 
-function forumAutoGrowReply() {
-  if (!els.forumReplyInput || !els.forumReplyInput.classList.contains("editing")) return;
-  els.forumReplyInput.style.height = "auto";
-  els.forumReplyInput.style.height = Math.max(210, els.forumReplyInput.scrollHeight) + "px";
+function forumAutoGrowEditor(editor) {
+  if (!editor) return;
+  editor.style.height = "auto";
+  editor.style.height = Math.max(210, editor.scrollHeight) + "px";
 }
 
 async function forumDeletePost(id) {
@@ -10237,7 +10239,8 @@ function forumWireEvents() {
   els.forumDeleteBtn.onclick = () => forumDeleteTopic();
   els.forumReplyBtn.onclick = () => forumReply();
   els.forumReplyCancelBtn.onclick = () => forumResetReplyEditor();
-  els.forumReplyInput.addEventListener("input", forumAutoGrowReply);
+  els.forumReplyInput.addEventListener("input", () => forumAutoGrowEditor(els.forumReplyInput));
+  els.forumBodyInput.addEventListener("input", () => forumAutoGrowEditor(els.forumBodyInput));
   els.forumReplyInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) forumReply();
   });

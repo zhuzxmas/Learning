@@ -1224,6 +1224,7 @@ td:nth-child(6) {
   resize: vertical;
 }
 .forum-reply-box textarea.editing { min-height: 210px; overflow-y: hidden; }
+#forumBodyInput { min-height: 210px; overflow-y: hidden; resize: vertical; }
 .forum-reply-box .btn { align-self: flex-start; }
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
