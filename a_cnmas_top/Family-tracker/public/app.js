@@ -4213,6 +4213,9 @@ function stkCloneFees(f) {
 
 const STK_INCOME_SOURCE_TYPE = "closed-cycle";
 const STK_INCOME_ID_PREFIX = "generated:stock-close:v1:";
+const STK_FORUM_TOPIC_TITLE = "股票投资收益记录";
+const STK_FORUM_TOPIC_ID = "generated-stock-investment-income";
+const STK_FORUM_POST_PREFIX = "generated:stock-close:v1:";
 
 function stkIncomePayee(accountName) {
   const s = String(accountName || "").trim();
@@ -4246,6 +4249,7 @@ function stkDeriveClosedCycles(records) {
     const code = key.slice(0, split), accountName = key.slice(split + 1);
     const completed = [];
     let net = 0, sum = 0, startDate = "", txIds = [];
+    let buyShares = 0, buyAmount = 0, buyCost = 0;
     for (const r of trades) {
       const sh = Number(r.shares) || 0;
       const total = Number(r.total) || 0;
@@ -4269,20 +4273,67 @@ function stkDeriveClosedCycles(records) {
       net += sh;
       sum += total;
       txIds.push(r.id);
+      if (sh < 0) {
+        buyShares += -sh;
+        buyAmount += Math.abs(Number(r.amount) || 0);
+        buyCost += -total;
+      }
       if (Math.abs(net) < 0.5) {
         const cycle = {
           code, account: accountName, startDate,
           endDate: String(r.date || ""), closingTransactionId: r.id,
           transactionIds: txIds.slice(), pnl: round2(sum),
+          buyShares, buyAmount: round2(buyAmount), buyCost: round2(buyCost),
+          averageBuyPrice: buyShares ? round2(buyAmount / buyShares) : 0,
           eligible: r.incomeSyncEligible === true,
           modified: r.modified || r.createdAt || "",
         };
         completed.push(cycle); cycles.push(cycle);
         net = 0; sum = 0; startDate = ""; txIds = [];
+        buyShares = 0; buyAmount = 0; buyCost = 0;
       }
     }
   }
   return { cycles, unmatchedDividends };
+}
+
+function stkForumAccountLabel(accountName) {
+  return /^15/.test(String(accountName || "")) && /教|教育/.test(String(accountName || ""))
+    ? "教育账户" : "主账户";
+}
+
+function stkForumMoney(value) {
+  return Math.round(Number(value) || 0).toLocaleString("zh-CN") + "元";
+}
+
+function stkForumCompactMoney(value) {
+  const n = Number(value) || 0;
+  return Math.abs(n) >= 10000 ? (n / 10000).toFixed(2) + "w元" : stkForumMoney(n);
+}
+
+function stkForumDate(value) {
+  return String(value || "").replace(/-/g, "/");
+}
+
+function stkForumPostContent(cycle, allCycles) {
+  const completed = allCycles.filter((c) =>
+    String(c.endDate || "") <= String(cycle.endDate || ""));
+  const year = String(cycle.startDate || "").slice(0, 4);
+  const yearCycles = completed.filter((c) => String(c.startDate || "").slice(0, 4) === year);
+  const sumFor = (rows, educational) => round2(rows.filter((c) =>
+    stkForumAccountLabel(c.account) === (educational ? "教育账户" : "主账户"))
+    .reduce((sum, c) => sum + Number(c.pnl || 0), 0));
+  const yearEdu = sumFor(yearCycles, true), yearMain = sumFor(yearCycles, false);
+  const totalEdu = sumFor(completed, true), totalMain = sumFor(completed, false);
+  const codeName = String(cycle.code || "").replace(/^H?\d+/, "") || cycle.code;
+  const accountLabel = stkForumAccountLabel(cycle.account);
+  return `本轮投资${codeName}（${accountLabel}），收益${stkForumMoney(cycle.pnl)}，` +
+    `成本${stkForumCompactMoney(cycle.buyCost)}；${stkForumDate(cycle.startDate)}买入，` +
+    `${stkForumDate(cycle.endDate)}全部卖出；平均买入价格${Number(cycle.averageBuyPrice || 0).toFixed(2)}元。\n\n` +
+    `${stkForumDate(cycle.endDate)}，${year}年度收益 ${stkForumMoney(yearEdu + yearMain)}` +
+    `（教育账户${stkForumCompactMoney(yearEdu)}，主账户${stkForumCompactMoney(yearMain)}）；` +
+    `截至该日，总收益 ${stkForumCompactMoney(totalEdu + totalMain)}` +
+    `（教育账户${stkForumCompactMoney(totalEdu)}，主账户${stkForumCompactMoney(totalMain)}）。`;
 }
 
 function stkFindOversell(records, onlyCode, onlyAccount) {
@@ -4491,6 +4542,11 @@ async function stkLoad() {
   } catch (e) {
     setStatus("股票已载入，家庭收入同步待重试：" + (e.message || e), "warn", 7000);
   }
+  try {
+    await stkReconcileForum();
+  } catch (e) {
+    setStatus("股票已载入，投资收益贴吧同步待重试：" + (e.message || e), "warn", 7000);
+  }
 }
 
 async function stkSaveMeta() {
@@ -4592,6 +4648,87 @@ async function stkReconcileIncome() {
     throw new Error("家庭收入同步失败：" + res.status + " " + (await res.text()));
   }
   throw new Error("家庭收入同步冲突，重试多次仍失败。");
+}
+
+function stkForumPostCreated(cycle) {
+  const d = String(cycle.endDate || "");
+  return /^\d{4}-\d{2}-\d{2}$/.test(d)
+    ? new Date(d + "T00:00:00+08:00").toISOString()
+    : (cycle.modified || new Date().toISOString());
+}
+
+async function stkReconcileForum() {
+  const token = await getToken();
+  await forumResolveFolder(token);
+  const cycles = stkDeriveClosedCycles(stockRecords).cycles
+    .slice().sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)) ||
+      String(a.account).localeCompare(String(b.account)));
+  const desired = cycles.map((cycle) => ({
+    id: STK_FORUM_POST_PREFIX + cycle.closingTransactionId,
+    author: "股票模块自动同步",
+    content: stkForumPostContent(cycle, cycles),
+    created: stkForumPostCreated(cycle),
+    generated: true,
+    source: {
+      module: "stock", type: STK_INCOME_SOURCE_TYPE, version: 1,
+      closingTransactionId: cycle.closingTransactionId,
+      transactionIds: cycle.transactionIds.slice(),
+    },
+  }));
+
+  let topicId = STK_FORUM_TOPIC_ID;
+  let topic = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const idx = await forumReadIndex(token);
+    topic = idx.topics.find((t) => t.title === STK_FORUM_TOPIC_TITLE) || null;
+    if (topic) topicId = topic.id;
+    const created = topic ? topic.created : new Date().toISOString();
+    const topicData = await forumReadTopic(token, topicId);
+    const manual = topicData.posts.filter((p) => !(p.generated === true && p.source && p.source.module === "stock"));
+    const existingGenerated = topicData.posts.filter((p) => p.generated === true && p.source && p.source.module === "stock")
+      .slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const desiredSorted = desired.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (topic && JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted) &&
+        Number(topic.postCount || 0) === topicData.posts.length) {
+      return { postCount: desired.length, topicId };
+    }
+    const posts = manual.concat(desired).sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")));
+    const lastUpdated = posts.reduce((max, p) => String(p.created || "") > max ? String(p.created || "") : max, created);
+    const nextTopic = {
+      id: topicId, title: STK_FORUM_TOPIC_TITLE,
+      author: (topic && topic.author) || "股票模块自动同步",
+      created, postCount: posts.length, lastUpdated,
+      generated: topic ? topic.generated : true,
+    };
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (topicData.etag) headers["If-Match"] = topicData.etag;
+    const writeTopic = await fetch(forumContentUrl("forum/" + topicId + ".json"), {
+      method: "PUT", headers, body: JSON.stringify({ topic: nextTopic, posts }),
+    });
+    if (writeTopic.status === 412) continue;
+    if (!writeTopic.ok) throw new Error("同步股票收益主题失败：" + writeTopic.status + " " + (await writeTopic.text()));
+
+    const freshIdx = await forumReadIndex(token);
+    const topics = freshIdx.topics.filter((t) => t.id !== topicId && t.title !== STK_FORUM_TOPIC_TITLE);
+    topics.push(nextTopic);
+    topics.sort(forumCmp);
+    const idxHeaders = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (freshIdx.etag) idxHeaders["If-Match"] = freshIdx.etag;
+    const writeIndex = await fetch(forumContentUrl(FORUM_INDEX_FILE), {
+      method: "PUT", headers: idxHeaders, body: JSON.stringify({ topics }),
+    });
+    if (writeIndex.status === 412) continue;
+    if (!writeIndex.ok) throw new Error("同步股票收益索引失败：" + writeIndex.status + " " + (await writeIndex.text()));
+
+    if (forumLoaded) {
+      forumTopics = topics;
+      forumIndexEtag = (await writeIndex.json()).eTag || null;
+      forumRenderList();
+      if (forumCurTopicId === topicId) await forumOpenTopic(topicId);
+    }
+    return { postCount: desired.length, topicId };
+  }
+  throw new Error("同步股票收益主题冲突，重试多次仍失败。");
 }
 
 /* ---------------------------- Stock form --------------------------------- */
@@ -4776,6 +4913,11 @@ async function stkOnSubmit(e) {
     } catch (syncErr) {
       setStatus("股票已保存，家庭收入同步待重试：" + (syncErr.message || syncErr), "warn", 8000);
     }
+    try {
+      await stkReconcileForum();
+    } catch (forumErr) {
+      setStatus("股票已保存，投资收益贴吧同步待重试：" + (forumErr.message || forumErr), "warn", 8000);
+    }
   } catch (err) {
     stockRecords = snap; stkRender();
     setStatus("保存出错：" + (err.message || err), "error");
@@ -4830,6 +4972,11 @@ async function stkDelete(id) {
       setStatus("交易已删除，家庭收入已同步。", "ok", 4000);
     } catch (syncErr) {
       setStatus("交易已删除，家庭收入同步待重试：" + (syncErr.message || syncErr), "warn", 8000);
+    }
+    try {
+      await stkReconcileForum();
+    } catch (forumErr) {
+      setStatus("交易已删除，投资收益贴吧同步待重试：" + (forumErr.message || forumErr), "warn", 8000);
     }
   } catch (err) {
     stockRecords = snap; stkRender();

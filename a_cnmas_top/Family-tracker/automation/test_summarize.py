@@ -36,6 +36,8 @@ class CollectorTests(unittest.TestCase):
             parts = summarize.collect_forum("token", "base", self.window)
         text = "\n".join(parts)
         self.assertEqual(len(parts), 2)
+        self.assertTrue(any(part.startswith("### [贴吧] 旧主题\n") for part in parts))
+        self.assertIn("主题：旧主题", text)
         self.assertIn("新主题", text)
         self.assertIn("本期回复", text)
         self.assertNotIn("旧首楼", text)
