@@ -4676,19 +4676,20 @@ async function stkReconcileForum() {
     },
   }));
 
-  let topicId = STK_FORUM_TOPIC_ID;
+  const topicId = STK_FORUM_TOPIC_ID;
   let topic = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     const idx = await forumReadIndex(token);
-    topic = idx.topics.find((t) => t.title === STK_FORUM_TOPIC_TITLE) || null;
-    if (topic) topicId = topic.id;
+    topic = idx.topics.find((t) => t.id === topicId) || null;
     const created = topic ? topic.created : new Date().toISOString();
     const topicData = await forumReadTopic(token, topicId);
     const manual = topicData.posts.filter((p) => !(p.generated === true && p.source && p.source.module === "stock"));
     const existingGenerated = topicData.posts.filter((p) => p.generated === true && p.source && p.source.module === "stock")
       .slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
     const desiredSorted = desired.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    if (topic && JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted) &&
+    if (topic && topic.pinned === true && topic.protected === true &&
+        topic.title === STK_FORUM_TOPIC_TITLE &&
+        JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted) &&
         Number(topic.postCount || 0) === topicData.posts.length) {
       return { postCount: desired.length, topicId };
     }
@@ -4698,7 +4699,7 @@ async function stkReconcileForum() {
       id: topicId, title: STK_FORUM_TOPIC_TITLE,
       author: (topic && topic.author) || "股票模块自动同步",
       created, postCount: posts.length, lastUpdated,
-      generated: topic ? topic.generated : true,
+      generated: true, pinned: true, protected: true,
     };
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (topicData.etag) headers["If-Match"] = topicData.etag;
@@ -4709,7 +4710,7 @@ async function stkReconcileForum() {
     if (!writeTopic.ok) throw new Error("同步股票收益主题失败：" + writeTopic.status + " " + (await writeTopic.text()));
 
     const freshIdx = await forumReadIndex(token);
-    const topics = freshIdx.topics.filter((t) => t.id !== topicId && t.title !== STK_FORUM_TOPIC_TITLE);
+    const topics = freshIdx.topics.filter((t) => t.id !== topicId);
     topics.push(nextTopic);
     topics.sort(forumCmp);
     const idxHeaders = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
@@ -9865,6 +9866,7 @@ async function forumWriteTopic(token, topic, posts) {
 
 // newest-activity first (lastUpdated desc, then id desc)
 function forumCmp(a, b) {
+  if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
   const ka = a.lastUpdated || a.created || "", kb = b.lastUpdated || b.created || "";
   if (ka !== kb) return kb < ka ? -1 : 1;
   return (b.id || "") < (a.id || "") ? -1 : 1;
@@ -9906,6 +9908,13 @@ function forumRenderList() {
     const h = document.createElement("div");
     h.className = "forum-item-title";
     h.textContent = t.title || "(无标题)";
+    if (t.pinned) {
+      const badge = document.createElement("span");
+      badge.className = "forum-pinned-badge";
+      badge.textContent = "置顶";
+      h.appendChild(document.createTextNode(" "));
+      h.appendChild(badge);
+    }
     const meta = document.createElement("div");
     meta.className = "forum-item-meta";
     meta.textContent = (t.author || "匿名") + " 发起 · " + (t.created || "").slice(0, 10) + " · " + (t.postCount || 0) + " 楼";
@@ -9924,6 +9933,7 @@ async function forumOpenTopic(id) {
   forumSwitchTab("view");
   els.forumViewTitle.textContent = topic.title || "(无标题)";
   els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + (topic.created || "").slice(0, 10) + " · " + (topic.postCount || 0) + " 楼";
+  els.forumDeleteBtn.classList.toggle("hidden", topic.id === STK_FORUM_TOPIC_ID || !!topic.protected);
   els.forumPosts.innerHTML = "<p class='muted'>正在载入…</p>";
   els.forumReplyInput.value = "";
   try {
@@ -10045,6 +10055,10 @@ async function forumReply() {
 async function forumDeleteTopic() {
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
   if (!topic) return;
+  if (topic.id === STK_FORUM_TOPIC_ID || topic.protected) {
+    setStatus("股票投资收益记录为系统主题，不能手动删除。", "warn", 4000);
+    return;
+  }
   if (!confirm("确定删除该主题吗？\n「" + (topic.title || "") + "」\n（其下所有回帖将一并删除）")) return;
   try {
     setStatus("正在删除…");
