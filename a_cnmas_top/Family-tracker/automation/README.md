@@ -1,7 +1,8 @@
 # OneDrive 14 天摘要（GitHub Action）
 
-每 ~14 天自动读取**生活博客近 14 天正文** + **AI 对话近 14 天记录**，交给 **DeepSeek**
-汇总成一份中文 Markdown，写回 OneDrive **博客文件夹的 `summaries/`** 子文件夹。
+每 ~14 天自动读取**生活博客、贴吧新主题/新回复、旅行记录、AI 对话和日历记录**，
+交给 **DeepSeek** 汇总成一份中文 Markdown，写回 OneDrive **博客文件夹的
+`summaries/`** 子文件夹。贴吧按活动时间筛选，旅行按实际旅行日期筛选。
 
 个人 OneDrive 无法用 app-only，只能用委托授权 + refresh token。为免 PAT，滚动的
 refresh token 加密存在 `rt.enc`（提交进仓库），每次运行自动刷新并用内置
@@ -67,13 +68,14 @@ python bootstrap.py <你的 client_id>
 ## 四、验证
 
 - **Actions** 标签 → 选 “OneDrive 14-day summary” → **Run workflow** 手动跑一次。
-- 日志应显示找到的博客/对话数量、调用 DeepSeek、写回 `summaries/summary-YYYY-MM-DD.md`。
+- 日志应显示找到的博客、贴吧、旅行、对话和日历数量，调用 DeepSeek，并写回
+  `summaries/summary-YYYY-MM-DD.md`。
 - 去 OneDrive 博客文件夹的 `summaries/` 看是否生成了摘要 `.md`。
 - 仓库应出现一个 `chore: rotate OneDrive refresh token [skip ci]` 的自动提交
   （说明 `rt.enc` 已滚动）。
 
-之后每月 1 号、15 号自动运行（约 14 天一次）。因间隔远小于 refresh token 的 90 天
-滑动有效期，token 不会过期。
+之后在北京时间每个偶数 ISO 周的周六早上自动运行（约 14 天一次）。因间隔远小于
+refresh token 的 90 天滑动有效期，token 不会过期。
 
 ---
 

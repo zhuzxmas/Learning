@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Scheduled summarizer: reads the last N days of life-blog posts + AI-chat logs
-from personal OneDrive, asks DeepSeek to write a combined Chinese Markdown
-summary, and writes it back to the blog folder's  summaries/  subfolder.
+Scheduled summarizer: reads the last N days of life-blog posts, forum activity,
+travel records, AI-chat logs, and calendar events from personal OneDrive, asks
+DeepSeek to write a combined Chinese Markdown summary, and writes it back to
+the blog folder's summaries/ subfolder.
 
 Auth (personal OneDrive, no PAT):
   - The rolling refresh token lives encrypted in  automation/rt.enc  (committed
@@ -31,6 +32,7 @@ import os
 import sys
 import requests
 from cryptography.fernet import Fernet
+from zoneinfo import ZoneInfo
 
 # ---- constants (public; mirror the SPA's config) --------------------------
 AUTHORITY = "https://login.microsoftonline.com/consumers"
@@ -41,6 +43,7 @@ SCOPES = "offline_access Files.ReadWrite.All User.Read Calendars.Read"
 # The two OneDrive shared folders (same links the SPA uses).
 BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM"
 CHAT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgB5autcGzJOSKCznhJ1X0n3AVgMO_Xx2FjWRhpgk4vP1ag?email=celine_mas%40outlook.com&e=Lsf6a0"
+OTHER_TRACKER_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgCbS1q24rUkSajMLkNxkDtLAcWbFicegxxe-3yOfzGATqc?email=celine_mas%40outlook.com&e=76QT2n"
 
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
@@ -50,15 +53,16 @@ RT_ENC_PATH = os.path.join(HERE, "rt.enc")
 SUMMARY_DAYS = int(os.environ.get("SUMMARY_DAYS", "14"))
 CAL_NAME = os.environ.get("CAL_NAME", "Celine-Nathan").strip()
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+BEIJING = ZoneInfo("Asia/Shanghai")
 
 SYSTEM_PROMPT = (
-    "你是一位贴心的生活记录助手。以下是我最近 {days} 天的生活博客正文、AI 对话记录，"
-    "以及同一时期日历里已经发生的日程记录。"
+    "你是一位贴心的生活记录助手。以下是我最近 {days} 天的生活博客正文、贴吧主题与回复、"
+    "旅行记录、AI 对话记录，以及同一时期日历里已经发生的日程记录。"
     "请用中文输出一份 Markdown 摘要，包含：\n"
     "1. 本期概览（4-5 句，覆盖本期涉及的主要主题）\n"
-    "2. 本期要点：把博客里发生的事、心情、值得记住的瞬间，AI 对话里我关心的问题、"
-    "结论、建议，以及日历里记录的活动与安排，全部融合在一起，按时间/主题梳理成一条连贯的脉络，"
-    "串成一个整体（不要按博客/对话/日历分栏）\n"
+    "2. 本期要点：把博客和贴吧里发生的事、讨论、心情、值得记住的瞬间，旅行记录中的地点与同行人，"
+    "AI 对话里我关心的问题、结论、建议，以及日历里记录的活动与安排，全部融合在一起，"
+    "按时间/主题梳理成一条连贯的脉络，串成一个整体（不要按数据来源分栏）\n"
     "3. 待办 / 后续：从中抽取尚未完成或需要跟进的事项\n"
     "4. 一句话总结与鼓励\n"
     "不要编造未提供的信息；正文可能含 Markdown 图片语法，忽略图片。"
@@ -189,6 +193,37 @@ def load_index_map(token, drive_base, index_file, id_key, fields):
     return m
 
 
+def beijing_window(now=None, days=SUMMARY_DAYS):
+    """Return an exact Beijing window and its UTC/local-date boundaries."""
+    now_bj = (now or dt.datetime.now(BEIJING)).astimezone(BEIJING)
+    start_bj = now_bj - dt.timedelta(days=days)
+    return {
+        "start_bj": start_bj,
+        "end_bj": now_bj,
+        "start_utc": start_bj.astimezone(dt.timezone.utc),
+        "end_utc": now_bj.astimezone(dt.timezone.utc),
+        "start_date": start_bj.date(),
+        "end_date": now_bj.date(),
+    }
+
+
+def parse_utc(value):
+    if not value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        return parsed.astimezone(dt.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def in_utc_window(value, window):
+    parsed = parse_utc(value)
+    return bool(parsed and window["start_utc"] <= parsed <= window["end_utc"])
+
+
 def collect_blog(token, days_cutoff):
     base = resolve_folder(token, BLOG_FOLDER_SHARE_URL)
     idx = load_index_map(token, base, "blog-index.json", "id", ["title", "date"])
@@ -204,6 +239,78 @@ def collect_blog(token, days_cutoff):
         body = get_text(token, base, "posts/" + name) or ""
         parts.append("### [博客] %s（%s）\n%s" % (title, date, body.strip()))
     return base, parts
+
+
+def collect_forum(token, blog_base, window):
+    """Collect new topics and individual new replies from the forum."""
+    raw = get_text(token, blog_base, "forum-index.json")
+    try:
+        topics = json.loads(raw or "{}").get("topics", [])
+    except (TypeError, ValueError):
+        topics = []
+    parts = []
+    for topic in topics:
+        if not isinstance(topic, dict) or not topic.get("id"):
+            continue
+        topic_created = in_utc_window(topic.get("created"), window)
+        topic_active = topic_created or in_utc_window(topic.get("lastUpdated"), window)
+        if not topic_active:
+            continue
+        detail_raw = get_text(token, blog_base, "forum/%s.json" % topic["id"])
+        try:
+            detail = json.loads(detail_raw or "{}")
+        except (TypeError, ValueError):
+            detail = {}
+        posts = detail.get("posts", []) if isinstance(detail, dict) else []
+        recent_posts = [p for p in posts if isinstance(p, dict) and
+                        in_utc_window(p.get("created"), window)]
+        if not recent_posts and not topic_created:
+            continue
+        title = (topic.get("title") or "(无标题)").strip()
+        author = (topic.get("author") or "").strip()
+        lines = ["主题：%s%s" % (title, "（%s）" % author if author else "")]
+        for post in recent_posts:
+            content = (post.get("content") or "").strip()
+            if not content:
+                continue
+            created = parse_utc(post.get("created"))
+            date = created.astimezone(BEIJING).strftime("%Y-%m-%d %H:%M") if created else ""
+            who = (post.get("author") or "未知").strip()
+            lines.append("- %s %s：%s" % (date, who, content))
+        if len(lines) > 1:
+            parts.append("### [贴吧] %s\n%s" % (title, "\n".join(lines)))
+    return parts
+
+
+def collect_travel(token, window):
+    """Collect travel records by their actual Beijing-local visit date."""
+    base = resolve_folder(token, OTHER_TRACKER_FOLDER_SHARE_URL)
+    raw = get_text(token, base, "travel.json")
+    try:
+        records = json.loads(raw or "{}").get("records", [])
+    except (TypeError, ValueError):
+        records = []
+    rows = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        try:
+            visit_date = dt.date.fromisoformat(str(record.get("date") or ""))
+        except ValueError:
+            continue
+        if not (window["start_date"] <= visit_date <= window["end_date"]):
+            continue
+        title = (record.get("title") or "(未命名地点)").strip()
+        people = [str(n).strip() for n in record.get("people", []) if str(n).strip()]
+        remark = (record.get("remark") or "").strip()
+        line = "- %s %s" % (visit_date.isoformat(), title)
+        if people:
+            line += "；同行：" + "、".join(people)
+        if remark:
+            line += "；备注：" + remark
+        rows.append((visit_date, line))
+    rows.sort(key=lambda item: item[0])
+    return ["### [旅行]\n%s" % "\n".join(line for _, line in rows)] if rows else []
 
 
 def collect_chats(token, days_cutoff):
@@ -398,21 +505,28 @@ def main():
         # Ensure rt.enc exists even on the very first (secret-based) run.
         save_refresh_token(fernet, new_rt or refresh_token)
 
-    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=SUMMARY_DAYS)) \
-        .strftime("%Y-%m-%dT%H:%M:%SZ")
-    print("Collecting content modified since", cutoff)
+    window = beijing_window()
+    cutoff = window["start_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")
+    print("Collecting Beijing window %s .. %s" % (
+        window["start_bj"].strftime("%Y-%m-%d %H:%M"),
+        window["end_bj"].strftime("%Y-%m-%d %H:%M")))
 
     blog_base, blog_parts = collect_blog(access_token, cutoff)
+    forum_parts = collect_forum(access_token, blog_base, window)
+    travel_parts = collect_travel(access_token, window)
     chat_parts = collect_chats(access_token, cutoff)
     cal_parts = collect_calendar(access_token, cutoff)
-    print("Found %d recent blog posts, %d recent chats, %d calendar blocks." %
-          (len(blog_parts), len(chat_parts), len(cal_parts)))
+    print("Found %d blog posts, %d forum topics, %d travel blocks, "
+          "%d chats, %d calendar blocks." % (
+              len(blog_parts), len(forum_parts), len(travel_parts),
+              len(chat_parts), len(cal_parts)))
 
-    if not blog_parts and not chat_parts and not cal_parts:
+    if not blog_parts and not forum_parts and not travel_parts and not chat_parts and not cal_parts:
         print("No activity in the window. Nothing to summarize; exiting.")
         return
 
-    corpus = "\n\n".join(blog_parts + chat_parts + cal_parts)
+    corpus = "\n\n".join(
+        blog_parts + forum_parts + travel_parts + chat_parts + cal_parts)
     # Safety cap so a huge window can't blow up the request.
     max_chars = 120000
     if len(corpus) > max_chars:
@@ -421,9 +535,9 @@ def main():
     print("Calling DeepSeek (%s)..." % DEEPSEEK_MODEL)
     summary = summarize(corpus)
 
-    today = dt.date.today().strftime("%Y-%m-%d")
-    header = "# 生活与对话摘要 · 最近 %d 天\n\n_生成于 %s（UTC）_\n\n" % (
-        SUMMARY_DAYS, dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M"))
+    today = window["end_bj"].date().strftime("%Y-%m-%d")
+    header = "# 生活与对话摘要 · 最近 %d 天\n\n_生成于 %s（北京时间）_\n\n" % (
+        SUMMARY_DAYS, window["end_bj"].strftime("%Y-%m-%d %H:%M"))
     out_path = "summaries/summary-%s.md" % today
     put_text(access_token, blog_base, out_path, header + summary)
     print("Wrote summary to blog folder:", out_path)
