@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=42" />
+  <link rel="stylesheet" href="style.css?v=43" />
 </head>
 <body>
   <header class="topbar">
@@ -1806,7 +1806,6 @@
         <button type="button" class="tab-btn hidden" id="blogTabViewBtn">阅读</button>
         <button type="button" class="tab-btn" id="blogTabEditBtn">写博文</button>
         <button type="button" class="tab-btn" id="blogTabForumBtn">贴吧</button>
-        <button type="button" class="tab-btn hidden" id="blogClearFilterBtn">清除筛选</button>
       </div>
 
       <!-- 列表 -->
@@ -1814,9 +1813,11 @@
         <div class="card">
           <div class="blog-toolbar">
             <input type="search" id="blogSearch" placeholder="搜索标题或正文…" autocomplete="off" />
+            <button type="button" class="btn btn-ghost hidden" id="blogClearFilterBtn">清除筛选</button>
             <span class="muted" id="blogCount"></span>
           </div>
           <div id="blogList" class="blog-list"></div>
+          <div class="list-pager" id="blogListPager"><button type="button" class="btn btn-ghost" id="blogListPrev">上一页</button><span class="muted" id="blogListPageInfo"></span><button type="button" class="btn btn-ghost" id="blogListNext">下一页</button></div>
           <p class="muted hidden" id="blogEmpty">暂无文章。</p>
         </div>
       </div>
@@ -1900,6 +1901,7 @@
               <span class="muted" id="forumCount"></span>
             </div>
             <div id="forumList" class="forum-list"></div>
+            <div class="list-pager" id="forumListPager"><button type="button" class="btn btn-ghost" id="forumListPrev">上一页</button><span class="muted" id="forumListPageInfo"></span><button type="button" class="btn btn-ghost" id="forumListNext">下一页</button></div>
             <p class="muted hidden" id="forumEmpty">暂无主题，点「新建主题」开始。</p>
           </div>
         </div>
@@ -1915,8 +1917,12 @@
             </div>
             <div class="field field-wide">
               <label for="forumBodyInput">首楼正文（Markdown）</label>
+              <div class="blog-md-toolbar forum-md-toolbar" data-target="forumBodyInput">
+                <button type="button" class="md-btn" data-md="bold"><b>B</b></button><button type="button" class="md-btn" data-md="italic"><i>I</i></button><button type="button" class="md-btn" data-md="underline"><u>U</u></button><button type="button" class="md-btn" data-md="h2">H2</button><button type="button" class="md-btn" data-md="quote">“”</button><button type="button" class="md-btn" data-md="ul">• 列表</button><button type="button" class="md-btn" data-md="ol">1. 列表</button><button type="button" class="md-btn" data-md="link">链接</button><button type="button" class="md-btn" data-md="code">&lt;/&gt;</button><button type="button" class="md-btn" data-md="hr">—</button>
+              </div>
               <textarea id="forumBodyInput" rows="8" placeholder="支持 Markdown：# 标题、**加粗**、- 列表、[链接](url)…"></textarea>
             </div>
+            <div class="forum-image-tools"><input type="file" id="forumTopicImageInput" accept="image/*" multiple /><button type="button" class="btn btn-ghost" id="forumTopicPickBtn">从云端选择图片</button><span class="muted" id="forumTopicImageHint"></span></div>
             <div class="form-actions">
               <button type="button" class="btn btn-primary" id="forumSaveBtn">发布主题</button>
               <button type="button" class="btn btn-ghost" id="forumCancelBtn">取消</button>
@@ -1938,7 +1944,11 @@
             <div class="forum-reply-box">
               <label for="forumReplyInput" id="forumReplyLabel">发表回复（Markdown）</label>
               <input type="hidden" id="forumEditPostId" />
+              <div class="blog-md-toolbar forum-md-toolbar" data-target="forumReplyInput">
+                <button type="button" class="md-btn" data-md="bold"><b>B</b></button><button type="button" class="md-btn" data-md="italic"><i>I</i></button><button type="button" class="md-btn" data-md="underline"><u>U</u></button><button type="button" class="md-btn" data-md="h2">H2</button><button type="button" class="md-btn" data-md="quote">“”</button><button type="button" class="md-btn" data-md="ul">• 列表</button><button type="button" class="md-btn" data-md="ol">1. 列表</button><button type="button" class="md-btn" data-md="link">链接</button><button type="button" class="md-btn" data-md="code">&lt;/&gt;</button><button type="button" class="md-btn" data-md="hr">—</button>
+              </div>
               <textarea id="forumReplyInput" rows="3" placeholder="输入回复内容…"></textarea>
+              <div class="forum-image-tools"><input type="file" id="forumReplyImageInput" accept="image/*" multiple /><button type="button" class="btn btn-ghost" id="forumReplyPickBtn">从云端选择图片</button><span class="muted" id="forumReplyImageHint"></span></div>
               <div class="forum-reply-actions">
                 <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
                 <button type="button" class="btn btn-ghost hidden" id="forumReplyCancelBtn">取消编辑</button>
@@ -1946,6 +1956,7 @@
             </div>
           </div>
         </div>
+        <div id="forumImgPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="forumImgPickerCount"></span><button type="button" class="btn btn-ghost" id="forumImgPickerClose">关闭</button></div><div id="forumImgPickerGrid" class="blog-img-picker-grid"></div><div id="forumImgPickerPager" class="blog-img-picker-pager hidden"><button type="button" class="btn btn-ghost" id="forumImgPickerPrev">上一页</button><span class="muted" id="forumImgPickerPageInfo"></span><button type="button" class="btn btn-ghost" id="forumImgPickerNext">下一页</button></div></div>
       </div>
       </div><!-- /#blogApp -->
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
@@ -1989,6 +2000,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>

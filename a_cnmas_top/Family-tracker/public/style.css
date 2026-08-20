@@ -1020,6 +1020,9 @@ td:nth-child(6) {
   border-radius: 8px;
   font-size: 14px;
 }
+.blog-toolbar #blogCount { white-space: nowrap; }
+.list-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
+#blogTabEdit .form-actions { margin-top: 16px; }
 .blog-list { display: flex; flex-direction: column; gap: 8px; }
 .blog-item {
   padding: 12px 14px;
@@ -1227,6 +1230,8 @@ td:nth-child(6) {
 #forumBodyInput { min-height: 210px; overflow-y: hidden; resize: vertical; }
 .forum-reply-box .btn { align-self: flex-start; }
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.forum-image-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 14px; }
+.forum-image-tools input[type="file"] { max-width: 100%; }
 
 /* ===================== 旅行地图 (travel) ===================== */
 .travel-toolbar {

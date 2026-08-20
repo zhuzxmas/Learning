@@ -758,6 +758,7 @@ const els = {
   blogTabViewBtn: $("blogTabViewBtn"),
   blogTabEditBtn: $("blogTabEditBtn"),
   blogClearFilterBtn: $("blogClearFilterBtn"),
+  blogListPager: $("blogListPager"), blogListPrev: $("blogListPrev"), blogListNext: $("blogListNext"), blogListPageInfo: $("blogListPageInfo"),
   blogLightbox: $("blogLightbox"),
   blogLightboxImg: $("blogLightboxImg"),
   blogTabList: $("blogTabList"),
@@ -803,6 +804,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumNewTopicBtn: $("forumNewTopicBtn"),
   forumSearch: $("forumSearch"),
   forumCount: $("forumCount"),
+  forumListPager: $("forumListPager"), forumListPrev: $("forumListPrev"), forumListNext: $("forumListNext"), forumListPageInfo: $("forumListPageInfo"),
   forumList: $("forumList"),
   forumEmpty: $("forumEmpty"),
   forumTitleInput: $("forumTitleInput"),
@@ -820,6 +822,9 @@ blogSaveBtn: $("blogSaveBtn"),
   forumEditPostId: $("forumEditPostId"),
   forumReplyBtn: $("forumReplyBtn"),
   forumReplyCancelBtn: $("forumReplyCancelBtn"),
+  forumTopicImageInput: $("forumTopicImageInput"), forumTopicPickBtn: $("forumTopicPickBtn"), forumTopicImageHint: $("forumTopicImageHint"),
+  forumReplyImageInput: $("forumReplyImageInput"), forumReplyPickBtn: $("forumReplyPickBtn"), forumReplyImageHint: $("forumReplyImageHint"),
+  forumImgPicker: $("forumImgPicker"), forumImgPickerCount: $("forumImgPickerCount"), forumImgPickerGrid: $("forumImgPickerGrid"), forumImgPickerClose: $("forumImgPickerClose"), forumImgPickerPager: $("forumImgPickerPager"), forumImgPickerPrev: $("forumImgPickerPrev"), forumImgPickerNext: $("forumImgPickerNext"), forumImgPickerPageInfo: $("forumImgPickerPageInfo"),
   // 旅行地图 (travel*)
   travelApp: $("travelApp"),
   travelTabMapBtn: $("travelTabMapBtn"),
@@ -4224,6 +4229,7 @@ const STK_FORUM_TOPIC_ID = "generated-stock-investment-income";
 const STK_FORUM_POST_PREFIX = "generated:stock-close:v1:";
 const STK_FORUM_INTRO_POST_ID = "generated:stock-topic:intro:v1";
 const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。系统会根据股票交易记录自动新增、更新或删除对应的清仓总结；数据没有变化时，不会重复写入。";
+const CLOUD_GROWTH_TOPIC_ID = "2026-08-21-01";
 
 function stkIncomePayee(accountName) {
   const s = String(accountName || "").trim();
@@ -9152,8 +9158,20 @@ let blogIndexEtag = null;
 let blogLoaded = false;
  let blogViewId = null;       // id currently open in 阅读
  let blogSearchText = "";
- let blogSummaries = [];      // read-only virtual entries from summaries/ folder
- const blogImgCache = {};     // "images/x.jpg" -> object URL
+let blogSummaries = [];      // read-only virtual entries from summaries/ folder
+const blogImgCache = {};     // "images/x.jpg" -> object URL
+const BLOG_LIST_PAGE_SIZE = 20;
+let blogListPage = 0;
+
+function formatBeijingTime(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value).slice(0, 16);
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(d).replace(/\//g, "-");
+}
 
 // All list entries = editable posts + read-only auto summaries.
 function blogAllEntries() { return blogPosts.concat(blogSummaries); }
@@ -9290,11 +9308,18 @@ function blogRenderList() {
     return ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || ""))
       .toLowerCase().includes(q);
   });
+  const pages = Math.max(1, Math.ceil(list.length / BLOG_LIST_PAGE_SIZE));
+  blogListPage = Math.min(blogListPage, pages - 1);
+  const pageRows = list.slice(blogListPage * BLOG_LIST_PAGE_SIZE, (blogListPage + 1) * BLOG_LIST_PAGE_SIZE);
   els.blogCount.textContent = "共 " + list.length + " 篇";
+  els.blogListPageInfo.textContent = "第 " + (blogListPage + 1) + " / " + pages + " 页";
+  els.blogListPrev.disabled = blogListPage === 0;
+  els.blogListNext.disabled = blogListPage >= pages - 1;
+  els.blogListPager.classList.toggle("hidden", pages <= 1);
   els.blogClearFilterBtn.classList.toggle("hidden", !q);
   els.blogList.innerHTML = "";
   els.blogEmpty.classList.toggle("hidden", list.length > 0);
-  list.forEach((p) => {
+  pageRows.forEach((p) => {
     const item = document.createElement("div");
     item.className = "blog-item" + (p.isSummary ? " blog-item-summary" : "");
     item.tabIndex = 0;
@@ -9310,7 +9335,7 @@ function blogRenderList() {
     }
     const meta = document.createElement("div");
     meta.className = "blog-item-meta";
-    meta.textContent = (p.date || "") + (p.images ? "　·　" + p.images + " 图" : "");
+    meta.textContent = (p.date || "") + (p.created ? "　·　发表于 " + formatBeijingTime(p.created) : "") + (p.images ? "　·　" + p.images + " 图" : "");
     const ex = document.createElement("div");
     ex.className = "blog-item-excerpt";
     ex.textContent = p.excerpt || "";
@@ -9331,7 +9356,7 @@ async function blogOpen(id) {
   els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
   els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
   els.blogViewTitle.textContent = post.title || "(无标题)";
-  els.blogViewDate.textContent = post.date || "";
+  els.blogViewDate.textContent = (post.date || "") + (post.created ? "　·　发表于 " + formatBeijingTime(post.created) : "");
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
   try {
     const token = await getToken();
@@ -9549,8 +9574,11 @@ async function blogSave() {
     if (isNew) id = blogNextId(date);
     await blogWriteText(token, "posts/" + id + ".md", body);
     const imgCount = (body.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
+    const oldEntry = blogPosts.find((p) => p.id === id);
     const entry = {
       id, title, date,
+      created: (oldEntry && oldEntry.created) || new Date().toISOString(),
+      modified: new Date().toISOString(),
       excerpt: blogMakeExcerpt(body),
       searchText: blogMakeExcerpt(body).slice(0, 2000),
       images: imgCount,
@@ -9625,6 +9653,32 @@ async function blogOnPickImages(files) {
     els.blogImageInput.disabled = false;
   }
 }
+
+async function forumUploadImages(files, target, input, hint) {
+  if (!files || !files.length) return;
+  input.disabled = true;
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    const refs = [];
+    for (const f of files) {
+      const name = "img" + Date.now() + Math.floor(Math.random() * 1000) + "." + blogSlugExt(f.name);
+      hint.textContent = "正在上传 " + name + " …";
+      const res = await fetch(blogContentUrl("images/" + name), {
+        method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": f.type || "application/octet-stream" },
+        body: await f.arrayBuffer(),
+      });
+      if (!res.ok) throw new Error("上传失败(" + name + ")：" + res.status);
+      refs.push("![](images/" + name + ")");
+    }
+    blogInsertAtCursor(target, "\n\n" + refs.join("\n\n") + "\n\n");
+    forumAutoGrowEditor(target);
+    hint.textContent = "已插入 " + refs.length + " 张图片。";
+    input.value = "";
+  } catch (e) {
+    setStatus("图片上传失败：" + (e.message || e), "error");
+  } finally { input.disabled = false; }
+}
 function blogInsertAtCursor(ta, text) {
   const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
   ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
@@ -9658,8 +9712,8 @@ function blogLinePrefix(ta, prefix) {
   ta.selectionEnd = ls + replaced.length;
   ta.focus();
 }
-function blogMdAction(md) {
-  const ta = els.blogBodyInput;
+function blogMdAction(md, ta) {
+  ta = ta || els.blogBodyInput;
   switch (md) {
     case "bold": return blogWrapSelection(ta, "**", "**", "加粗文字");
     case "italic": return blogWrapSelection(ta, "*", "*", "斜体文字");
@@ -9771,12 +9825,14 @@ function blogWireEvents() {
   els.blogTabListBtn.onclick = () => blogSwitchTab("list");
   els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
   els.blogTabEditBtn.onclick = () => blogNew();
-  els.blogSearch.addEventListener("input", () => { blogSearchText = els.blogSearch.value; blogRenderList(); });
-  els.blogClearFilterBtn.onclick = () => { els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
+  els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
+  els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
+  els.blogListPrev.onclick = () => { blogListPage--; blogRenderList(); };
+  els.blogListNext.onclick = () => { blogListPage++; blogRenderList(); };
   els.blogPickExistingBtn.onclick = () => blogTogglePicker();
   els.blogMdToolbar.addEventListener("click", (e) => {
     const btn = e.target.closest(".md-btn");
-    if (btn && btn.dataset.md) blogMdAction(btn.dataset.md);
+    if (btn && btn.dataset.md) blogMdAction(btn.dataset.md, els.blogBodyInput);
   });
   els.blogImgPickerClose.onclick = () => els.blogImgPicker.classList.add("hidden");
   els.blogImgPickerPrev.onclick = () => { blogPickerPage--; blogRenderPickerPage(); };
@@ -9808,6 +9864,11 @@ let forumCurTopicId = null;    // id of the open topic
 let forumCurPosts = [];        // posts of the open topic
 let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrency)
 let forumSearchText = "";      // topic-title search filter
+const FORUM_LIST_PAGE_SIZE = 20;
+let forumListPage = 0;
+let forumPickerTarget = null;
+let forumPickerItems = [];
+let forumPickerPage = 0;
 
 function forumCurrentAuthor() {
   return String((account && (account.name || account.username)) || "").trim();
@@ -9818,6 +9879,8 @@ function forumIsAuthor(value) {
 function forumIsProtectedTopic(topic) {
   return !!topic && (topic.id === STK_FORUM_TOPIC_ID || topic.protected === true);
 }
+function forumCannotDeleteTopic(topic) { return forumIsProtectedTopic(topic) || !!(topic && (topic.id === CLOUD_GROWTH_TOPIC_ID || topic.noDelete)); }
+function forumCannotDeleteReplies(topic) { return !!topic && (topic.id === CLOUD_GROWTH_TOPIC_ID || topic.repliesDeletable === false); }
 function forumIsProtectedPost(post) {
   return !!post && (post.generated === true || post.protected === true);
 }
@@ -9909,6 +9972,12 @@ async function forumLoad() {
   const idx = await forumReadIndex(token);
   forumTopics = idx.topics.slice().sort(forumCmp);
   forumIndexEtag = idx.etag;
+  const growth = forumTopics.find((t) => t.id === CLOUD_GROWTH_TOPIC_ID);
+  if (growth && (growth.pinned !== true || growth.noDelete !== true || growth.repliesDeletable !== false)) {
+    growth.pinned = true; growth.noDelete = true; growth.repliesDeletable = false;
+    forumTopics.sort(forumCmp);
+    await forumWriteIndex(token);
+  }
   forumLoaded = true;
   forumRenderList();
   forumSwitchTab("list");
@@ -9926,10 +9995,19 @@ function forumSwitchTab(tab) {
 function forumRenderList() {
   const q = forumSearchText.trim().toLowerCase();
   const list = forumTopics.slice().filter((t) => !q || (t.title || "").toLowerCase().includes(q));
+  list.forEach((t) => { if (t.id === CLOUD_GROWTH_TOPIC_ID) t.pinned = true; });
+  list.sort(forumCmp);
+  const pages = Math.max(1, Math.ceil(list.length / FORUM_LIST_PAGE_SIZE));
+  forumListPage = Math.min(forumListPage, pages - 1);
+  const pageRows = list.slice(forumListPage * FORUM_LIST_PAGE_SIZE, (forumListPage + 1) * FORUM_LIST_PAGE_SIZE);
   els.forumCount.textContent = "共 " + list.length + " 个主题";
+  els.forumListPageInfo.textContent = "第 " + (forumListPage + 1) + " / " + pages + " 页";
+  els.forumListPrev.disabled = forumListPage === 0;
+  els.forumListNext.disabled = forumListPage >= pages - 1;
+  els.forumListPager.classList.toggle("hidden", pages <= 1);
   els.forumList.innerHTML = "";
   els.forumEmpty.classList.toggle("hidden", list.length > 0);
-  list.forEach((t) => {
+  pageRows.forEach((t) => {
     const item = document.createElement("div");
     item.className = "forum-item" + (t.pinned ? " forum-item-pinned" : "");
     item.tabIndex = 0;
@@ -9945,7 +10023,7 @@ function forumRenderList() {
     }
     const meta = document.createElement("div");
     meta.className = "forum-item-meta";
-    meta.textContent = (t.author || "匿名") + " 发起 · " + (t.created || "").slice(0, 10) + " · " + (t.postCount || 0) + " 楼";
+    meta.textContent = (t.author || "匿名") + " 发起 · " + formatBeijingTime(t.created) + " · " + (t.postCount || 0) + " 楼";
     item.appendChild(h); item.appendChild(meta);
     item.onclick = () => forumOpenTopic(t.id);
     item.onkeydown = (e) => { if (e.key === "Enter") forumOpenTopic(t.id); };
@@ -9960,9 +10038,9 @@ async function forumOpenTopic(id) {
   forumCurTopicId = id;
   forumSwitchTab("view");
   els.forumViewTitle.textContent = topic.title || "(无标题)";
-  els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + (topic.created || "").slice(0, 10) + " · " + (topic.postCount || 0) + " 楼";
+  els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + formatBeijingTime(topic.created) + " · " + (topic.postCount || 0) + " 楼";
   els.forumEditBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
-  els.forumDeleteBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
+  els.forumDeleteBtn.classList.toggle("hidden", forumCannotDeleteTopic(topic) || !forumIsAuthor(topic.author));
   els.forumPosts.innerHTML = "<p class='muted'>正在载入…</p>";
   forumResetReplyEditor();
   try {
@@ -10002,7 +10080,7 @@ async function forumRenderPosts(token) {
     const meta = document.createElement("div");
     meta.className = "forum-post-meta";
     meta.textContent = (isOp ? "楼主 " : floor + "楼 ") +
-      (p.author || "匿名") + " · " + (p.created || "").slice(0, 16);
+      (p.author || "匿名") + " · " + formatBeijingTime(p.created);
     const body = document.createElement("div");
     body.className = "blog-body forum-post-body";
     body.innerHTML = blogRenderMarkdown(p.content || "");
@@ -10014,7 +10092,7 @@ async function forumRenderPosts(token) {
       edit.type = "button"; edit.className = "btn btn-ghost btn-mini"; edit.textContent = "编辑";
       edit.onclick = () => forumStartEditPost(p.id);
       actions.appendChild(edit);
-      if (!isOp) {
+      if (!isOp && !forumCannotDeleteReplies(topic)) {
         const del = document.createElement("button");
         del.type = "button"; del.className = "btn btn-danger btn-mini"; del.textContent = "删除";
         del.onclick = () => forumDeletePost(p.id);
@@ -10131,10 +10209,57 @@ function forumAutoGrowEditor(editor) {
   editor.style.height = Math.max(210, editor.scrollHeight) + "px";
 }
 
+async function forumOpenImagePicker(target) {
+  forumPickerTarget = target;
+  els.forumImgPicker.classList.remove("hidden");
+  els.forumImgPickerCount.textContent = "正在载入…";
+  try {
+    const token = await getToken(); await blogResolveFolder(token);
+    let url = `${blogDriveBase}:/images:/children?$select=name,file,lastModifiedDateTime&$expand=thumbnails($select=medium,small)&$top=200`;
+    const items = [];
+    while (url) {
+      const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      (data.value || []).forEach((it) => { if (it.file && BLOG_IMG_EXT.test(it.name || "")) items.push(it); });
+      url = data["@odata.nextLink"] || null;
+    }
+    items.sort((a, b) => new Date(b.lastModifiedDateTime || 0) - new Date(a.lastModifiedDateTime || 0));
+    forumPickerItems = items; forumPickerPage = 0;
+    forumRenderImagePickerPage();
+  } catch (e) { setStatus("载入已有图片失败：" + (e.message || e), "error"); }
+}
+
+function forumRenderImagePickerPage() {
+  const pages = Math.max(1, Math.ceil(forumPickerItems.length / BLOG_PICKER_PAGE_SIZE));
+  forumPickerPage = Math.max(0, Math.min(forumPickerPage, pages - 1));
+  const items = forumPickerItems.slice(forumPickerPage * BLOG_PICKER_PAGE_SIZE, (forumPickerPage + 1) * BLOG_PICKER_PAGE_SIZE);
+  els.forumImgPickerGrid.innerHTML = "";
+  els.forumImgPickerCount.textContent = "共 " + forumPickerItems.length + " 张（点击插入）";
+  items.forEach((it) => {
+      const cell = document.createElement("button"); cell.type = "button"; cell.className = "blog-img-cell";
+      const img = document.createElement("img"); const th = it.thumbnails && it.thumbnails[0];
+      img.src = th && ((th.medium && th.medium.url) || (th.small && th.small.url)) || ""; img.alt = it.name;
+      cell.appendChild(img); cell.onclick = () => {
+        blogInsertAtCursor(forumPickerTarget, "\n\n![](images/" + it.name + ")\n\n");
+        forumAutoGrowEditor(forumPickerTarget);
+      };
+      els.forumImgPickerGrid.appendChild(cell);
+  });
+  els.forumImgPickerPageInfo.textContent = "第 " + (forumPickerPage + 1) + " / " + pages + " 页";
+  els.forumImgPickerPrev.disabled = forumPickerPage === 0;
+  els.forumImgPickerNext.disabled = forumPickerPage >= pages - 1;
+  els.forumImgPickerPager.classList.toggle("hidden", pages <= 1);
+}
+
 async function forumDeletePost(id) {
   const post = forumCurPosts.find((p) => p.id === id);
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
   if (!post || !topic || forumIsProtectedPost(post) || !forumIsAuthor(post.author)) return;
+  if (forumCannotDeleteReplies(topic)) {
+    setStatus("该主题的回复不能删除。", "warn", 3000);
+    return;
+  }
   const chronological = forumCurPosts.slice().sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")));
   if (chronological[0] && chronological[0].id === id) return;
   if (!confirm("确定删除这条回复吗？")) return;
@@ -10202,8 +10327,8 @@ async function forumReply() {
 async function forumDeleteTopic() {
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
   if (!topic) return;
-  if (topic.id === STK_FORUM_TOPIC_ID || topic.protected) {
-    setStatus("股票投资收益记录为系统主题，不能手动删除。", "warn", 4000);
+  if (forumCannotDeleteTopic(topic)) {
+    setStatus("该主题已保护，不能手动删除。", "warn", 4000);
     return;
   }
   if (!confirm("确定删除该主题吗？\n「" + (topic.title || "") + "」\n（其下所有回帖将一并删除）")) return;
@@ -10231,7 +10356,9 @@ async function forumDeleteTopic() {
 function forumWireEvents() {
   els.blogTabForumBtn.onclick = () => { blogSwitchTab("forum"); forumLoad(); };
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
-  els.forumSearch.addEventListener("input", () => { forumSearchText = els.forumSearch.value; forumRenderList(); });
+  els.forumSearch.addEventListener("input", () => { forumListPage = 0; forumSearchText = els.forumSearch.value; forumRenderList(); });
+  els.forumListPrev.onclick = () => { forumListPage--; forumRenderList(); };
+  els.forumListNext.onclick = () => { forumListPage++; forumRenderList(); };
   els.forumSaveBtn.onclick = () => forumSaveTopic();
   els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
   els.forumBackBtn.onclick = () => forumSwitchTab("list");
@@ -10241,6 +10368,18 @@ function forumWireEvents() {
   els.forumReplyCancelBtn.onclick = () => forumResetReplyEditor();
   els.forumReplyInput.addEventListener("input", () => forumAutoGrowEditor(els.forumReplyInput));
   els.forumBodyInput.addEventListener("input", () => forumAutoGrowEditor(els.forumBodyInput));
+  document.querySelectorAll(".forum-md-toolbar").forEach((toolbar) => toolbar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".md-btn");
+    const target = document.getElementById(toolbar.dataset.target);
+    if (btn && btn.dataset.md && target) { blogMdAction(btn.dataset.md, target); forumAutoGrowEditor(target); }
+  }));
+  els.forumTopicImageInput.onchange = () => forumUploadImages(els.forumTopicImageInput.files, els.forumBodyInput, els.forumTopicImageInput, els.forumTopicImageHint);
+  els.forumReplyImageInput.onchange = () => forumUploadImages(els.forumReplyImageInput.files, els.forumReplyInput, els.forumReplyImageInput, els.forumReplyImageHint);
+  els.forumTopicPickBtn.onclick = () => forumOpenImagePicker(els.forumBodyInput);
+  els.forumReplyPickBtn.onclick = () => forumOpenImagePicker(els.forumReplyInput);
+  els.forumImgPickerClose.onclick = () => els.forumImgPicker.classList.add("hidden");
+  els.forumImgPickerPrev.onclick = () => { forumPickerPage--; forumRenderImagePickerPage(); };
+  els.forumImgPickerNext.onclick = () => { forumPickerPage++; forumRenderImagePickerPage(); };
   els.forumReplyInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) forumReply();
   });
