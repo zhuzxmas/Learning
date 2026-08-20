@@ -1021,6 +1021,12 @@ td:nth-child(6) {
   font-size: 14px;
 }
 .blog-toolbar #blogCount { white-space: nowrap; }
+@media (max-width: 640px) and (orientation: portrait) {
+  .blog-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .blog-toolbar #blogSearch { min-width: 0; width: 100%; }
+  .blog-toolbar #blogClearFilterBtn { white-space: nowrap; min-height: 40px; padding: 8px 10px; }
+  .blog-toolbar #blogCount { grid-column: 1 / -1; }
+}
 .list-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
 #blogTabEdit .form-actions { margin-top: 16px; }
 .blog-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1232,6 +1238,16 @@ td:nth-child(6) {
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .forum-image-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 14px; }
 .forum-image-tools input[type="file"] { max-width: 100%; }
+.forum-image-tools input[type="file"]::file-selector-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  margin-right: 8px;
+}
+.forum-image-tools input[type="file"]::-webkit-file-upload-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  margin-right: 8px;
+}
 
 /* ===================== 旅行地图 (travel) ===================== */
 .travel-toolbar {
