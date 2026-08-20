@@ -1222,6 +1222,7 @@ td:nth-child(6) {
   font-family: inherit;
   resize: vertical;
 }
+.forum-reply-box textarea.editing { min-height: 180px; overflow-y: hidden; }
 .forum-reply-box .btn { align-self: flex-start; }
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 

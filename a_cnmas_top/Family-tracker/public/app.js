@@ -10103,6 +10103,8 @@ function forumEditTopic() {
 function forumResetReplyEditor() {
   els.forumEditPostId.value = "";
   els.forumReplyInput.value = "";
+  els.forumReplyInput.classList.remove("editing");
+  els.forumReplyInput.style.height = "";
   els.forumReplyLabel.textContent = "发表回复（Markdown）";
   els.forumReplyBtn.textContent = "发表回复";
   els.forumReplyCancelBtn.classList.add("hidden");
@@ -10113,10 +10115,18 @@ function forumStartEditPost(id) {
   if (!post || forumIsProtectedPost(post) || !forumIsAuthor(post.author)) return;
   els.forumEditPostId.value = id;
   els.forumReplyInput.value = post.content || "";
+  els.forumReplyInput.classList.add("editing");
+  forumAutoGrowReply();
   els.forumReplyLabel.textContent = "编辑回复（Markdown）";
   els.forumReplyBtn.textContent = "保存修改";
   els.forumReplyCancelBtn.classList.remove("hidden");
   els.forumReplyInput.focus();
+}
+
+function forumAutoGrowReply() {
+  if (!els.forumReplyInput || !els.forumReplyInput.classList.contains("editing")) return;
+  els.forumReplyInput.style.height = "auto";
+  els.forumReplyInput.style.height = Math.max(180, els.forumReplyInput.scrollHeight) + "px";
 }
 
 async function forumDeletePost(id) {
@@ -10227,6 +10237,7 @@ function forumWireEvents() {
   els.forumDeleteBtn.onclick = () => forumDeleteTopic();
   els.forumReplyBtn.onclick = () => forumReply();
   els.forumReplyCancelBtn.onclick = () => forumResetReplyEditor();
+  els.forumReplyInput.addEventListener("input", forumAutoGrowReply);
   els.forumReplyInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) forumReply();
   });
