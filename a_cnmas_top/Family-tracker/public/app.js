@@ -10126,7 +10126,7 @@ function forumStartEditPost(id) {
 function forumAutoGrowReply() {
   if (!els.forumReplyInput || !els.forumReplyInput.classList.contains("editing")) return;
   els.forumReplyInput.style.height = "auto";
-  els.forumReplyInput.style.height = Math.max(180, els.forumReplyInput.scrollHeight) + "px";
+  els.forumReplyInput.style.height = Math.max(210, els.forumReplyInput.scrollHeight) + "px";
 }
 
 async function forumDeletePost(id) {

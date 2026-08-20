@@ -1215,7 +1215,7 @@ td:nth-child(6) {
 .forum-reply-box label { font-weight: 600; font-size: 14px; color: #1b3a12; }
 .forum-reply-box textarea {
   width: 100%;
-  min-height: 120px;
+  min-height: 210px;
   padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -1223,7 +1223,7 @@ td:nth-child(6) {
   font-family: inherit;
   resize: vertical;
 }
-.forum-reply-box textarea.editing { min-height: 180px; overflow-y: hidden; }
+.forum-reply-box textarea.editing { min-height: 210px; overflow-y: hidden; }
 .forum-reply-box .btn { align-self: flex-start; }
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
