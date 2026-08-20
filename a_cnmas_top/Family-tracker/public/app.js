@@ -10127,6 +10127,7 @@ async function travelEnsureMap() {
     zoom: 5,
     viewMode: "2D",
   });
+  travelMapObj.removeControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION);
   travelMapObj.on("click", (e) => {
     if (Date.now() - travelMarkerClickAt < 500) return;
     const ll = travelLL(e.latLng);
