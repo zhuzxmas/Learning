@@ -1167,6 +1167,7 @@ td:nth-child(6) {
   border-color: #26890D;
   outline: none;
 }
+.forum-item-pinned { border-left: 4px solid #26890D; background: #f6faf4; }
 .forum-item-title { font-weight: 700; font-size: 15px; color: #1b3a12; }
 .forum-pinned-badge {
   display: inline-block;

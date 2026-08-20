@@ -9903,7 +9903,7 @@ function forumRenderList() {
   els.forumEmpty.classList.toggle("hidden", list.length > 0);
   list.forEach((t) => {
     const item = document.createElement("div");
-    item.className = "forum-item";
+    item.className = "forum-item" + (t.pinned ? " forum-item-pinned" : "");
     item.tabIndex = 0;
     const h = document.createElement("div");
     h.className = "forum-item-title";
@@ -9955,12 +9955,24 @@ async function forumRenderPosts(token) {
     els.forumPosts.innerHTML = "<p class='muted'>暂无回帖。</p>";
     return;
   }
-  forumCurPosts.forEach((p, i) => {
+  const chronological = forumCurPosts.slice().sort((a, b) =>
+    String(a.created || "").localeCompare(String(b.created || "")) ||
+    String(a.id || "").localeCompare(String(b.id || "")));
+  const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+  const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
+  const displayPosts = isSystemTopic
+    ? chronological.slice().reverse()
+    : chronological.slice(0, 1).concat(chronological.slice(1).reverse());
+  const floorById = new Map(chronological.map((p, i) => [p.id, i + 1]));
+  displayPosts.forEach((p) => {
+    const floor = floorById.get(p.id) || 1;
+    const isOp = !isSystemTopic && floor === 1;
     const div = document.createElement("div");
-    div.className = "forum-post" + (i === 0 ? " forum-post-op" : "");
+    div.className = "forum-post" + (isOp ? " forum-post-op" : "");
     const meta = document.createElement("div");
     meta.className = "forum-post-meta";
-    meta.textContent = (i === 0 ? "楼主 " : (i + 1) + "楼 ") + (p.author || "匿名") + " · " + (p.created || "").slice(0, 16);
+    meta.textContent = (isOp ? "楼主 " : floor + "楼 ") +
+      (p.author || "匿名") + " · " + (p.created || "").slice(0, 16);
     const body = document.createElement("div");
     body.className = "blog-body forum-post-body";
     body.innerHTML = blogRenderMarkdown(p.content || "");
