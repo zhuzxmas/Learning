@@ -1202,6 +1202,7 @@ td:nth-child(6) {
 .forum-post-body { font-size: 14px; }
 .forum-post-body p:first-child { margin-top: 0; }
 .forum-post-body p:last-child { margin-bottom: 0; }
+.forum-post-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 
 .forum-reply-box {
   margin-top: 14px;
@@ -1222,6 +1223,7 @@ td:nth-child(6) {
   resize: vertical;
 }
 .forum-reply-box .btn { align-self: flex-start; }
+.forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ===================== 旅行地图 (travel) ===================== */
 .travel-toolbar {

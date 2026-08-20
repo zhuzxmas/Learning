@@ -798,6 +798,8 @@ blogSaveBtn: $("blogSaveBtn"),
   forumTopicList: $("forumTopicList"),
   forumTopicEdit: $("forumTopicEdit"),
   forumTopicView: $("forumTopicView"),
+  forumEditTitle: $("forumEditTitle"),
+  forumEditTopicId: $("forumEditTopicId"),
   forumNewTopicBtn: $("forumNewTopicBtn"),
   forumSearch: $("forumSearch"),
   forumCount: $("forumCount"),
@@ -808,12 +810,16 @@ blogSaveBtn: $("blogSaveBtn"),
   forumSaveBtn: $("forumSaveBtn"),
   forumCancelBtn: $("forumCancelBtn"),
   forumBackBtn: $("forumBackBtn"),
+  forumEditBtn: $("forumEditBtn"),
   forumDeleteBtn: $("forumDeleteBtn"),
   forumViewTitle: $("forumViewTitle"),
   forumViewMeta: $("forumViewMeta"),
   forumPosts: $("forumPosts"),
   forumReplyInput: $("forumReplyInput"),
+  forumReplyLabel: $("forumReplyLabel"),
+  forumEditPostId: $("forumEditPostId"),
   forumReplyBtn: $("forumReplyBtn"),
+  forumReplyCancelBtn: $("forumReplyCancelBtn"),
   // 旅行地图 (travel*)
   travelApp: $("travelApp"),
   travelTabMapBtn: $("travelTabMapBtn"),
@@ -4216,6 +4222,8 @@ const STK_INCOME_ID_PREFIX = "generated:stock-close:v1:";
 const STK_FORUM_TOPIC_TITLE = "股票投资收益记录";
 const STK_FORUM_TOPIC_ID = "generated-stock-investment-income";
 const STK_FORUM_POST_PREFIX = "generated:stock-close:v1:";
+const STK_FORUM_INTRO_POST_ID = "generated:stock-topic:intro:v1";
+const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。系统会根据股票交易记录自动新增、更新或删除对应的清仓总结；数据没有变化时，不会重复写入。";
 
 function stkIncomePayee(accountName) {
   const s = String(accountName || "").trim();
@@ -4663,7 +4671,14 @@ async function stkReconcileForum() {
   const cycles = stkDeriveClosedCycles(stockRecords).cycles
     .slice().sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)) ||
       String(a.account).localeCompare(String(b.account)));
-  const desired = cycles.map((cycle) => ({
+  const desired = [{
+    id: STK_FORUM_INTRO_POST_ID,
+    author: "股票模块自动同步",
+    content: STK_FORUM_INTRO_CONTENT,
+    created: "2000-01-01T00:00:00.000Z",
+    generated: true, protected: true,
+    source: { module: "stock", type: "topic-intro", version: 1 },
+  }].concat(cycles.map((cycle) => ({
     id: STK_FORUM_POST_PREFIX + cycle.closingTransactionId,
     author: "股票模块自动同步",
     content: stkForumPostContent(cycle, cycles),
@@ -4674,7 +4689,7 @@ async function stkReconcileForum() {
       closingTransactionId: cycle.closingTransactionId,
       transactionIds: cycle.transactionIds.slice(),
     },
-  }));
+  })));
 
   const topicId = STK_FORUM_TOPIC_ID;
   let topic = null;
@@ -9794,6 +9809,19 @@ let forumCurPosts = [];        // posts of the open topic
 let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrency)
 let forumSearchText = "";      // topic-title search filter
 
+function forumCurrentAuthor() {
+  return String((account && (account.name || account.username)) || "").trim();
+}
+function forumIsAuthor(value) {
+  return !!value && String(value).trim().toLowerCase() === forumCurrentAuthor().toLowerCase();
+}
+function forumIsProtectedTopic(topic) {
+  return !!topic && (topic.id === STK_FORUM_TOPIC_ID || topic.protected === true);
+}
+function forumIsProtectedPost(post) {
+  return !!post && (post.generated === true || post.protected === true);
+}
+
 // ---- folder addressing (reuses the blog folder via blogDriveBase) ---------
 async function forumResolveFolder(token) {
   await blogResolveFolder(token);   // same folder as the blog
@@ -9933,9 +9961,10 @@ async function forumOpenTopic(id) {
   forumSwitchTab("view");
   els.forumViewTitle.textContent = topic.title || "(无标题)";
   els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + (topic.created || "").slice(0, 10) + " · " + (topic.postCount || 0) + " 楼";
-  els.forumDeleteBtn.classList.toggle("hidden", topic.id === STK_FORUM_TOPIC_ID || !!topic.protected);
+  els.forumEditBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
+  els.forumDeleteBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
   els.forumPosts.innerHTML = "<p class='muted'>正在载入…</p>";
-  els.forumReplyInput.value = "";
+  forumResetReplyEditor();
   try {
     const token = await getToken();
     await forumResolveFolder(token);
@@ -9960,13 +9989,14 @@ async function forumRenderPosts(token) {
     String(a.id || "").localeCompare(String(b.id || "")));
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
   const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
+  const intro = chronological.find((p) => p.id === STK_FORUM_INTRO_POST_ID);
   const displayPosts = isSystemTopic
-    ? chronological.slice().reverse()
+    ? (intro ? [intro] : []).concat(chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID).reverse())
     : chronological.slice(0, 1).concat(chronological.slice(1).reverse());
   const floorById = new Map(chronological.map((p, i) => [p.id, i + 1]));
   displayPosts.forEach((p) => {
     const floor = floorById.get(p.id) || 1;
-    const isOp = !isSystemTopic && floor === 1;
+    const isOp = (!isSystemTopic && floor === 1) || p.id === STK_FORUM_INTRO_POST_ID;
     const div = document.createElement("div");
     div.className = "forum-post" + (isOp ? " forum-post-op" : "");
     const meta = document.createElement("div");
@@ -9977,6 +10007,21 @@ async function forumRenderPosts(token) {
     body.className = "blog-body forum-post-body";
     body.innerHTML = blogRenderMarkdown(p.content || "");
     div.appendChild(meta); div.appendChild(body);
+    if (!forumIsProtectedPost(p) && forumIsAuthor(p.author)) {
+      const actions = document.createElement("div");
+      actions.className = "forum-post-actions";
+      const edit = document.createElement("button");
+      edit.type = "button"; edit.className = "btn btn-ghost btn-mini"; edit.textContent = "编辑";
+      edit.onclick = () => forumStartEditPost(p.id);
+      actions.appendChild(edit);
+      if (!isOp) {
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "btn btn-danger btn-mini"; del.textContent = "删除";
+        del.onclick = () => forumDeletePost(p.id);
+        actions.appendChild(del);
+      }
+      div.appendChild(actions);
+    }
     els.forumPosts.appendChild(div);
   });
   if (token) await blogResolveImages(token, els.forumPosts);
@@ -9984,6 +10029,9 @@ async function forumRenderPosts(token) {
 
 // ---- new topic ------------------------------------------------------------
 function forumNewTopic() {
+  els.forumEditTitle.textContent = "新建主题";
+  els.forumEditTopicId.value = "";
+  els.forumSaveBtn.textContent = "发布主题";
   els.forumTitleInput.value = "";
   els.forumBodyInput.value = "";
   forumSwitchTab("edit");
@@ -10010,22 +10058,87 @@ async function forumSaveTopic() {
     setStatus("正在发布主题…");
     const token = await getToken();
     await forumResolveFolder(token);
-    const id = forumNextTopicId();
+    const editId = els.forumEditTopicId.value;
+    const id = editId || forumNextTopicId();
     const created = new Date().toISOString();
-    const author = (account && (account.name || account.username)) || "";
-    const topic = { id, title, author, created, postCount: 1, lastUpdated: created };
-    forumCurEtag = null;                       // brand-new file — no If-Match
-    await forumWriteTopic(token, topic, [{ id: "p1", author, content, created }]);
-    forumTopics.push(topic);
+    const author = forumCurrentAuthor();
+    let topic;
+    if (editId) {
+      topic = forumTopics.find((t) => t.id === editId);
+      if (!topic || forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author)) throw new Error("无权编辑该主题。");
+      const updated = new Date().toISOString();
+      topic.title = title; topic.lastUpdated = updated;
+      await forumMutateTopic(token, topic, (posts) => posts.map((p, i) =>
+        i === 0 ? Object.assign({}, p, { content, modified: updated }) : p));
+    } else {
+      topic = { id, title, author, created, postCount: 1, lastUpdated: created };
+      forumCurEtag = null;
+      await forumWriteTopic(token, topic, [{ id: "p1", author, content, created }]);
+      forumTopics.push(topic);
+    }
     forumTopics.sort(forumCmp);
     await forumWriteIndex(token);
     forumRenderList();
     await forumOpenTopic(id);
-    setStatus("主题已发布。", "ok", 2500);
+    setStatus(editId ? "主题已更新。" : "主题已发布。", "ok", 2500);
   } catch (e) {
     setStatus("发布失败：" + (e.message || e), "error");
   } finally {
     els.forumSaveBtn.disabled = false;
+  }
+}
+
+function forumEditTopic() {
+  const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+  if (!topic || forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author)) return;
+  const chronological = forumCurPosts.slice().sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")));
+  els.forumEditTitle.textContent = "编辑主题";
+  els.forumEditTopicId.value = topic.id;
+  els.forumSaveBtn.textContent = "保存修改";
+  els.forumTitleInput.value = topic.title || "";
+  els.forumBodyInput.value = chronological[0] ? chronological[0].content || "" : "";
+  forumSwitchTab("edit");
+}
+
+function forumResetReplyEditor() {
+  els.forumEditPostId.value = "";
+  els.forumReplyInput.value = "";
+  els.forumReplyLabel.textContent = "发表回复（Markdown）";
+  els.forumReplyBtn.textContent = "发表回复";
+  els.forumReplyCancelBtn.classList.add("hidden");
+}
+
+function forumStartEditPost(id) {
+  const post = forumCurPosts.find((p) => p.id === id);
+  if (!post || forumIsProtectedPost(post) || !forumIsAuthor(post.author)) return;
+  els.forumEditPostId.value = id;
+  els.forumReplyInput.value = post.content || "";
+  els.forumReplyLabel.textContent = "编辑回复（Markdown）";
+  els.forumReplyBtn.textContent = "保存修改";
+  els.forumReplyCancelBtn.classList.remove("hidden");
+  els.forumReplyInput.focus();
+}
+
+async function forumDeletePost(id) {
+  const post = forumCurPosts.find((p) => p.id === id);
+  const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+  if (!post || !topic || forumIsProtectedPost(post) || !forumIsAuthor(post.author)) return;
+  const chronological = forumCurPosts.slice().sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")));
+  if (chronological[0] && chronological[0].id === id) return;
+  if (!confirm("确定删除这条回复吗？")) return;
+  try {
+    const token = await getToken();
+    await forumResolveFolder(token);
+    await forumMutateTopic(token, topic, (posts) => posts.filter((p) => p.id !== id));
+    topic.postCount = forumCurPosts.length;
+    topic.lastUpdated = new Date().toISOString();
+    forumTopics.sort(forumCmp);
+    await forumWriteIndex(token);
+    await forumRenderPosts(token);
+    forumRenderList();
+    setStatus("回复已删除。", "ok", 2000);
+  } catch (e) {
+    setStatus("删除回复失败：" + (e.message || e), "error");
   }
 }
 
@@ -10034,6 +10147,7 @@ async function forumReply() {
   const content = els.forumReplyInput.value.trim();
   if (!content) { setStatus("请填写回复内容。", "warn"); els.forumReplyInput.focus(); return; }
   if (!forumCurTopicId) return;
+  const editId = els.forumEditPostId.value;
   let post = null;
   els.forumReplyBtn.disabled = true;
   try {
@@ -10041,20 +10155,29 @@ async function forumReply() {
     const token = await getToken();
     await forumResolveFolder(token);
     const author = (account && (account.name || account.username)) || "";
-    post = { id: "p" + Date.now(), author, content, created: new Date().toISOString() };
-    forumCurPosts.push(post);
     const topic = forumTopics.find((t) => t.id === forumCurTopicId);
-    await forumWriteTopic(token, topic, forumCurPosts);
+    if (editId) {
+      const existing = forumCurPosts.find((p) => p.id === editId);
+      if (!existing || forumIsProtectedPost(existing) || !forumIsAuthor(existing.author)) throw new Error("无权编辑该回复。");
+      const modified = new Date().toISOString();
+      await forumMutateTopic(token, topic, (posts) => posts.map((p) =>
+        p.id === editId ? Object.assign({}, p, { content, modified }) : p));
+      topic.lastUpdated = modified;
+    } else {
+      post = { id: "p" + Date.now(), author, content, created: new Date().toISOString() };
+      forumCurPosts.push(post);
+      await forumWriteTopic(token, topic, forumCurPosts);
+      topic.lastUpdated = post.created;
+    }
     if (topic) {
       topic.postCount = forumCurPosts.length;
-      topic.lastUpdated = post.created;
     }
     forumTopics.sort(forumCmp);
     await forumWriteIndex(token);
-    els.forumReplyInput.value = "";
+    forumResetReplyEditor();
     await forumRenderPosts(token);
     forumRenderList();
-    setStatus("已回复。", "ok", 2000);
+    setStatus(editId ? "回复已更新。" : "已回复。", "ok", 2000);
   } catch (e) {
     if (post) forumCurPosts = forumCurPosts.filter((p) => p.id !== post.id);
     setStatus("回复失败：" + (e.message || e), "error");
@@ -10098,10 +10221,12 @@ function forumWireEvents() {
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
   els.forumSearch.addEventListener("input", () => { forumSearchText = els.forumSearch.value; forumRenderList(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
-  els.forumCancelBtn.onclick = () => forumSwitchTab("list");
+  els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
   els.forumBackBtn.onclick = () => forumSwitchTab("list");
+  els.forumEditBtn.onclick = () => forumEditTopic();
   els.forumDeleteBtn.onclick = () => forumDeleteTopic();
   els.forumReplyBtn.onclick = () => forumReply();
+  els.forumReplyCancelBtn.onclick = () => forumResetReplyEditor();
   els.forumReplyInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) forumReply();
   });
@@ -10231,6 +10356,27 @@ function travelRenderPersonFilter() {
     els.travelPersonFilter.appendChild(o);
   });
   els.travelPersonFilter.value = opts.includes(selected) ? selected : "__all__";
+}
+
+async function forumMutateTopic(token, topic, mutate) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const fresh = await forumReadTopic(token, topic.id);
+    const posts = fresh.posts.slice();
+    const next = mutate(posts);
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (fresh.etag) headers["If-Match"] = fresh.etag;
+    const res = await fetch(forumContentUrl("forum/" + topic.id + ".json"), {
+      method: "PUT", headers, body: JSON.stringify({ topic, posts: next }),
+    });
+    if (res.ok) {
+      forumCurPosts = next;
+      forumCurEtag = (await res.json()).eTag || null;
+      return;
+    }
+    if (res.status === 412) continue;
+    throw new Error("保存主题失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存主题冲突，重试多次仍失败。");
 }
 
 // ---- list rendering ------------------------------------------------------

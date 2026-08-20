@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=37" />
+  <link rel="stylesheet" href="style.css?v=38" />
 </head>
 <body>
   <header class="topbar">
@@ -1907,7 +1907,8 @@
         <!-- 新建主题 -->
         <div id="forumTopicEdit" class="hidden">
           <div class="card">
-            <h2>新建主题</h2>
+            <h2 id="forumEditTitle">新建主题</h2>
+            <input type="hidden" id="forumEditTopicId" />
             <div class="field">
               <label for="forumTitleInput">主题标题</label>
               <input type="text" id="forumTitleInput" autocomplete="off" placeholder="主题标题" />
@@ -1928,15 +1929,20 @@
           <div class="card">
             <div class="blog-view-actions">
               <button type="button" class="btn btn-ghost" id="forumBackBtn">← 返回列表</button>
+              <button type="button" class="btn btn-ghost" id="forumEditBtn">编辑主题</button>
               <button type="button" class="btn btn-danger" id="forumDeleteBtn">删除主题</button>
             </div>
             <h2 id="forumViewTitle"></h2>
             <p class="muted" id="forumViewMeta"></p>
             <div id="forumPosts" class="forum-posts"></div>
             <div class="forum-reply-box">
-              <label for="forumReplyInput">发表回复（Markdown）</label>
+              <label for="forumReplyInput" id="forumReplyLabel">发表回复（Markdown）</label>
+              <input type="hidden" id="forumEditPostId" />
               <textarea id="forumReplyInput" rows="3" placeholder="输入回复内容…"></textarea>
-              <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
+              <div class="forum-reply-actions">
+                <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
+                <button type="button" class="btn btn-ghost hidden" id="forumReplyCancelBtn">取消编辑</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1983,6 +1989,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=47"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>
