@@ -1142,6 +1142,18 @@ td:nth-child(6) {
   font-size: 14px;
 }
 .forum-toolbar .btn { flex: 0 0 auto; }
+.forum-toolbar #forumCount { white-space: nowrap; }
+@media (max-width: 640px) and (orientation: portrait) {
+  .forum-toolbar { flex-wrap: wrap; }
+  .forum-toolbar #forumNewTopicBtn { order: 1; }
+  .forum-toolbar #forumCount { order: 2; margin-left: auto; }
+  .forum-toolbar #forumSearch {
+    order: 3;
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+  }
+}
 .forum-list { display: flex; flex-direction: column; gap: 8px; }
 .forum-item {
   padding: 12px 14px;
