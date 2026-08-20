@@ -10144,10 +10144,11 @@ async function travelEnsureMap() {
 function travelInfoHtml(r) {
   const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const people = travelPeopleOf(r).map(esc).join(", ");
-  const remark = r.remark ? "<div style='margin-top:4px;color:#555;'>" + esc(r.remark) + "</div>" : "";
-  return "<div style='font-size:13px;line-height:1.5;'>" +
-    "<b>" + esc(r.title) + "</b>" +
-    "<div style='color:#888;font-size:12px;'>" + esc(r.date) + (people ? " · " + people : "") + "</div>" +
+  const remark = r.remark ? "<div style='margin-top:5px;color:#555;overflow-wrap:anywhere;'>" + esc(r.remark) + "</div>" : "";
+  return "<div style='width:220px;max-width:70vw;font-size:13px;line-height:1.5;white-space:normal;'>" +
+    "<b style='display:block;overflow-wrap:anywhere;'>" + esc(r.title) + "</b>" +
+    "<div style='color:#888;font-size:12px;'>" + esc(r.date) + "</div>" +
+    (people ? "<div style='color:#888;font-size:12px;overflow-wrap:anywhere;'>" + people + "</div>" : "") +
     remark + "</div>";
 }
 
