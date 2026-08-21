@@ -1162,16 +1162,25 @@ td:nth-child(6) {
 .forum-toolbar .btn { flex: 0 0 auto; }
 .forum-toolbar #forumCount { white-space: nowrap; }
 @media (max-width: 640px) and (orientation: portrait) {
-  .forum-toolbar { flex-wrap: wrap; }
-  .forum-toolbar #forumNewTopicBtn { order: 1; }
-  .forum-toolbar #forumCount { order: 2; margin-left: auto; }
+  .forum-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .forum-toolbar #forumNewTopicBtn { grid-column: 1; justify-self: start; }
+  .forum-toolbar #forumCount { grid-column: 2; justify-self: end; }
   .forum-toolbar #forumSearch {
-    order: 3;
-    flex: 0 0 100%;
+    grid-column: 1;
     width: 100%;
     min-width: 0;
   }
-  .forum-toolbar #forumClearFilterBtn { order: 4; min-height: 40px; white-space: nowrap; }
+  .forum-toolbar #forumClearFilterBtn {
+    grid-column: 2;
+    min-width: max-content;
+    min-height: 40px;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
 }
 .forum-list { display: flex; flex-direction: column; gap: 8px; }
 .forum-item {
