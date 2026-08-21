@@ -758,7 +758,7 @@ const els = {
   blogTabViewBtn: $("blogTabViewBtn"),
   blogTabEditBtn: $("blogTabEditBtn"),
   blogClearFilterBtn: $("blogClearFilterBtn"),
-  blogListPager: $("blogListPager"), blogListPrev: $("blogListPrev"), blogListNext: $("blogListNext"), blogListPageInfo: $("blogListPageInfo"),
+  blogListPager: $("blogListPager"), blogListFirst: $("blogListFirst"), blogListPrev: $("blogListPrev"), blogListNext: $("blogListNext"), blogListLast: $("blogListLast"), blogListPageInfo: $("blogListPageInfo"), blogListPageInput: $("blogListPageInput"), blogListGo: $("blogListGo"),
   blogLightbox: $("blogLightbox"),
   blogLightboxImg: $("blogLightboxImg"),
   blogTabList: $("blogTabList"),
@@ -804,7 +804,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumNewTopicBtn: $("forumNewTopicBtn"),
   forumSearch: $("forumSearch"),
   forumCount: $("forumCount"),
-  forumListPager: $("forumListPager"), forumListPrev: $("forumListPrev"), forumListNext: $("forumListNext"), forumListPageInfo: $("forumListPageInfo"),
+  forumListPager: $("forumListPager"), forumListFirst: $("forumListFirst"), forumListPrev: $("forumListPrev"), forumListNext: $("forumListNext"), forumListLast: $("forumListLast"), forumListPageInfo: $("forumListPageInfo"), forumListPageInput: $("forumListPageInput"), forumListGo: $("forumListGo"),
   forumList: $("forumList"),
   forumEmpty: $("forumEmpty"),
   forumTitleInput: $("forumTitleInput"),
@@ -9312,9 +9312,13 @@ function blogRenderList() {
   blogListPage = Math.min(blogListPage, pages - 1);
   const pageRows = list.slice(blogListPage * BLOG_LIST_PAGE_SIZE, (blogListPage + 1) * BLOG_LIST_PAGE_SIZE);
   els.blogCount.textContent = "共 " + list.length + " 篇";
-  els.blogListPageInfo.textContent = "第 " + (blogListPage + 1) + " / " + pages + " 页";
+  els.blogListPageInput.value = blogListPage + 1;
+  els.blogListPageInput.max = pages;
+  els.blogListPageInfo.textContent = "/ " + pages + " 页";
+  els.blogListFirst.disabled = blogListPage === 0;
   els.blogListPrev.disabled = blogListPage === 0;
   els.blogListNext.disabled = blogListPage >= pages - 1;
+  els.blogListLast.disabled = blogListPage >= pages - 1;
   els.blogListPager.classList.toggle("hidden", pages <= 1);
   els.blogClearFilterBtn.classList.toggle("hidden", !q);
   els.blogList.innerHTML = "";
@@ -9827,8 +9831,21 @@ function blogWireEvents() {
   els.blogTabEditBtn.onclick = () => blogNew();
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
   els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
+  const goBlogPage = () => {
+    const pages = Math.max(1, Math.ceil(blogAllEntries().filter((p) => {
+      const q = blogSearchText.trim().toLowerCase();
+      return !q || ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || "")).toLowerCase().includes(q);
+    }).length / BLOG_LIST_PAGE_SIZE));
+    const wanted = Math.floor(Number(els.blogListPageInput.value));
+    if (!isFinite(wanted)) return;
+    blogListPage = Math.max(0, Math.min(pages - 1, wanted - 1)); blogRenderList();
+  };
+  els.blogListFirst.onclick = () => { blogListPage = 0; blogRenderList(); };
   els.blogListPrev.onclick = () => { blogListPage--; blogRenderList(); };
   els.blogListNext.onclick = () => { blogListPage++; blogRenderList(); };
+  els.blogListLast.onclick = () => { blogListPage = Number(els.blogListPageInput.max || 1) - 1; blogRenderList(); };
+  els.blogListGo.onclick = goBlogPage;
+  els.blogListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goBlogPage(); });
   els.blogPickExistingBtn.onclick = () => blogTogglePicker();
   els.blogMdToolbar.addEventListener("click", (e) => {
     const btn = e.target.closest(".md-btn");
@@ -10001,9 +10018,13 @@ function forumRenderList() {
   forumListPage = Math.min(forumListPage, pages - 1);
   const pageRows = list.slice(forumListPage * FORUM_LIST_PAGE_SIZE, (forumListPage + 1) * FORUM_LIST_PAGE_SIZE);
   els.forumCount.textContent = "共 " + list.length + " 个主题";
-  els.forumListPageInfo.textContent = "第 " + (forumListPage + 1) + " / " + pages + " 页";
+  els.forumListPageInput.value = forumListPage + 1;
+  els.forumListPageInput.max = pages;
+  els.forumListPageInfo.textContent = "/ " + pages + " 页";
+  els.forumListFirst.disabled = forumListPage === 0;
   els.forumListPrev.disabled = forumListPage === 0;
   els.forumListNext.disabled = forumListPage >= pages - 1;
+  els.forumListLast.disabled = forumListPage >= pages - 1;
   els.forumListPager.classList.toggle("hidden", pages <= 1);
   els.forumList.innerHTML = "";
   els.forumEmpty.classList.toggle("hidden", list.length > 0);
@@ -10357,8 +10378,20 @@ function forumWireEvents() {
   els.blogTabForumBtn.onclick = () => { blogSwitchTab("forum"); forumLoad(); };
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
   els.forumSearch.addEventListener("input", () => { forumListPage = 0; forumSearchText = els.forumSearch.value; forumRenderList(); });
+  const goForumPage = () => {
+    const q = forumSearchText.trim().toLowerCase();
+    const total = forumTopics.filter((t) => !q || (t.title || "").toLowerCase().includes(q)).length;
+    const pages = Math.max(1, Math.ceil(total / FORUM_LIST_PAGE_SIZE));
+    const wanted = Math.floor(Number(els.forumListPageInput.value));
+    if (!isFinite(wanted)) return;
+    forumListPage = Math.max(0, Math.min(pages - 1, wanted - 1)); forumRenderList();
+  };
+  els.forumListFirst.onclick = () => { forumListPage = 0; forumRenderList(); };
   els.forumListPrev.onclick = () => { forumListPage--; forumRenderList(); };
   els.forumListNext.onclick = () => { forumListPage++; forumRenderList(); };
+  els.forumListLast.onclick = () => { forumListPage = Number(els.forumListPageInput.max || 1) - 1; forumRenderList(); };
+  els.forumListGo.onclick = goForumPage;
+  els.forumListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPage(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
   els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
   els.forumBackBtn.onclick = () => forumSwitchTab("list");

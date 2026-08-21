@@ -1027,7 +1027,16 @@ td:nth-child(6) {
   .blog-toolbar #blogClearFilterBtn { white-space: nowrap; min-height: 40px; padding: 8px 10px; }
   .blog-toolbar #blogCount { grid-column: 1 / -1; }
 }
-.list-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
+.list-pager { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pager-input {
+  width: 58px;
+  min-width: 0;
+  padding: 8px 6px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 15px;
+}
 #blogTabEdit .form-actions { margin-top: 16px; }
 .blog-list { display: flex; flex-direction: column; gap: 8px; }
 .blog-item {

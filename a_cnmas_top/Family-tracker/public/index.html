@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=44" />
+  <link rel="stylesheet" href="style.css?v=45" />
 </head>
 <body>
   <header class="topbar">
@@ -1817,7 +1817,7 @@
             <span class="muted" id="blogCount"></span>
           </div>
           <div id="blogList" class="blog-list"></div>
-          <div class="list-pager" id="blogListPager"><button type="button" class="btn btn-ghost" id="blogListPrev">上一页</button><span class="muted" id="blogListPageInfo"></span><button type="button" class="btn btn-ghost" id="blogListNext">下一页</button></div>
+          <div class="list-pager" id="blogListPager"><button type="button" class="btn btn-ghost" id="blogListFirst">首页</button><button type="button" class="btn btn-ghost" id="blogListPrev">上一页</button><span class="muted">第</span><input type="number" class="pager-input" id="blogListPageInput" min="1" inputmode="numeric" /><span class="muted" id="blogListPageInfo"></span><button type="button" class="btn btn-ghost" id="blogListGo">跳转</button><button type="button" class="btn btn-ghost" id="blogListNext">下一页</button><button type="button" class="btn btn-ghost" id="blogListLast">尾页</button></div>
           <p class="muted hidden" id="blogEmpty">暂无文章。</p>
         </div>
       </div>
@@ -1901,7 +1901,7 @@
               <span class="muted" id="forumCount"></span>
             </div>
             <div id="forumList" class="forum-list"></div>
-            <div class="list-pager" id="forumListPager"><button type="button" class="btn btn-ghost" id="forumListPrev">上一页</button><span class="muted" id="forumListPageInfo"></span><button type="button" class="btn btn-ghost" id="forumListNext">下一页</button></div>
+            <div class="list-pager" id="forumListPager"><button type="button" class="btn btn-ghost" id="forumListFirst">首页</button><button type="button" class="btn btn-ghost" id="forumListPrev">上一页</button><span class="muted">第</span><input type="number" class="pager-input" id="forumListPageInput" min="1" inputmode="numeric" /><span class="muted" id="forumListPageInfo"></span><button type="button" class="btn btn-ghost" id="forumListGo">跳转</button><button type="button" class="btn btn-ghost" id="forumListNext">下一页</button><button type="button" class="btn btn-ghost" id="forumListLast">尾页</button></div>
             <p class="muted hidden" id="forumEmpty">暂无主题，点「新建主题」开始。</p>
           </div>
         </div>
@@ -2000,6 +2000,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=52"></script>
+  <script src="app.js?v=53"></script>
 </body>
 </html>
