@@ -803,6 +803,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumEditTopicId: $("forumEditTopicId"),
   forumNewTopicBtn: $("forumNewTopicBtn"),
   forumSearch: $("forumSearch"),
+  forumClearFilterBtn: $("forumClearFilterBtn"),
   forumCount: $("forumCount"),
   forumListPager: $("forumListPager"), forumListFirst: $("forumListFirst"), forumListPrev: $("forumListPrev"), forumListNext: $("forumListNext"), forumListLast: $("forumListLast"), forumListPageInfo: $("forumListPageInfo"), forumListPageInput: $("forumListPageInput"), forumListGo: $("forumListGo"),
   forumList: $("forumList"),
@@ -10011,6 +10012,7 @@ function forumSwitchTab(tab) {
 // ---- topic list rendering -------------------------------------------------
 function forumRenderList() {
   const q = forumSearchText.trim().toLowerCase();
+  els.forumClearFilterBtn.classList.toggle("hidden", !q);
   const list = forumTopics.slice().filter((t) => !q || (t.title || "").toLowerCase().includes(q));
   list.forEach((t) => { if (t.id === CLOUD_GROWTH_TOPIC_ID) t.pinned = true; });
   list.sort(forumCmp);
@@ -10378,6 +10380,9 @@ function forumWireEvents() {
   els.blogTabForumBtn.onclick = () => { blogSwitchTab("forum"); forumLoad(); };
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
   els.forumSearch.addEventListener("input", () => { forumListPage = 0; forumSearchText = els.forumSearch.value; forumRenderList(); });
+  els.forumClearFilterBtn.onclick = () => {
+    forumListPage = 0; forumSearchText = ""; els.forumSearch.value = ""; forumRenderList();
+  };
   const goForumPage = () => {
     const q = forumSearchText.trim().toLowerCase();
     const total = forumTopics.filter((t) => !q || (t.title || "").toLowerCase().includes(q)).length;

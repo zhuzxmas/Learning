@@ -1171,6 +1171,7 @@ td:nth-child(6) {
     width: 100%;
     min-width: 0;
   }
+  .forum-toolbar #forumClearFilterBtn { order: 4; min-height: 40px; white-space: nowrap; }
 }
 .forum-list { display: flex; flex-direction: column; gap: 8px; }
 .forum-item {
