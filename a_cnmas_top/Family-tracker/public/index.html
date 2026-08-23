@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=52" />
+  <link rel="stylesheet" href="style.css?v=53" />
 </head>
 <body>
   <header class="topbar">
@@ -1880,20 +1880,25 @@
         <div class="card">
           <h2 id="blogEditFormTitle">写博文</h2>
           <input type="hidden" id="blogEditId" />
-          <div class="field">
+          <div class="field blog-inline-field">
             <label for="blogTitleInput">标题</label>
             <input type="text" id="blogTitleInput" autocomplete="off" placeholder="文章标题" />
           </div>
-          <div class="field">
+          <div class="field blog-inline-field">
             <label for="blogDateInput">日期</label>
             <input type="date" id="blogDateInput" />
           </div>
-          <div class="field field-wide">
-            <label for="blogTagsInput">标签</label>
-            <input type="text" id="blogTagsInput" list="blogTagsList" autocomplete="off" placeholder="多个标签用逗号或分号分隔，如：育儿, 投资" />
-            <datalist id="blogTagsList"></datalist>
+          <div class="field field-wide blog-inline-field blog-tags-field">
+            <label>标签</label>
+            <div class="blog-tag-select" id="blogTagSelect">
+              <button type="button" class="ms-toggle" id="blogTagToggle">选择标签</button>
+              <div class="blog-tag-panel hidden" id="blogTagPanel">
+                <div class="blog-tag-add"><input type="text" id="blogTagNewInput" placeholder="新增标签" /><button type="button" class="btn btn-mini btn-primary" id="blogTagAddBtn">添加</button></div>
+                <div id="blogTagOptions"></div>
+              </div>
+            </div>
           </div>
-          <div class="field field-wide">
+          <div class="field field-wide blog-body-field">
             <label for="blogBodyInput">正文（Markdown）</label>
             <div class="blog-md-toolbar" id="blogMdToolbar">
               <button type="button" class="md-btn" data-md="bold" title="加粗"><b>B</b></button>
@@ -2057,6 +2062,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=66"></script>
+  <script src="app.js?v=67"></script>
 </body>
 </html>

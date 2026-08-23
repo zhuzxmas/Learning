@@ -145,6 +145,7 @@ const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geome
 // Structure inside it:  blog-index.json  +  posts/<id>.md  +  images/<file>
 const BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM";
 const BLOG_INDEX_FILE = "blog-index.json";
+const BLOG_TAGS_FILE = "blog-tags.json";
 const SUMMARY_SETTINGS_FILE = "summary-settings.json";
 const SUMMARY_MODEL_DEFAULT = "deepseek-v4-flash";
 // 贴吧 (forum) lives in the SAME OneDrive folder as the blog (family members
@@ -791,7 +792,7 @@ const els = {
   blogEditId: $("blogEditId"),
   blogTitleInput: $("blogTitleInput"),
   blogDateInput: $("blogDateInput"),
-  blogTagsInput: $("blogTagsInput"), blogTagsList: $("blogTagsList"),
+  blogTagSelect: $("blogTagSelect"), blogTagToggle: $("blogTagToggle"), blogTagPanel: $("blogTagPanel"), blogTagNewInput: $("blogTagNewInput"), blogTagAddBtn: $("blogTagAddBtn"), blogTagOptions: $("blogTagOptions"),
   blogBodyInput: $("blogBodyInput"),
   blogMdToolbar: $("blogMdToolbar"),
   blogImageInput: $("blogImageInput"),
@@ -9191,6 +9192,9 @@ let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
 const BLOG_LIST_PAGE_SIZE = 20;
 let blogListPage = 0;
+let blogTagCandidates = [];
+let blogSelectedTags = new Set();
+let blogTagsEtag = null;
 
 function formatBeijingTime(value) {
   if (!value) return "";
@@ -9208,6 +9212,51 @@ function blogNormalizeTags(value) {
   const values = Array.isArray(value) ? value : String(value || "").split(/[,;，；]/);
   return values.map((tag) => String(tag).trim()).filter((tag, i, arr) => tag && arr.indexOf(tag) === i);
 }
+async function blogLoadTagCandidates(token) {
+  const res = await fetch(blogContentUrl(BLOG_TAGS_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) {
+    blogTagCandidates = [...new Set(blogPosts.flatMap((p) => blogNormalizeTags(p.tags)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+    blogTagsEtag = null; return;
+  }
+  if (!res.ok) throw new Error("载入标签失败：" + res.status);
+  let data = null; try { data = await res.json(); } catch {}
+  blogTagCandidates = blogNormalizeTags(data && data.tags).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  blogTagsEtag = res.headers.get("ETag");
+}
+async function blogSaveTagCandidates() {
+  const token = await getToken();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (blogTagsEtag) headers["If-Match"] = blogTagsEtag;
+    const res = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: JSON.stringify({ tags: blogTagCandidates }) });
+    if (res.ok) { blogTagsEtag = (await res.json()).eTag || null; return; }
+    if (res.status === 412) {
+      const fresh = await fetch(blogContentUrl(BLOG_TAGS_FILE), { headers: { Authorization: "Bearer " + token } });
+      let data = null; try { data = await fresh.json(); } catch {}
+      const remote = blogNormalizeTags(data && data.tags);
+      blogTagCandidates = [...new Set(remote.concat(blogTagCandidates))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+      blogTagsEtag = fresh.headers.get("ETag"); continue;
+    }
+    throw new Error("保存标签失败：" + res.status);
+  }
+}
+async function blogDeleteTagCandidate(tag) {
+  const token = await getToken();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await fetch(blogContentUrl(BLOG_TAGS_FILE), { headers: { Authorization: "Bearer " + token } });
+    let remote = [];
+    if (res.ok) { let data = null; try { data = await res.json(); } catch {} remote = blogNormalizeTags(data && data.tags); }
+    else if (res.status !== 404) throw new Error("载入标签失败：" + res.status);
+    const next = remote.filter((x) => x !== tag);
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    const etag = res.headers.get("ETag"); if (etag) headers["If-Match"] = etag;
+    const put = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: JSON.stringify({ tags: next }) });
+    if (put.ok) { blogTagCandidates = next; blogTagsEtag = (await put.json()).eTag || null; blogRenderTagOptions(); return; }
+    if (put.status === 409 || put.status === 412) continue;
+    throw new Error("删除标签失败：" + put.status);
+  }
+  throw new Error("删除标签冲突，重试多次仍失败。");
+}
 function blogRenderTagChips(container, tags, clickable) {
   container.innerHTML = "";
   blogNormalizeTags(tags).forEach((tag) => {
@@ -9223,8 +9272,34 @@ function blogSetTagFilter(tag) {
   blogSwitchTab("list"); blogRenderList(); window.scrollTo({ top: 0, behavior: "auto" });
 }
 function blogRenderTagOptions() {
-  const tags = [...new Set(blogPosts.flatMap((post) => blogNormalizeTags(post.tags)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
-  els.blogTagsList.innerHTML = tags.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join("");
+  const options = [...new Set(blogTagCandidates.concat([...blogSelectedTags]))]
+    .sort((a, b) => a.localeCompare(b, "zh-CN"));
+  els.blogTagOptions.innerHTML = "";
+  options.forEach((tag) => {
+    const row = document.createElement("div"); row.className = "blog-tag-option";
+    const label = document.createElement("label");
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = blogSelectedTags.has(tag);
+    cb.onchange = () => { if (cb.checked) blogSelectedTags.add(tag); else blogSelectedTags.delete(tag); blogUpdateTagToggle(); };
+    label.appendChild(cb); label.appendChild(document.createTextNode(tag)); row.appendChild(label);
+    if (blogTagCandidates.includes(tag)) {
+      const del = document.createElement("button"); del.type = "button"; del.className = "blog-tag-option-delete"; del.textContent = "×"; del.title = "删除候选标签";
+      del.onclick = async () => { try { await blogDeleteTagCandidate(tag); } catch (e) { setStatus(e.message || String(e), "error"); } };
+      row.appendChild(del);
+    }
+    els.blogTagOptions.appendChild(row);
+  });
+  blogUpdateTagToggle();
+}
+function blogUpdateTagToggle() {
+  const tags = [...blogSelectedTags];
+  els.blogTagToggle.textContent = tags.length === 0 ? "选择标签" : tags.length <= 2 ? tags.join("、") : "已选 " + tags.length + " 个标签";
+}
+async function blogAddTagCandidate() {
+  const tag = els.blogTagNewInput.value.trim(); if (!tag) return;
+  if (!blogTagCandidates.includes(tag)) blogTagCandidates.push(tag);
+  blogTagCandidates.sort((a, b) => a.localeCompare(b, "zh-CN")); blogSelectedTags.add(tag);
+  els.blogTagNewInput.value = ""; blogRenderTagOptions();
+  try { await blogSaveTagCandidates(); } catch (e) { setStatus(e.message || String(e), "error"); }
 }
 
 // ---- folder + file addressing (own driveBase from BLOG_FOLDER_SHARE_URL) --
@@ -9459,6 +9534,10 @@ async function blogLoad() {
   const idx = await blogReadIndex(token);
   blogPosts = idx.posts.slice().sort(blogCmp);
   blogIndexEtag = idx.etag;
+  try { await blogLoadTagCandidates(token); } catch (e) {
+    blogTagCandidates = [...new Set(blogPosts.flatMap((p) => blogNormalizeTags(p.tags)))];
+    setStatus(e.message || String(e), "warn", 3000);
+  }
   blogSummaries = await blogListSummaries(token);
   blogLoaded = true;
   blogRenderTagOptions();
@@ -9855,7 +9934,7 @@ function blogResetForm() {
   els.blogEditId.value = "";
   els.blogTitleInput.value = "";
   els.blogDateInput.value = todayStr();
-  els.blogTagsInput.value = "";
+  blogSelectedTags = new Set(); blogRenderTagOptions();
   els.blogBodyInput.value = "";
   els.blogImageInput.value = "";
   els.blogAudioInput.value = "";
@@ -9873,7 +9952,7 @@ async function blogEditThis() {
   els.blogEditId.value = post.id;
   els.blogTitleInput.value = post.title || "";
   els.blogDateInput.value = post.date || todayStr();
-  els.blogTagsInput.value = blogNormalizeTags(post.tags).join(", ");
+  blogSelectedTags = new Set(blogNormalizeTags(post.tags)); blogRenderTagOptions();
   blogSwitchTab("edit");
   els.blogBodyInput.value = "载入中…";
   try {
@@ -9925,7 +10004,7 @@ async function blogSave() {
     const imgCount = (body.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
     const oldEntry = blogPosts.find((p) => p.id === id);
     const entry = {
-      id, title, date, tags: blogNormalizeTags(els.blogTagsInput.value),
+      id, title, date, tags: [...blogSelectedTags],
       created: (oldEntry && oldEntry.created) || new Date().toISOString(),
       modified: new Date().toISOString(),
       excerpt: blogMakeExcerpt(body),
@@ -10246,6 +10325,10 @@ function blogWireEvents() {
   els.blogTabListBtn.onclick = () => blogSwitchTab("list");
   els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
   els.blogTabEditBtn.onclick = () => blogNew();
+  els.blogTagToggle.onclick = (e) => { e.stopPropagation(); els.blogTagPanel.classList.toggle("hidden"); };
+  els.blogTagAddBtn.onclick = () => blogAddTagCandidate();
+  els.blogTagNewInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); blogAddTagCandidate(); } });
+  document.addEventListener("click", (e) => { if (!els.blogTagSelect.contains(e.target)) els.blogTagPanel.classList.add("hidden"); });
   els.blogTopBtn.onclick = () => blogScrollToTitle();
   window.addEventListener("scroll", blogUpdateTopButton, { passive: true });
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
