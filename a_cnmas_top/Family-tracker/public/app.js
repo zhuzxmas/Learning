@@ -220,6 +220,10 @@ let hiddenCats = { l1: [], l2: {}, l3: {} }; // hidden categories per level
 let etagCats = null;       // eTag of categories-custom.json
 let secretExpiry = null;   // {createdDate, validityDays, modified}, stored with categories
 let secretExpiryLoaded = false;
+// Blog form setup runs during boot, before the blog module's lazy-load block.
+let blogTagCandidates = [];
+let blogSelectedTags = new Set();
+let blogTagsEtag = null;
 let dirty = false;         // unsaved changes flag
 let spendingLoaded = false; // spending data fetched once per session (lazy + cached)
 let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显示全部 etc.
@@ -9251,9 +9255,6 @@ let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
 const BLOG_LIST_PAGE_SIZE = 20;
 let blogListPage = 0;
-let blogTagCandidates = [];
-let blogSelectedTags = new Set();
-let blogTagsEtag = null;
 
 function formatBeijingTime(value) {
   if (!value) return "";
