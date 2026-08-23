@@ -9180,6 +9180,7 @@ let blogCommentsEtag = null;
 let blogCommentsFolderReady = false;
 let blogCommentSaving = false;
 let blogCommentOriginalContent = "";
+let blogListReturnState = null;
 let summaryModel = SUMMARY_MODEL_DEFAULT;
 let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
@@ -9463,6 +9464,7 @@ function blogRenderList() {
   pageRows.forEach((p) => {
     const item = document.createElement("div");
     item.className = "blog-item" + (p.isSummary ? " blog-item-summary" : "");
+    item.dataset.blogId = p.id;
     item.tabIndex = 0;
     const h = document.createElement("div");
     h.className = "blog-item-title";
@@ -9491,8 +9493,18 @@ function blogRenderList() {
 async function blogOpen(id) {
   const post = blogAllEntries().find((p) => p.id === id);
   if (!post) return;
+  if (!els.blogTabList.classList.contains("hidden")) {
+    blogListReturnState = {
+      id,
+      page: blogListPage,
+      search: blogSearchText,
+      input: els.blogSearch.value,
+      scrollY: window.scrollY,
+    };
+  }
   blogViewId = id;
   blogSwitchTab("view");
+  window.scrollTo({ top: 0, behavior: "auto" });
   // Summaries are read-only: hide edit/delete controls.
   els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
   els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
@@ -9523,6 +9535,29 @@ async function blogOpen(id) {
     blogResetCommentEditor();
     setStatus("评论载入失败：" + (e.message || e), "warn", 5000);
   }
+}
+
+function blogReturnToList() {
+  const state = blogListReturnState;
+  if (state) {
+    blogListPage = state.page;
+    blogSearchText = state.search;
+    els.blogSearch.value = state.input;
+  }
+  blogSwitchTab("list");
+  blogRenderList();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (!state) return;
+    window.scrollTo({ top: state.scrollY, behavior: "auto" });
+    requestAnimationFrame(() => {
+    const target = Array.from(els.blogList.querySelectorAll(".blog-item"))
+      .find((el) => el.dataset.blogId === state.id);
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) target.scrollIntoView({ block: "center", behavior: "auto" });
+    }
+    });
+  }));
 }
 
 async function blogLoadComments(token, articleId) {
@@ -10199,7 +10234,7 @@ function blogWireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
   });
-  els.blogBackBtn.onclick = () => blogSwitchTab("list");
+  els.blogBackBtn.onclick = () => blogReturnToList();
   els.blogEditThisBtn.onclick = () => blogEditThis();
   els.blogDeleteThisBtn.onclick = () => blogDeleteThis();
   els.blogSaveBtn.onclick = () => blogSave();
