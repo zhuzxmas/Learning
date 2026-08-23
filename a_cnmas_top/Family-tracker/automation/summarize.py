@@ -320,12 +320,14 @@ def collect_blog_comments(token, blog_base, window):
     for item in files:
         if "file" not in item or not str(item.get("name", "")).endswith(".json"):
             continue
-        article_id = item["name"][:-5]
         raw = get_text(token, blog_base, "comments/" + item["name"])
         try:
-            comments = json.loads(raw or "{}").get("comments", [])
+            data = json.loads(raw or "{}")
+            article_id = str(data.get("articleId") or item["name"][:-5])
+            comments = data.get("comments", [])
         except (TypeError, ValueError):
             comments = []
+            article_id = item["name"][:-5]
         for comment in comments:
             if not isinstance(comment, dict) or not in_utc_window(comment.get("created"), window):
                 continue
@@ -333,7 +335,11 @@ def collect_blog_comments(token, blog_base, window):
             if not content:
                 continue
             created = parse_utc(comment.get("created"))
-            title = (idx.get(article_id, {}) or {}).get("title") or article_id
+            title = (idx.get(article_id, {}) or {}).get("title")
+            if not title and article_id.startswith("summary::"):
+                match = str(article_id).split("summary-")[-1].split(".md")[0]
+                title = "定期总结 · " + match
+            title = title or article_id
             who = (comment.get("author") or "未知").strip()
             date = created.astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
             rows.append((created, title, "- %s %s：%s" % (date, who, content)))

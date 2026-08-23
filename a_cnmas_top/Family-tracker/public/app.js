@@ -9177,6 +9177,7 @@ let blogSummaries = [];      // read-only virtual entries from summaries/ folder
 const blogImgCache = {};     // "images/x.jpg" -> object URL
 let blogCommentsData = [];
 let blogCommentsEtag = null;
+let blogCommentsFolderReady = false;
 let summaryModel = SUMMARY_MODEL_DEFAULT;
 let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
@@ -9296,7 +9297,23 @@ async function blogDeleteFile(token, path) {
   if (!res.ok && res.status !== 404) throw new Error("删除失败(" + path + ")：" + res.status);
 }
 
-function blogCommentPath(articleId) { return "comments/" + articleId + ".json"; }
+function blogCommentFileName(articleId) {
+  return encodeURIComponent(String(articleId || "")).replace(/%/g, "_") + ".json";
+}
+function blogCommentPath(articleId) { return "comments/" + blogCommentFileName(articleId); }
+async function ensureBlogCommentsFolder(token) {
+  if (blogCommentsFolderReady) return;
+  const check = await fetch(`${blogDriveBase}:/comments`, { headers: { Authorization: "Bearer " + token } });
+  if (check.ok) { blogCommentsFolderReady = true; return; }
+  if (check.status !== 404) throw new Error("检查评论文件夹失败：" + check.status);
+  const create = await fetch(`${blogDriveBase}/children`, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "comments", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+  });
+  if (!create.ok && create.status !== 409) throw new Error("创建评论文件夹失败：" + create.status);
+  blogCommentsFolderReady = true;
+}
 function blogCurrentActor() {
   return {
     id: String((account && account.username) || "").trim().toLowerCase(),
@@ -9316,6 +9333,7 @@ async function blogReadComments(token, articleId) {
   return { comments: data && Array.isArray(data.comments) ? data.comments : [], etag: res.headers.get("ETag") };
 }
 async function blogMutateComments(token, articleId, mutate) {
+  await ensureBlogCommentsFolder(token);
   for (let attempt = 0; attempt < 4; attempt++) {
     const fresh = await blogReadComments(token, articleId);
     const comments = mutate(fresh.comments.slice());
@@ -9481,17 +9499,27 @@ async function blogOpen(id) {
   els.blogViewTitle.textContent = post.title || "(无标题)";
   els.blogViewDate.textContent = (post.date || "") + (post.created ? "　·　发表于 " + formatBeijingTime(post.created) : "");
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
+  const token = await getToken();
+  await blogResolveFolder(token);
   try {
-    const token = await getToken();
-    await blogResolveFolder(token);
     const path = post.isSummary ? post.summaryPath : "posts/" + id + ".md";
     const md = await blogReadText(token, path);
     els.blogViewBody.innerHTML = blogRenderMarkdown(md || "");
     await blogResolveImages(token, els.blogViewBody);
-    await blogLoadComments(token, id);
   } catch (e) {
     els.blogViewBody.innerHTML = "";
     setStatus("打开文章失败：" + (e.message || e), "error");
+    return;
+  }
+  try {
+    await blogLoadComments(token, id);
+  } catch (e) {
+    blogCommentsData = [];
+    els.blogCommentList.innerHTML = '<p class="muted">评论载入失败：' + escapeHtml(e.message || String(e)) + "</p>";
+    els.blogCommentCount.textContent = "";
+    els.blogCommentEmpty.classList.add("hidden");
+    blogResetCommentEditor();
+    setStatus("评论载入失败：" + (e.message || e), "warn", 5000);
   }
 }
 

@@ -144,6 +144,21 @@ class CollectorTests(unittest.TestCase):
         self.assertNotIn("旧评论被修改", text)
         self.assertNotIn("文章正文", text)
 
+    def test_summary_comment_uses_original_article_id_from_file(self):
+        files = [{"name": "summary_3A_3Asummary-2026-08-22.md.json", "file": {}}]
+        texts = {
+            "blog-index.json": json.dumps({"posts": []}),
+            "comments/summary_3A_3Asummary-2026-08-22.md.json": json.dumps({
+                "articleId": "summary::summary-2026-08-22.md",
+                "comments": [{"author": "Nathan", "content": "总结评论", "created": "2026-08-19T01:00:00Z"}],
+            }),
+        }
+        with patch.object(summarize, "list_children", return_value=files), \
+             patch.object(summarize, "get_text", side_effect=lambda token, base, path: texts.get(path)):
+            parts = summarize.collect_blog_comments("token", "base", self.window)
+        self.assertIn("[博客评论] 定期总结 · 2026-08-22", parts[0])
+        self.assertIn("总结评论", parts[0])
+
 
 if __name__ == "__main__":
     unittest.main()
