@@ -126,6 +126,24 @@ class CollectorTests(unittest.TestCase):
         with patch.object(summarize, "DEEPSEEK_MODEL", "explicit-model"):
             self.assertEqual(summarize.load_summary_model("token", "base"), "explicit-model")
 
+    def test_comments_use_publication_time_without_article_body(self):
+        files = [{"name": "old-article.json", "file": {}, "lastModifiedDateTime": "2026-08-19T00:00:00Z"}]
+        texts = {
+            "blog-index.json": json.dumps({"posts": [{"id": "old-article", "title": "旧文章"}]}),
+            "comments/old-article.json": json.dumps({"comments": [
+                {"author": "Celine", "content": "本期新评论", "created": "2026-08-19T01:00:00Z"},
+                {"author": "Nathan", "content": "旧评论被修改", "created": "2026-07-01T01:00:00Z", "modified": "2026-08-19T02:00:00Z"},
+            ]}),
+        }
+        with patch.object(summarize, "list_children", return_value=files), \
+             patch.object(summarize, "get_text", side_effect=lambda token, base, path: texts.get(path)):
+            parts = summarize.collect_blog_comments("token", "base", self.window)
+        text = "\n".join(parts)
+        self.assertIn("[博客评论] 旧文章", text)
+        self.assertIn("本期新评论", text)
+        self.assertNotIn("旧评论被修改", text)
+        self.assertNotIn("文章正文", text)
+
 
 if __name__ == "__main__":
     unittest.main()

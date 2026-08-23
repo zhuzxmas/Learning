@@ -780,6 +780,10 @@ const els = {
   summaryModelSaveBtn: $("summaryModelSaveBtn"),
   summaryModelHint: $("summaryModelHint"),
   blogViewBody: $("blogViewBody"),
+  blogComments: $("blogComments"), blogCommentCount: $("blogCommentCount"), blogCommentList: $("blogCommentList"), blogCommentEmpty: $("blogCommentEmpty"),
+  blogCommentLabel: $("blogCommentLabel"), blogEditCommentId: $("blogEditCommentId"), blogCommentInput: $("blogCommentInput"), blogCommentSubmitBtn: $("blogCommentSubmitBtn"), blogCommentCancelBtn: $("blogCommentCancelBtn"),
+  blogCommentImageInput: $("blogCommentImageInput"), blogCommentPickImageBtn: $("blogCommentPickImageBtn"), blogCommentImageHint: $("blogCommentImageHint"),
+  blogCommentAudioInput: $("blogCommentAudioInput"), blogCommentPickAudioBtn: $("blogCommentPickAudioBtn"), blogCommentAudioHint: $("blogCommentAudioHint"),
   blogEditFormTitle: $("blogEditFormTitle"),
   blogEditId: $("blogEditId"),
   blogTitleInput: $("blogTitleInput"),
@@ -9171,6 +9175,8 @@ let blogLoaded = false;
  let blogSearchText = "";
 let blogSummaries = [];      // read-only virtual entries from summaries/ folder
 const blogImgCache = {};     // "images/x.jpg" -> object URL
+let blogCommentsData = [];
+let blogCommentsEtag = null;
 let summaryModel = SUMMARY_MODEL_DEFAULT;
 let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
@@ -9284,9 +9290,46 @@ async function saveSummaryModel() {
   finally { updateSummaryModelSaveState(); }
 }
 async function blogDeleteFile(token, path) {
-  await fetch(`${blogDriveBase}:/${blogEncPath(path)}`, {
+  const res = await fetch(`${blogDriveBase}:/${blogEncPath(path)}`, {
     method: "DELETE", headers: { Authorization: "Bearer " + token },
   });
+  if (!res.ok && res.status !== 404) throw new Error("删除失败(" + path + ")：" + res.status);
+}
+
+function blogCommentPath(articleId) { return "comments/" + articleId + ".json"; }
+function blogCurrentActor() {
+  return {
+    id: String((account && account.username) || "").trim().toLowerCase(),
+    name: String((account && (account.name || account.username)) || "").trim(),
+  };
+}
+function blogOwnComment(comment) {
+  const actor = blogCurrentActor();
+  return comment && ((comment.authorId && comment.authorId === actor.id) ||
+    (!comment.authorId && String(comment.author || "").toLowerCase() === actor.name.toLowerCase()));
+}
+async function blogReadComments(token, articleId) {
+  const res = await fetch(blogContentUrl(blogCommentPath(articleId)), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { comments: [], etag: null };
+  if (!res.ok) throw new Error("载入评论失败：" + res.status);
+  let data = null; try { data = await res.json(); } catch {}
+  return { comments: data && Array.isArray(data.comments) ? data.comments : [], etag: res.headers.get("ETag") };
+}
+async function blogMutateComments(token, articleId, mutate) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const fresh = await blogReadComments(token, articleId);
+    const comments = mutate(fresh.comments.slice());
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (fresh.etag) headers["If-Match"] = fresh.etag;
+    else headers["If-None-Match"] = "*";
+    const res = await fetch(blogContentUrl(blogCommentPath(articleId)), {
+      method: "PUT", headers, body: JSON.stringify({ articleId, comments }),
+    });
+    if (res.ok) { blogCommentsData = comments; blogCommentsEtag = (await res.json()).eTag || null; return; }
+    if (res.status === 409 || res.status === 412) continue;
+    throw new Error("保存评论失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("保存评论冲突，重试多次仍失败。");
 }
 
 // ---- index JSON read/write (eTag optimistic concurrency) -----------------
@@ -9445,10 +9488,77 @@ async function blogOpen(id) {
     const md = await blogReadText(token, path);
     els.blogViewBody.innerHTML = blogRenderMarkdown(md || "");
     await blogResolveImages(token, els.blogViewBody);
+    await blogLoadComments(token, id);
   } catch (e) {
     els.blogViewBody.innerHTML = "";
     setStatus("打开文章失败：" + (e.message || e), "error");
   }
+}
+
+async function blogLoadComments(token, articleId) {
+  const data = await blogReadComments(token, articleId);
+  blogCommentsData = data.comments; blogCommentsEtag = data.etag;
+  blogResetCommentEditor();
+  await blogRenderComments(token);
+}
+
+async function blogRenderComments(token) {
+  const rows = blogCommentsData.slice().sort((a, b) =>
+    String(b.created || "").localeCompare(String(a.created || "")));
+  els.blogCommentCount.textContent = "共 " + rows.length + " 条";
+  els.blogCommentEmpty.classList.toggle("hidden", rows.length > 0);
+  els.blogCommentList.innerHTML = "";
+  rows.forEach((comment) => {
+    const div = document.createElement("div"); div.className = "forum-post";
+    const meta = document.createElement("div"); meta.className = "forum-post-meta";
+    meta.textContent = (comment.author || "匿名") + " · " + formatBeijingTime(comment.created) +
+      (comment.modified ? "（已编辑）" : "");
+    const body = document.createElement("div"); body.className = "blog-body forum-post-body";
+    body.innerHTML = blogRenderMarkdown(comment.content || "");
+    div.appendChild(meta); div.appendChild(body);
+    if (blogOwnComment(comment)) {
+      const actions = document.createElement("div"); actions.className = "forum-post-actions";
+      const edit = document.createElement("button"); edit.type = "button"; edit.className = "btn btn-ghost btn-mini"; edit.textContent = "编辑"; edit.onclick = () => blogStartEditComment(comment.id);
+      const del = document.createElement("button"); del.type = "button"; del.className = "btn btn-danger btn-mini"; del.textContent = "删除"; del.onclick = () => blogDeleteComment(comment.id);
+      actions.appendChild(edit); actions.appendChild(del); div.appendChild(actions);
+    }
+    els.blogCommentList.appendChild(div);
+  });
+  if (token) await blogResolveImages(token, els.blogCommentList);
+}
+
+function blogResetCommentEditor() {
+  els.blogEditCommentId.value = ""; els.blogCommentInput.value = "";
+  els.blogCommentLabel.textContent = "发表评论（Markdown）"; els.blogCommentSubmitBtn.textContent = "发表评论";
+  els.blogCommentCancelBtn.classList.add("hidden"); forumAutoGrowEditor(els.blogCommentInput);
+}
+function blogStartEditComment(id) {
+  const c = blogCommentsData.find((x) => x.id === id);
+  if (!c || !blogOwnComment(c)) return;
+  els.blogEditCommentId.value = id; els.blogCommentInput.value = c.content || "";
+  els.blogCommentLabel.textContent = "编辑评论（Markdown）"; els.blogCommentSubmitBtn.textContent = "保存修改";
+  els.blogCommentCancelBtn.classList.remove("hidden"); forumAutoGrowEditor(els.blogCommentInput); els.blogCommentInput.focus();
+}
+async function blogSaveComment() {
+  const content = els.blogCommentInput.value.trim(), editId = els.blogEditCommentId.value;
+  if (!content || !blogViewId) return;
+  const actor = blogCurrentActor(), now = new Date().toISOString();
+  try {
+    const token = await getToken(); await blogResolveFolder(token);
+    await blogMutateComments(token, blogViewId, (comments) => {
+      if (editId) return comments.map((c) => c.id === editId && blogOwnComment(c) ? Object.assign({}, c, { content, modified: now }) : c);
+      comments.push({ id: uuid(), authorId: actor.id, author: actor.name, content, created: now }); return comments;
+    });
+    blogResetCommentEditor(); await blogRenderComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
+  } catch (e) { setStatus("保存评论失败：" + (e.message || e), "error"); }
+}
+async function blogDeleteComment(id) {
+  const c = blogCommentsData.find((x) => x.id === id);
+  if (!c || !blogOwnComment(c) || !confirm("确定删除这条评论吗？")) return;
+  try {
+    const token = await getToken(); await blogMutateComments(token, blogViewId, (comments) => comments.filter((x) => x.id !== id || !blogOwnComment(x)));
+    await blogRenderComments(token); setStatus("评论已删除。", "ok", 2000);
+  } catch (e) { setStatus("删除评论失败：" + (e.message || e), "error"); }
 }
 
 // Fetch the full-resolution image as a blob URL (cached per session).
@@ -9710,6 +9820,7 @@ async function blogDeleteThis() {
     blogPosts = blogPosts.filter((p) => p.id !== post.id);
     await blogWriteIndex(token);
     await blogDeleteFile(token, "posts/" + post.id + ".md");
+    await blogDeleteFile(token, blogCommentPath(post.id));
     blogViewId = null;
     blogRenderList();
     blogSwitchTab("list");
@@ -10020,6 +10131,17 @@ function blogWireEvents() {
   els.blogImgPickerPrev.onclick = () => { blogPickerPage--; blogRenderPickerPage(); };
   els.blogImgPickerNext.onclick = () => { blogPickerPage++; blogRenderPickerPage(); };
   els.blogLightbox.onclick = () => blogCloseLightbox();
+  els.blogCommentInput.addEventListener("input", () => forumAutoGrowEditor(els.blogCommentInput));
+  document.querySelector(".comment-md-toolbar").addEventListener("click", (e) => {
+    const btn = e.target.closest(".md-btn");
+    if (btn && btn.dataset.md) { blogMdAction(btn.dataset.md, els.blogCommentInput); forumAutoGrowEditor(els.blogCommentInput); }
+  });
+  els.blogCommentSubmitBtn.onclick = () => blogSaveComment();
+  els.blogCommentCancelBtn.onclick = () => blogResetCommentEditor();
+  els.blogCommentImageInput.onchange = () => forumUploadImages(els.blogCommentImageInput.files, els.blogCommentInput, els.blogCommentImageInput, els.blogCommentImageHint);
+  els.blogCommentAudioInput.onchange = () => uploadAudioFiles(els.blogCommentAudioInput.files, els.blogCommentInput, els.blogCommentAudioInput, els.blogCommentAudioHint);
+  els.blogCommentPickImageBtn.onclick = () => forumOpenImagePicker(els.blogCommentInput);
+  els.blogCommentPickAudioBtn.onclick = () => openAudioPicker(els.blogCommentInput);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
   });

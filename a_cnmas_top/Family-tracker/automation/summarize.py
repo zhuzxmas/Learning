@@ -312,6 +312,42 @@ def collect_forum(token, blog_base, window):
     return parts
 
 
+def collect_blog_comments(token, blog_base, window):
+    """Collect newly published comments without re-including article bodies."""
+    idx = load_index_map(token, blog_base, "blog-index.json", "id", ["title"])
+    files = list_children(token, blog_base, "comments")
+    rows = []
+    for item in files:
+        if "file" not in item or not str(item.get("name", "")).endswith(".json"):
+            continue
+        article_id = item["name"][:-5]
+        raw = get_text(token, blog_base, "comments/" + item["name"])
+        try:
+            comments = json.loads(raw or "{}").get("comments", [])
+        except (TypeError, ValueError):
+            comments = []
+        for comment in comments:
+            if not isinstance(comment, dict) or not in_utc_window(comment.get("created"), window):
+                continue
+            content = (comment.get("content") or "").strip()
+            if not content:
+                continue
+            created = parse_utc(comment.get("created"))
+            title = (idx.get(article_id, {}) or {}).get("title") or article_id
+            who = (comment.get("author") or "未知").strip()
+            date = created.astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
+            rows.append((created, title, "- %s %s：%s" % (date, who, content)))
+    rows.sort(key=lambda item: item[0])
+    grouped = []
+    for _, title, line in rows:
+        existing = next((g for g in grouped if g[0] == title), None)
+        if existing:
+            existing[1].append(line)
+        else:
+            grouped.append([title, [line]])
+    return ["### [博客评论] %s\n%s" % (title, "\n".join(lines)) for title, lines in grouped]
+
+
 def collect_travel(token, window):
     """Collect travel records by their actual Beijing-local visit date."""
     base = resolve_folder(token, OTHER_TRACKER_FOLDER_SHARE_URL)
@@ -559,21 +595,22 @@ def main():
 
     blog_base, blog_parts = collect_blog(access_token, window)
     model = load_summary_model(access_token, blog_base)
+    comment_parts = collect_blog_comments(access_token, blog_base, window)
     forum_parts = collect_forum(access_token, blog_base, window)
     travel_parts = collect_travel(access_token, window)
     chat_parts = collect_chats(access_token, window)
     cal_parts = collect_calendar(access_token, window)
-    print("Found %d blog posts, %d forum topics, %d travel blocks, "
+    print("Found %d blog posts, %d blog comment blocks, %d forum topics, %d travel blocks, "
           "%d chats, %d calendar blocks." % (
-              len(blog_parts), len(forum_parts), len(travel_parts),
+              len(blog_parts), len(comment_parts), len(forum_parts), len(travel_parts),
               len(chat_parts), len(cal_parts)))
 
-    if not blog_parts and not forum_parts and not travel_parts and not chat_parts and not cal_parts:
+    if not blog_parts and not comment_parts and not forum_parts and not travel_parts and not chat_parts and not cal_parts:
         print("No activity in the window. Nothing to summarize; exiting.")
         return
 
     corpus = "\n\n".join(
-        blog_parts + forum_parts + travel_parts + chat_parts + cal_parts)
+        blog_parts + comment_parts + forum_parts + travel_parts + chat_parts + cal_parts)
     # Safety cap so a huge window can't blow up the request.
     max_chars = 120000
     if len(corpus) > max_chars:
