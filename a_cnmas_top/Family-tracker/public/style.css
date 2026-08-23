@@ -1053,6 +1053,18 @@ td:nth-child(6) {
 }
 .blog-item-title { font-weight: 700; font-size: 15px; color: #1b3a12; }
 .blog-item-meta { font-size: 12px; color: #888; margin: 2px 0 4px; }
+.blog-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
+.blog-tag {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border: 1px solid #bfdbfe; border-radius: 999px; background: #eff6ff;
+  color: #1d4ed8; font-size: 12px; line-height: 1.4;
+}
+button.blog-tag { cursor: pointer; font-family: inherit; }
+button.blog-tag:hover { background: #dbeafe; }
+.blog-tag-filter {
+  display: flex; align-items: center; gap: 7px; margin: 0 0 10px;
+  color: #4b5563; font-size: 13px;
+}
 .blog-item-excerpt {
   font-size: 13px; color: #555;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

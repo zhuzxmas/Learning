@@ -251,7 +251,7 @@ def blog_published_at(pid, meta):
 
 def collect_blog(token, window):
     base = resolve_folder(token, BLOG_FOLDER_SHARE_URL)
-    idx = load_index_map(token, base, "blog-index.json", "id", ["title", "date", "created"])
+    idx = load_index_map(token, base, "blog-index.json", "id", ["title", "date", "created", "tags"])
     files = list_children(token, base, "posts")
     parts = []
     for f in files:
@@ -266,7 +266,9 @@ def collect_blog(token, window):
         title = meta.get("title") or pid
         date = meta.get("date") or published.astimezone(BEIJING).date().isoformat()
         body = get_text(token, base, "posts/" + name) or ""
-        parts.append((published, "### [博客] %s（%s）\n%s" % (title, date, body.strip())))
+        tags = [str(tag).strip() for tag in (meta.get("tags") or []) if str(tag).strip()]
+        context = "；标签：" + "、".join(tags) if tags else ""
+        parts.append((published, "### [博客] %s（%s%s）\n%s" % (title, date, context, body.strip())))
     parts.sort(key=lambda item: item[0])
     return base, [item[1] for item in parts]
 

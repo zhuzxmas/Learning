@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=50" />
+  <link rel="stylesheet" href="style.css?v=51" />
 </head>
 <body>
   <header class="topbar">
@@ -1816,6 +1816,7 @@
             <button type="button" class="btn btn-ghost hidden" id="blogClearFilterBtn">清除筛选</button>
             <span class="muted" id="blogCount"></span>
           </div>
+          <div id="blogTagFilterBar" class="blog-tag-filter hidden"><span>标签：</span><span id="blogTagFilterValue"></span><button type="button" class="btn btn-mini btn-ghost" id="blogTagFilterClear">清除</button></div>
           <div id="blogList" class="blog-list"></div>
           <div class="list-pager" id="blogListPager"><button type="button" class="btn btn-ghost" id="blogListFirst">首页</button><button type="button" class="btn btn-ghost" id="blogListPrev">上一页</button><span class="muted">第</span><input type="number" class="pager-input" id="blogListPageInput" min="1" inputmode="numeric" /><span class="muted" id="blogListPageInfo"></span><button type="button" class="btn btn-ghost" id="blogListGo">跳转</button><button type="button" class="btn btn-ghost" id="blogListNext">下一页</button><button type="button" class="btn btn-ghost" id="blogListLast">尾页</button></div>
           <p class="muted hidden" id="blogEmpty">暂无文章。</p>
@@ -1827,6 +1828,7 @@
         <div class="card">
           <h2 id="blogViewTitle"></h2>
           <p class="muted" id="blogViewDate"></p>
+          <div id="blogViewTags" class="blog-tags"></div>
           <div class="blog-view-actions">
             <button type="button" class="btn btn-ghost" id="blogBackBtn">← 返回列表</button>
             <button type="button" class="btn btn-ghost" id="blogEditThisBtn">编辑</button>
@@ -1837,7 +1839,7 @@
             <div class="summary-sources-body">
               <p>时间范围：最近 14 天，按北京时间计算。</p>
               <ul>
-                <li>生活博客：期间发表的文章正文；旧文章在本期修改不会纳入。</li>
+                <li>生活博客：期间发表的文章正文及标签；旧文章在本期修改不会纳入。</li>
                 <li>博客评论：按评论发表时间纳入；不会因新评论重复统计原文章。</li>
                 <li>贴吧：期间新建的主题及新增回复，并包含主题标题。</li>
                 <li>旅行记录：按实际旅行日期，包含地点、同行人员和备注。</li>
@@ -1885,6 +1887,11 @@
           <div class="field">
             <label for="blogDateInput">日期</label>
             <input type="date" id="blogDateInput" />
+          </div>
+          <div class="field field-wide">
+            <label for="blogTagsInput">标签</label>
+            <input type="text" id="blogTagsInput" list="blogTagsList" autocomplete="off" placeholder="多个标签用逗号或分号分隔，如：育儿, 投资" />
+            <datalist id="blogTagsList"></datalist>
           </div>
           <div class="field field-wide">
             <label for="blogBodyInput">正文（Markdown）</label>
@@ -2007,7 +2014,7 @@
         <div id="forumImgPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="forumImgPickerCount"></span><button type="button" class="btn btn-ghost" id="forumImgPickerClose">关闭</button></div><div id="forumImgPickerGrid" class="blog-img-picker-grid"></div><div id="forumImgPickerPager" class="blog-img-picker-pager hidden"><button type="button" class="btn btn-ghost" id="forumImgPickerPrev">上一页</button><span class="muted" id="forumImgPickerPageInfo"></span><button type="button" class="btn btn-ghost" id="forumImgPickerNext">下一页</button></div></div>
       </div>
       </div><!-- /#blogApp -->
-      <button type="button" class="blog-top-btn hidden" id="blogTopBtn" aria-label="回到文章顶端">↑ 顶端</button>
+      <button type="button" class="blog-top-btn hidden" id="blogTopBtn" aria-label="回到顶端">↑ 顶端</button>
       <div id="audioPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="audioPickerCount"></span><button type="button" class="btn btn-ghost" id="audioPickerClose">关闭</button></div><div id="audioPickerList" class="audio-picker-list"></div></div>
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
 
@@ -2050,6 +2057,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=65"></script>
+  <script src="app.js?v=66"></script>
 </body>
 </html>

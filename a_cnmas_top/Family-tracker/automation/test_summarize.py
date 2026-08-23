@@ -46,7 +46,7 @@ class CollectorTests(unittest.TestCase):
     def test_blog_uses_publication_time_not_modified_time(self):
         index = {"posts": [
             {"id": "2026-08-18-01", "title": "本期发表", "date": "2026-08-18",
-             "created": "2026-08-18T01:00:00Z"},
+             "created": "2026-08-18T01:00:00Z", "tags": ["育儿", "家庭"]},
             {"id": "2026-07-01-01", "title": "旧文修改", "date": "2026-07-01",
              "created": "2026-07-01T01:00:00Z"},
             {"id": "2026-08-10-01", "title": "旧格式本期文章", "date": "2026-08-10"},
@@ -68,6 +68,7 @@ class CollectorTests(unittest.TestCase):
             _, parts = summarize.collect_blog("token", self.window)
         text = "\n".join(parts)
         self.assertIn("本期发表", text)
+        self.assertIn("标签：育儿、家庭", text)
         self.assertIn("旧格式本期文章", text)
         self.assertNotIn("旧文修改", text)
 

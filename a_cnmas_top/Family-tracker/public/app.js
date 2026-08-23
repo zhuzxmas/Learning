@@ -767,6 +767,7 @@ const els = {
   blogTabView: $("blogTabView"),
   blogTabEdit: $("blogTabEdit"),
   blogSearch: $("blogSearch"),
+  blogTagFilterBar: $("blogTagFilterBar"), blogTagFilterValue: $("blogTagFilterValue"), blogTagFilterClear: $("blogTagFilterClear"),
   blogCount: $("blogCount"),
   blogList: $("blogList"),
   blogEmpty: $("blogEmpty"),
@@ -775,6 +776,7 @@ const els = {
   blogDeleteThisBtn: $("blogDeleteThisBtn"),
   blogViewTitle: $("blogViewTitle"),
   blogViewDate: $("blogViewDate"),
+  blogViewTags: $("blogViewTags"),
   blogTopBtn: $("blogTopBtn"),
   blogSummarySources: $("blogSummarySources"),
   summaryModelInput: $("summaryModelInput"),
@@ -789,6 +791,7 @@ const els = {
   blogEditId: $("blogEditId"),
   blogTitleInput: $("blogTitleInput"),
   blogDateInput: $("blogDateInput"),
+  blogTagsInput: $("blogTagsInput"), blogTagsList: $("blogTagsList"),
   blogBodyInput: $("blogBodyInput"),
   blogMdToolbar: $("blogMdToolbar"),
   blogImageInput: $("blogImageInput"),
@@ -9173,7 +9176,8 @@ let blogPosts = [];          // index entries [{id,title,date,excerpt,searchText
 let blogIndexEtag = null;
 let blogLoaded = false;
  let blogViewId = null;       // id currently open in 阅读
- let blogSearchText = "";
+let blogSearchText = "";
+let blogTagFilter = "";
 let blogSummaries = [];      // read-only virtual entries from summaries/ folder
 const blogImgCache = {};     // "images/x.jpg" -> object URL
 let blogCommentsData = [];
@@ -9200,6 +9204,28 @@ function formatBeijingTime(value) {
 
 // All list entries = editable posts + read-only auto summaries.
 function blogAllEntries() { return blogPosts.concat(blogSummaries); }
+function blogNormalizeTags(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(/[,;，；]/);
+  return values.map((tag) => String(tag).trim()).filter((tag, i, arr) => tag && arr.indexOf(tag) === i);
+}
+function blogRenderTagChips(container, tags, clickable) {
+  container.innerHTML = "";
+  blogNormalizeTags(tags).forEach((tag) => {
+    const chip = document.createElement(clickable ? "button" : "span");
+    if (clickable) chip.type = "button";
+    chip.className = "blog-tag"; chip.textContent = tag;
+    if (clickable) chip.onclick = (e) => { e.stopPropagation(); blogSetTagFilter(tag); };
+    container.appendChild(chip);
+  });
+}
+function blogSetTagFilter(tag) {
+  blogTagFilter = tag || ""; blogListPage = 0;
+  blogSwitchTab("list"); blogRenderList(); window.scrollTo({ top: 0, behavior: "auto" });
+}
+function blogRenderTagOptions() {
+  const tags = [...new Set(blogPosts.flatMap((post) => blogNormalizeTags(post.tags)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  els.blogTagsList.innerHTML = tags.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join("");
+}
 
 // ---- folder + file addressing (own driveBase from BLOG_FOLDER_SHARE_URL) --
 async function blogResolveFolder(token) {
@@ -9435,6 +9461,7 @@ async function blogLoad() {
   blogIndexEtag = idx.etag;
   blogSummaries = await blogListSummaries(token);
   blogLoaded = true;
+  blogRenderTagOptions();
   blogRenderList();
   setStatus("已载入 " + blogPosts.length + " 篇文章、" + blogSummaries.length + " 篇总结。", "ok", 2000);
 }
@@ -9443,10 +9470,13 @@ async function blogLoad() {
 function blogRenderList() {
   const q = blogSearchText.trim().toLowerCase();
   const list = blogAllEntries().slice().sort(blogCmp).filter((p) => {
+    if (blogTagFilter && !blogNormalizeTags(p.tags).includes(blogTagFilter)) return false;
     if (!q) return true;
-    return ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || ""))
+    return ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || "") + " " + blogNormalizeTags(p.tags).join(" "))
       .toLowerCase().includes(q);
   });
+  els.blogTagFilterBar.classList.toggle("hidden", !blogTagFilter);
+  els.blogTagFilterValue.textContent = blogTagFilter;
   const pages = Math.max(1, Math.ceil(list.length / BLOG_LIST_PAGE_SIZE));
   blogListPage = Math.min(blogListPage, pages - 1);
   const pageRows = list.slice(blogListPage * BLOG_LIST_PAGE_SIZE, (blogListPage + 1) * BLOG_LIST_PAGE_SIZE);
@@ -9483,7 +9513,10 @@ function blogRenderList() {
     const ex = document.createElement("div");
     ex.className = "blog-item-excerpt";
     ex.textContent = p.excerpt || "";
-    item.appendChild(h); item.appendChild(meta); item.appendChild(ex);
+    item.appendChild(h); item.appendChild(meta);
+    const tags = document.createElement("div"); tags.className = "blog-tags";
+    blogRenderTagChips(tags, p.tags, true); if (tags.children.length) item.appendChild(tags);
+    item.appendChild(ex);
     item.onclick = () => blogOpen(p.id);
     item.onkeydown = (e) => { if (e.key === "Enter") blogOpen(p.id); };
     els.blogList.appendChild(item);
@@ -9513,6 +9546,7 @@ async function blogOpen(id) {
   els.blogSummarySources.open = false;
   els.blogViewTitle.textContent = post.title || "(无标题)";
   els.blogViewDate.textContent = (post.date || "") + (post.created ? "　·　发表于 " + formatBeijingTime(post.created) : "");
+  blogRenderTagChips(els.blogViewTags, post.tags, true);
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
   const token = await getToken();
   await blogResolveFolder(token);
@@ -9800,15 +9834,19 @@ function blogSwitchTab(tab) {
 
 function blogUpdateTopButton() {
   const reading = !els.blogTabView.classList.contains("hidden");
-  if (!reading) { els.blogTopBtn.classList.add("hidden"); return; }
-  const titleTop = els.blogViewTitle.getBoundingClientRect().top + window.scrollY;
-  els.blogTopBtn.classList.toggle("hidden", window.scrollY < titleTop + 500);
+  const listing = !els.blogTabList.classList.contains("hidden");
+  if (!reading && !listing) { els.blogTopBtn.classList.add("hidden"); return; }
+  const anchor = reading ? els.blogViewTitle : els.blogList;
+  const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
+  els.blogTopBtn.classList.toggle("hidden", window.scrollY < anchorTop + 500);
 }
 
 function blogScrollToTitle() {
+  const reading = !els.blogTabView.classList.contains("hidden");
+  const anchor = reading ? els.blogViewTitle : els.blogList;
   const tabs = document.querySelector("#blogApp > .tabs");
   const offset = (tabs ? tabs.offsetHeight : 0) + 8;
-  const top = els.blogViewTitle.getBoundingClientRect().top + window.scrollY - offset;
+  const top = anchor.getBoundingClientRect().top + window.scrollY - offset;
   window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
@@ -9817,6 +9855,7 @@ function blogResetForm() {
   els.blogEditId.value = "";
   els.blogTitleInput.value = "";
   els.blogDateInput.value = todayStr();
+  els.blogTagsInput.value = "";
   els.blogBodyInput.value = "";
   els.blogImageInput.value = "";
   els.blogAudioInput.value = "";
@@ -9834,6 +9873,7 @@ async function blogEditThis() {
   els.blogEditId.value = post.id;
   els.blogTitleInput.value = post.title || "";
   els.blogDateInput.value = post.date || todayStr();
+  els.blogTagsInput.value = blogNormalizeTags(post.tags).join(", ");
   blogSwitchTab("edit");
   els.blogBodyInput.value = "载入中…";
   try {
@@ -9885,7 +9925,7 @@ async function blogSave() {
     const imgCount = (body.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
     const oldEntry = blogPosts.find((p) => p.id === id);
     const entry = {
-      id, title, date,
+      id, title, date, tags: blogNormalizeTags(els.blogTagsInput.value),
       created: (oldEntry && oldEntry.created) || new Date().toISOString(),
       modified: new Date().toISOString(),
       excerpt: blogMakeExcerpt(body),
@@ -9895,6 +9935,7 @@ async function blogSave() {
     const idx = blogPosts.findIndex((p) => p.id === id);
     if (idx >= 0) blogPosts[idx] = entry; else blogPosts.push(entry);
     blogPosts.sort(blogCmp);
+    blogRenderTagOptions();
     await blogWriteIndex(token);
     setStatus("已保存。", "ok", 2500);
     blogViewId = id;
@@ -10212,7 +10253,8 @@ function blogWireEvents() {
   const goBlogPage = () => {
     const pages = Math.max(1, Math.ceil(blogAllEntries().filter((p) => {
       const q = blogSearchText.trim().toLowerCase();
-      return !q || ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || "")).toLowerCase().includes(q);
+      if (blogTagFilter && !blogNormalizeTags(p.tags).includes(blogTagFilter)) return false;
+      return !q || ((p.title || "") + " " + (p.searchText || p.excerpt || "") + " " + (p.date || "") + " " + blogNormalizeTags(p.tags).join(" ")).toLowerCase().includes(q);
     }).length / BLOG_LIST_PAGE_SIZE));
     const wanted = Math.floor(Number(els.blogListPageInput.value));
     if (!isFinite(wanted)) return;
@@ -10224,6 +10266,7 @@ function blogWireEvents() {
   els.blogListLast.onclick = () => { blogListPage = Number(els.blogListPageInput.max || 1) - 1; blogRenderList(); };
   els.blogListGo.onclick = goBlogPage;
   els.blogListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goBlogPage(); });
+  els.blogTagFilterClear.onclick = () => blogSetTagFilter("");
   els.blogPickExistingBtn.onclick = () => blogTogglePicker();
   els.blogAudioInput.onchange = () => uploadAudioFiles(els.blogAudioInput.files, els.blogBodyInput, els.blogAudioInput, els.blogAudioHint);
   els.blogPickAudioBtn.onclick = () => openAudioPicker(els.blogBodyInput);
