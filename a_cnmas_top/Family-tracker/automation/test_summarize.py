@@ -89,6 +89,33 @@ class CollectorTests(unittest.TestCase):
         self.assertNotIn("过早", parts[0])
         self.assertNotIn("modified", parts[0])
 
+    def test_configured_beijing_now(self):
+        with patch.dict("os.environ", {"SUMMARY_END_BEIJING": "2026-08-22 06:11"}):
+            end = summarize.configured_beijing_now()
+        self.assertEqual(end.isoformat(), "2026-08-22T06:11:00+08:00")
+
+    def test_chat_excludes_files_after_fixed_end(self):
+        files = [
+            {"name": "inside.json", "file": {}, "lastModifiedDateTime": "2026-08-21T22:10:00Z"},
+            {"name": "after.json", "file": {}, "lastModifiedDateTime": "2026-08-21T22:12:00Z"},
+        ]
+        texts = {
+            "chat-index.json": json.dumps({"convs": [
+                {"id": "inside", "title": "窗口内"}, {"id": "after", "title": "窗口后"}
+            ]}),
+            "chats/inside.json": json.dumps({"messages": [{"role": "user", "content": "保留"}]}),
+            "chats/after.json": json.dumps({"messages": [{"role": "user", "content": "排除"}]}),
+        }
+        window = summarize.beijing_window(
+            dt.datetime(2026, 8, 22, 6, 11, tzinfo=summarize.BEIJING), days=14)
+        with patch.object(summarize, "resolve_folder", return_value="chat-base"), \
+             patch.object(summarize, "list_children", return_value=files), \
+             patch.object(summarize, "get_text", side_effect=lambda token, base, path: texts.get(path)):
+            parts = summarize.collect_chats("token", window)
+        self.assertEqual(len(parts), 1)
+        self.assertIn("窗口内", parts[0])
+        self.assertNotIn("窗口后", parts[0])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -23,6 +23,7 @@ Optional:
   CAL_NAME                 name of the calendar to read (default "Celine-Nathan";
                            empty string disables the calendar section)
   DEEPSEEK_MODEL           default "deepseek-v4-pro"
+  SUMMARY_END_BEIJING      fixed window end, "YYYY-MM-DD HH:MM" (manual reruns)
 """
 
 import base64
@@ -207,6 +208,16 @@ def beijing_window(now=None, days=SUMMARY_DAYS):
     }
 
 
+def configured_beijing_now():
+    value = os.environ.get("SUMMARY_END_BEIJING", "").strip()
+    if not value:
+        return dt.datetime.now(BEIJING)
+    try:
+        return dt.datetime.strptime(value, "%Y-%m-%d %H:%M").replace(tzinfo=BEIJING)
+    except ValueError:
+        fail("SUMMARY_END_BEIJING must be YYYY-MM-DD HH:MM.")
+
+
 def parse_utc(value):
     if not value:
         return None
@@ -243,6 +254,8 @@ def collect_blog(token, window):
     files = list_children(token, base, "posts")
     parts = []
     for f in files:
+        if "file" not in f:
+            continue
         name = f["name"]
         pid = name[:-3] if name.endswith(".md") else name
         meta = idx.get(pid, {})
@@ -329,10 +342,11 @@ def collect_travel(token, window):
     return ["### [旅行]\n%s" % "\n".join(line for _, line in rows)] if rows else []
 
 
-def collect_chats(token, days_cutoff):
+def collect_chats(token, window):
     base = resolve_folder(token, CHAT_FOLDER_SHARE_URL)
     idx = load_index_map(token, base, "chat-index.json", "id", ["title", "updated"])
-    files = recent(list_children(token, base, "chats"), days_cutoff)
+    files = [f for f in list_children(token, base, "chats")
+             if in_utc_window(f.get("lastModifiedDateTime"), window)]
     files.sort(key=lambda f: f.get("lastModifiedDateTime", ""))
     parts = []
     for f in files:
@@ -402,11 +416,12 @@ def _fmt_event(ev):
     return (start.get("dateTime") or "", line)
 
 
-def collect_calendar(token, cutoff_iso):
+def collect_calendar(token, window):
     """Collect the last N days of events from the CAL_NAME calendar only."""
     if not CAL_NAME:
         return []
-    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff_iso = window["start_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_iso = window["end_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")
     headers = {
         "Authorization": "Bearer " + token,
         # Ask Graph to return event local times in Beijing time.
@@ -521,7 +536,7 @@ def main():
         # Ensure rt.enc exists even on the very first (secret-based) run.
         save_refresh_token(fernet, new_rt or refresh_token)
 
-    window = beijing_window()
+    window = beijing_window(configured_beijing_now())
     cutoff = window["start_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")
     print("Collecting Beijing window %s .. %s" % (
         window["start_bj"].strftime("%Y-%m-%d %H:%M"),
@@ -530,8 +545,8 @@ def main():
     blog_base, blog_parts = collect_blog(access_token, window)
     forum_parts = collect_forum(access_token, blog_base, window)
     travel_parts = collect_travel(access_token, window)
-    chat_parts = collect_chats(access_token, cutoff)
-    cal_parts = collect_calendar(access_token, cutoff)
+    chat_parts = collect_chats(access_token, window)
+    cal_parts = collect_calendar(access_token, window)
     print("Found %d blog posts, %d forum topics, %d travel blocks, "
           "%d chats, %d calendar blocks." % (
               len(blog_parts), len(forum_parts), len(travel_parts),

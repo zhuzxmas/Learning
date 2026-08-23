@@ -83,6 +83,8 @@ refresh token 的 90 天滑动有效期，token 不会过期。
 
 - **看板范围**：环境变量 `SUMMARY_DAYS`（默认 14）。
 - **模型**：`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`，可改 `deepseek-v4-pro`）。
+- **重跑历史窗口**：手动运行工作流时可填写 `summary_end_beijing`，格式
+  `YYYY-MM-DD HH:MM`；输出会覆盖该北京时间日期对应的总结文件。
 - **打印发送内容**：`LOG_PROMPT=1` 时会把发给 DeepSeek 的完整 prompt（含博客/对话原文）
   打印到 Action 日志，默认关闭。公开仓库慎用（日志任何人可见）。
 - **汇总重点**：改 `summarize.py` 里的 `SYSTEM_PROMPT`。

@@ -5,7 +5,12 @@ name: OneDrive 14-day summary
 on:
   schedule:
     - cron: "0 22 * * 5"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      summary_end_beijing:
+        description: 'Optional fixed window end (YYYY-MM-DD HH:MM, Beijing)'
+        required: false
+        type: string
 
 # Let the built-in GITHUB_TOKEN push the rotated rt.enc back to the repo
 # (no personal access token needed).
@@ -73,6 +78,7 @@ jobs:
           ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
           TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          SUMMARY_END_BEIJING: ${{ github.event.inputs.summary_end_beijing }}
           # Optional overrides:
           # SUMMARY_DAYS: "14"
           # CAL_NAME: "Celine-Nathan"   # calendar to read ("" disables it)
