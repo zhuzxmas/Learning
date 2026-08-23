@@ -773,6 +773,7 @@ const els = {
   blogDeleteThisBtn: $("blogDeleteThisBtn"),
   blogViewTitle: $("blogViewTitle"),
   blogViewDate: $("blogViewDate"),
+  blogSummarySources: $("blogSummarySources"),
   blogViewBody: $("blogViewBody"),
   blogEditFormTitle: $("blogEditFormTitle"),
   blogEditId: $("blogEditId"),
@@ -9364,6 +9365,8 @@ async function blogOpen(id) {
   // Summaries are read-only: hide edit/delete controls.
   els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
   els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
+  els.blogSummarySources.classList.toggle("hidden", !post.isSummary);
+  els.blogSummarySources.open = false;
   els.blogViewTitle.textContent = post.title || "(无标题)";
   els.blogViewDate.textContent = (post.date || "") + (post.created ? "　·　发表于 " + formatBeijingTime(post.created) : "");
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";

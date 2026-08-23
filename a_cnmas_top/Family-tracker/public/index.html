@@ -1832,6 +1832,20 @@
           </div>
           <h2 id="blogViewTitle"></h2>
           <p class="muted" id="blogViewDate"></p>
+          <details id="blogSummarySources" class="summary-sources hidden">
+            <summary>查看本总结的数据来源与范围</summary>
+            <div class="summary-sources-body">
+              <p>时间范围：最近 14 天，按北京时间计算。</p>
+              <ul>
+                <li>生活博客：期间修改过的文章正文。</li>
+                <li>贴吧：期间新建的主题及新增回复，并包含主题标题。</li>
+                <li>旅行记录：按实际旅行日期，包含地点、同行人员和备注。</li>
+                <li>AI 对话：期间更新过的完整对话。</li>
+                <li>日历：已经发生的日程、时间、地点和简要说明。</li>
+              </ul>
+              <p>图片和音频不参与总结。AI（当前为 DeepSeek）会将以上信息融合为概览、要点、待办及一句话总结与鼓励。</p>
+            </div>
+          </details>
           <div id="blogViewBody" class="blog-body"></div>
         </div>
       </div>
@@ -2012,6 +2026,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=57"></script>
 </body>
 </html>
