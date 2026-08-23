@@ -1040,12 +1040,25 @@ td:nth-child(6) {
 #blogTabEdit .form-actions { margin-top: 16px; }
 #blogTabEdit .blog-inline-field {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 #blogTabEdit .blog-inline-field > label { margin: 0; }
+#blogTabEdit .blog-inline-field > input,
+#blogTabEdit .blog-tag-select { width: 100%; min-width: 0; max-width: 100%; }
+@media (hover: none) and (pointer: coarse) {
+  #blogDateInput {
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    inline-size: -webkit-fill-available;
+    min-inline-size: 0;
+  }
+}
 #blogTabEdit .blog-body-field {
   margin-top: 20px;
   padding-top: 16px;
