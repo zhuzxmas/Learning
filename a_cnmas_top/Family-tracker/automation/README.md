@@ -82,7 +82,9 @@ refresh token 的 90 天滑动有效期，token 不会过期。
 ## 可选调整
 
 - **看板范围**：环境变量 `SUMMARY_DAYS`（默认 14）。
-- **模型**：`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`，可改 `deepseek-v4-pro`）。
+- **模型**：在网页“定期总结 → 数据来源与范围”中编辑并保存；写入博客目录的
+  `summary-settings.json`。未设置时默认 `deepseek-v4-flash`。环境变量
+  `DEEPSEEK_MODEL` 仅作为显式覆盖。
 - **重跑历史窗口**：手动运行工作流时可填写 `summary_end_beijing`，格式
   `YYYY-MM-DD HH:MM`；输出会覆盖该北京时间日期对应的总结文件。
 - **打印发送内容**：`LOG_PROMPT=1` 时会把发给 DeepSeek 的完整 prompt（含博客/对话原文）

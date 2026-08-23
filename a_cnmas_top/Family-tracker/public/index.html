@@ -1844,6 +1844,12 @@
                 <li>日历：已经发生的日程、时间、地点和简要说明。</li>
               </ul>
               <p>图片和音频不参与总结。AI（当前为 DeepSeek）会将以上信息融合为概览、要点、待办及一句话总结与鼓励。</p>
+              <div class="summary-model-setting">
+                <label for="summaryModelInput">总结模型</label>
+                <input type="text" id="summaryModelInput" autocomplete="off" placeholder="deepseek-v4-flash" />
+                <button type="button" class="btn btn-primary" id="summaryModelSaveBtn" disabled>保存模型</button>
+              </div>
+              <p class="muted mini" id="summaryModelHint">正在载入当前模型…</p>
             </div>
           </details>
           <div id="blogViewBody" class="blog-body"></div>
@@ -2026,6 +2032,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=57"></script>
+  <script src="app.js?v=58"></script>
 </body>
 </html>

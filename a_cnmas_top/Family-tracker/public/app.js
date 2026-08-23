@@ -145,6 +145,8 @@ const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geome
 // Structure inside it:  blog-index.json  +  posts/<id>.md  +  images/<file>
 const BLOG_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgD_C9X6ML7pSIzB8ZAu2f_4AcwVLgqme1RgJDphTWTghrM";
 const BLOG_INDEX_FILE = "blog-index.json";
+const SUMMARY_SETTINGS_FILE = "summary-settings.json";
+const SUMMARY_MODEL_DEFAULT = "deepseek-v4-flash";
 // 贴吧 (forum) lives in the SAME OneDrive folder as the blog (family members
 // already have edit access). Structure: forum-index.json + forum/<id>.json
 const FORUM_INDEX_FILE = "forum-index.json";
@@ -774,6 +776,9 @@ const els = {
   blogViewTitle: $("blogViewTitle"),
   blogViewDate: $("blogViewDate"),
   blogSummarySources: $("blogSummarySources"),
+  summaryModelInput: $("summaryModelInput"),
+  summaryModelSaveBtn: $("summaryModelSaveBtn"),
+  summaryModelHint: $("summaryModelHint"),
   blogViewBody: $("blogViewBody"),
   blogEditFormTitle: $("blogEditFormTitle"),
   blogEditId: $("blogEditId"),
@@ -9166,6 +9171,9 @@ let blogLoaded = false;
  let blogSearchText = "";
 let blogSummaries = [];      // read-only virtual entries from summaries/ folder
 const blogImgCache = {};     // "images/x.jpg" -> object URL
+let summaryModel = SUMMARY_MODEL_DEFAULT;
+let summarySettingsEtag = null;
+let summarySettingsLoaded = false;
 const BLOG_LIST_PAGE_SIZE = 20;
 let blogListPage = 0;
 
@@ -9216,6 +9224,64 @@ async function blogWriteText(token, path, text) {
     body: text,
   });
   if (!res.ok) throw new Error("保存失败(" + path + ")：" + res.status + " " + (await res.text()));
+}
+
+async function loadSummarySettings(token) {
+  const res = await fetch(blogContentUrl(SUMMARY_SETTINGS_FILE), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) {
+    summaryModel = SUMMARY_MODEL_DEFAULT; summarySettingsEtag = null; summarySettingsLoaded = true;
+  } else if (res.ok) {
+    let data = null; try { data = await res.json(); } catch {}
+    summaryModel = String(data && data.model || SUMMARY_MODEL_DEFAULT).trim() || SUMMARY_MODEL_DEFAULT;
+    summarySettingsEtag = res.headers.get("ETag"); summarySettingsLoaded = true;
+  } else {
+    summaryModel = SUMMARY_MODEL_DEFAULT; summarySettingsLoaded = true;
+    throw new Error("载入总结模型失败：" + res.status);
+  }
+  renderSummaryModelSetting();
+}
+
+function renderSummaryModelSetting() {
+  if (!els.summaryModelInput) return;
+  els.summaryModelInput.value = summaryModel;
+  els.summaryModelHint.textContent = "当前模型：" + summaryModel;
+  updateSummaryModelSaveState();
+}
+
+function updateSummaryModelSaveState() {
+  if (!els.summaryModelSaveBtn) return;
+  const value = els.summaryModelInput.value.trim();
+  els.summaryModelSaveBtn.disabled = !summarySettingsLoaded || !value || value === summaryModel;
+}
+
+async function saveSummaryModel() {
+  const model = els.summaryModelInput.value.trim();
+  if (!model) return;
+  els.summaryModelSaveBtn.disabled = true;
+  try {
+    const token = await getToken(); await blogResolveFolder(token);
+    let etag = summarySettingsEtag;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+      if (etag) headers["If-Match"] = etag;
+      const res = await fetch(blogContentUrl(SUMMARY_SETTINGS_FILE), {
+        method: "PUT", headers,
+        body: JSON.stringify({ model, modified: new Date().toISOString() }),
+      });
+      if (res.ok) {
+        const item = await res.json();
+        summaryModel = model; summarySettingsEtag = item.eTag || null;
+        renderSummaryModelSetting(); setStatus("总结模型已保存。", "ok", 2500); return;
+      }
+      if (res.status === 412) {
+        const fresh = await fetch(blogContentUrl(SUMMARY_SETTINGS_FILE), { headers: { Authorization: "Bearer " + token } });
+        etag = fresh.headers.get("ETag"); continue;
+      }
+      throw new Error("保存总结模型失败：" + res.status + " " + (await res.text()));
+    }
+    throw new Error("保存总结模型冲突，重试多次仍失败。");
+  } catch (e) { setStatus(e.message || String(e), "error", 6000); }
+  finally { updateSummaryModelSaveState(); }
 }
 async function blogDeleteFile(token, path) {
   await fetch(`${blogDriveBase}:/${blogEncPath(path)}`, {
@@ -9297,6 +9363,8 @@ async function blogLoad() {
   setStatus("正在载入博客…");
   const token = await getToken();
   await blogResolveFolder(token);
+  try { await loadSummarySettings(token); }
+  catch (e) { renderSummaryModelSetting(); setStatus(e.message || String(e), "warn", 4000); }
   const idx = await blogReadIndex(token);
   blogPosts = idx.posts.slice().sort(blogCmp);
   blogIndexEtag = idx.etag;
@@ -9919,6 +9987,8 @@ function blogRenderPickerPage() {
 
 // ---- wiring --------------------------------------------------------------
 function blogWireEvents() {
+  els.summaryModelInput.addEventListener("input", updateSummaryModelSaveState);
+  els.summaryModelSaveBtn.onclick = () => saveSummaryModel();
   els.blogTabListBtn.onclick = () => blogSwitchTab("list");
   els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
   els.blogTabEditBtn.onclick = () => blogNew();

@@ -1071,6 +1071,23 @@ td:nth-child(6) {
 .summary-sources-body { margin-top: 8px; color: #4b5563; line-height: 1.6; }
 .summary-sources-body p { margin: 5px 0; }
 .summary-sources-body ul { margin: 5px 0; padding-left: 20px; }
+.summary-model-setting {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #dbe4f0;
+}
+.summary-model-setting input {
+  width: 100%; min-width: 0; padding: 8px 10px;
+  border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px;
+}
+@media (max-width: 640px) {
+  .summary-model-setting { grid-template-columns: 1fr; }
+  .summary-model-setting .btn { justify-self: start; }
+}
 .blog-item-summary { border-left: 4px solid #26890D; background: #f6faf4; }
 .blog-badge {
   display: inline-block; vertical-align: middle;

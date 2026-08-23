@@ -22,7 +22,7 @@ Optional:
                            the calendar look-back)
   CAL_NAME                 name of the calendar to read (default "Celine-Nathan";
                            empty string disables the calendar section)
-  DEEPSEEK_MODEL           default "deepseek-v4-pro"
+  DEEPSEEK_MODEL           optional explicit override; otherwise OneDrive setting
   SUMMARY_END_BEIJING      fixed window end, "YYYY-MM-DD HH:MM" (manual reruns)
 """
 
@@ -53,7 +53,8 @@ RT_ENC_PATH = os.path.join(HERE, "rt.enc")
 
 SUMMARY_DAYS = int(os.environ.get("SUMMARY_DAYS", "14"))
 CAL_NAME = os.environ.get("CAL_NAME", "Celine-Nathan").strip()
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "").strip()
 BEIJING = ZoneInfo("Asia/Shanghai")
 
 SYSTEM_PROMPT = (
@@ -481,12 +482,12 @@ def collect_calendar(token, window):
 
 
 # ---- DeepSeek -------------------------------------------------------------
-def summarize(corpus):
+def summarize(corpus, model):
     key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not key:
         fail("DEEPSEEK_API_KEY secret is missing.")
     payload = {
-        "model": DEEPSEEK_MODEL,
+        "model": model,
         "stream": False,
         "thinking": {"type": "disabled"},
         "messages": [
@@ -499,7 +500,7 @@ def summarize(corpus):
     # the LOG_PROMPT env/secret to 1/true/yes to reveal it in the Action logs.
     if os.environ.get("LOG_PROMPT", "").strip().lower() in ("1", "true", "yes"):
         print("\n" + "=" * 70)
-        print("SENDING TO DEEPSEEK (model=%s)" % DEEPSEEK_MODEL)
+        print("SENDING TO DEEPSEEK (model=%s)" % model)
         print("-" * 70)
         print("[system]\n" + payload["messages"][0]["content"])
         print("-" * 70)
@@ -516,6 +517,20 @@ def summarize(corpus):
         fail("DeepSeek error: %s %s" % (r.status_code, r.text[:500]))
     d = r.json()
     return d["choices"][0]["message"]["content"]
+
+
+def load_summary_model(token, blog_base):
+    if DEEPSEEK_MODEL:
+        return DEEPSEEK_MODEL
+    raw = get_text(token, blog_base, "summary-settings.json")
+    if not raw:
+        return DEFAULT_DEEPSEEK_MODEL
+    try:
+        model = str(json.loads(raw).get("model") or "").strip()
+        return model or DEFAULT_DEEPSEEK_MODEL
+    except (TypeError, ValueError):
+        print("WARN: invalid summary-settings.json; using default model.")
+        return DEFAULT_DEEPSEEK_MODEL
 
 
 # ---- main -----------------------------------------------------------------
@@ -543,6 +558,7 @@ def main():
         window["end_bj"].strftime("%Y-%m-%d %H:%M")))
 
     blog_base, blog_parts = collect_blog(access_token, window)
+    model = load_summary_model(access_token, blog_base)
     forum_parts = collect_forum(access_token, blog_base, window)
     travel_parts = collect_travel(access_token, window)
     chat_parts = collect_chats(access_token, window)
@@ -563,8 +579,8 @@ def main():
     if len(corpus) > max_chars:
         corpus = corpus[:max_chars] + "\n\n（内容过长已截断）"
 
-    print("Calling DeepSeek (%s)..." % DEEPSEEK_MODEL)
-    summary = summarize(corpus)
+    print("Calling DeepSeek (%s)..." % model)
+    summary = summarize(corpus, model)
 
     today = window["end_bj"].date().strftime("%Y-%m-%d")
     header = "# 生活与对话摘要 · 最近 %d 天\n\n_生成于 %s（北京时间）_\n\n" % (

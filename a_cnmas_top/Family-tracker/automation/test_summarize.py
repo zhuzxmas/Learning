@@ -116,6 +116,16 @@ class CollectorTests(unittest.TestCase):
         self.assertIn("窗口内", parts[0])
         self.assertNotIn("窗口后", parts[0])
 
+    def test_summary_model_from_onedrive_and_fallback(self):
+        with patch.object(summarize, "DEEPSEEK_MODEL", ""), \
+             patch.object(summarize, "get_text", return_value=json.dumps({"model": "deepseek-v4-pro"})):
+            self.assertEqual(summarize.load_summary_model("token", "base"), "deepseek-v4-pro")
+        with patch.object(summarize, "DEEPSEEK_MODEL", ""), \
+             patch.object(summarize, "get_text", return_value=None):
+            self.assertEqual(summarize.load_summary_model("token", "base"), "deepseek-v4-flash")
+        with patch.object(summarize, "DEEPSEEK_MODEL", "explicit-model"):
+            self.assertEqual(summarize.load_summary_model("token", "base"), "explicit-model")
+
 
 if __name__ == "__main__":
     unittest.main()
