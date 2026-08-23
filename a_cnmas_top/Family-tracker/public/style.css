@@ -1077,6 +1077,7 @@ td:nth-child(6) {
 .blog-body li { margin: .2em 0; }
 .blog-body a { color: #1a6fd0; }
 .blog-body img { max-width: 100%; height: auto; border-radius: 8px; margin: .5em 0; display: block; }
+.blog-body audio { display: block; width: min(100%, 520px); margin: .7em 0; }
 .blog-body blockquote {
   margin: .7em 0; padding: .3em .9em;
   border-left: 4px solid #26890D; background: #f4f8f2; color: #444;
@@ -1269,6 +1270,13 @@ td:nth-child(6) {
   padding: 8px 12px;
   margin-right: 8px;
 }
+.media-tools { margin-top: 10px; }
+.audio-picker-list { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
+.audio-picker-item {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+  background: #fff; color: #222; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+}
+.audio-picker-item:hover { border-color: #26890D; background: #f6faf4; }
 
 /* ===================== 旅行地图 (travel) ===================== */
 .travel-toolbar {

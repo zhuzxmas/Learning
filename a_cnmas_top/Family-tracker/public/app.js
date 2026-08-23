@@ -782,6 +782,7 @@ const els = {
   blogMdToolbar: $("blogMdToolbar"),
   blogImageInput: $("blogImageInput"),
   blogImageHint: $("blogImageHint"),
+  blogAudioInput: $("blogAudioInput"), blogAudioHint: $("blogAudioHint"), blogPickAudioBtn: $("blogPickAudioBtn"),
   blogPickExistingBtn: $("blogPickExistingBtn"),
   blogImgPicker: $("blogImgPicker"),
   blogImgPickerGrid: $("blogImgPickerGrid"),
@@ -825,6 +826,9 @@ blogSaveBtn: $("blogSaveBtn"),
   forumReplyCancelBtn: $("forumReplyCancelBtn"),
   forumTopicImageInput: $("forumTopicImageInput"), forumTopicPickBtn: $("forumTopicPickBtn"), forumTopicImageHint: $("forumTopicImageHint"),
   forumReplyImageInput: $("forumReplyImageInput"), forumReplyPickBtn: $("forumReplyPickBtn"), forumReplyImageHint: $("forumReplyImageHint"),
+  forumTopicAudioInput: $("forumTopicAudioInput"), forumTopicAudioPickBtn: $("forumTopicAudioPickBtn"), forumTopicAudioHint: $("forumTopicAudioHint"),
+  forumReplyAudioInput: $("forumReplyAudioInput"), forumReplyAudioPickBtn: $("forumReplyAudioPickBtn"), forumReplyAudioHint: $("forumReplyAudioHint"),
+  audioPicker: $("audioPicker"), audioPickerCount: $("audioPickerCount"), audioPickerList: $("audioPickerList"), audioPickerClose: $("audioPickerClose"),
   forumImgPicker: $("forumImgPicker"), forumImgPickerCount: $("forumImgPickerCount"), forumImgPickerGrid: $("forumImgPickerGrid"), forumImgPickerClose: $("forumImgPickerClose"), forumImgPickerPager: $("forumImgPickerPager"), forumImgPickerPrev: $("forumImgPickerPrev"), forumImgPickerNext: $("forumImgPickerNext"), forumImgPickerPageInfo: $("forumImgPickerPageInfo"),
   // 旅行地图 (travel*)
   travelApp: $("travelApp"),
@@ -9415,6 +9419,23 @@ async function blogResolveImages(token, container) {
       }
     }
   }
+  const audios = Array.from(container.querySelectorAll("audio[data-src]"));
+  for (const audio of audios) {
+    const path = audio.getAttribute("data-src");
+    audio.removeAttribute("data-src");
+    audio.preload = "none";
+    audio.setAttribute("data-auth-audio", path);
+    audio.addEventListener("pointerdown", async () => {
+      if (audio.dataset.loadedBlob) return;
+      try {
+        const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+        if (!res.ok) throw new Error(String(res.status));
+        audio.src = URL.createObjectURL(await res.blob());
+        audio.dataset.loadedBlob = "1";
+        try { await audio.play(); } catch { /* second tap starts playback */ }
+      } catch { setStatus("音频加载失败：" + path, "error", 3000); }
+    }, { once: true });
+  }
 }
 
 // Full-screen lightbox: show thumbnail immediately, then swap in full-res.
@@ -9435,6 +9456,8 @@ function blogEsc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function blogInline(s) {
+  s = s.replace(/@\[audio\]\(([^)]+)\)/g,
+    (m, u) => '<audio controls preload="none" data-src="' + u + '"></audio>');
   s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
     (m, a, u) => '<img alt="' + a + '" data-src="' + u + '" loading="lazy" />');
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
@@ -9517,7 +9540,9 @@ function blogResetForm() {
   els.blogDateInput.value = todayStr();
   els.blogBodyInput.value = "";
   els.blogImageInput.value = "";
+  els.blogAudioInput.value = "";
   els.blogImageHint.textContent = "选择图片后会上传，并在正文光标处插入引用。";
+  els.blogAudioHint.textContent = "支持 iPhone 语音备忘录导出的 M4A，以及 MP3、WAV、AAC；单文件不超过 50MB。";
   els.blogImgPicker.classList.add("hidden");
   els.blogEditFormTitle.textContent = "写博文";
 }
@@ -9684,6 +9709,70 @@ async function forumUploadImages(files, target, input, hint) {
     setStatus("图片上传失败：" + (e.message || e), "error");
   } finally { input.disabled = false; }
 }
+
+const AUDIO_EXT = /\.(m4a|mp3|wav|aac)$/i;
+const AUDIO_MAX_BYTES = 50 * 1024 * 1024;
+let audioFolderReady = false;
+async function ensureAudioFolder(token) {
+  if (audioFolderReady) return;
+  const check = await fetch(`${blogDriveBase}:/audio`, { headers: { Authorization: "Bearer " + token } });
+  if (check.ok) { audioFolderReady = true; return; }
+  if (check.status !== 404) throw new Error("检查 audio 文件夹失败：" + check.status);
+  const create = await fetch(`${blogDriveBase}/children`, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "audio", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+  });
+  if (!create.ok && create.status !== 409) throw new Error("创建 audio 文件夹失败：" + create.status);
+  audioFolderReady = true;
+}
+async function uploadAudioFiles(files, target, input, hint) {
+  if (!files || !files.length) return;
+  input.disabled = true;
+  try {
+    const token = await getToken(); await blogResolveFolder(token); await ensureAudioFolder(token);
+    const refs = [];
+    for (const f of files) {
+      if (f.size > AUDIO_MAX_BYTES) throw new Error(f.name + " 超过 50MB");
+      const ext = blogSlugExt(f.name);
+      if (!AUDIO_EXT.test("." + ext)) throw new Error("不支持的音频格式：" + f.name);
+      const name = "audio" + Date.now() + Math.floor(Math.random() * 1000) + "." + ext;
+      hint.textContent = "正在上传 " + name + " …";
+      const res = await fetch(blogContentUrl("audio/" + name), {
+        method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": f.type || "application/octet-stream" },
+        body: await f.arrayBuffer(),
+      });
+      if (!res.ok) throw new Error("上传失败(" + name + ")：" + res.status);
+      refs.push("@[audio](audio/" + name + ")");
+    }
+    blogInsertAtCursor(target, "\n\n" + refs.join("\n\n") + "\n\n");
+    if (target !== els.blogBodyInput) forumAutoGrowEditor(target);
+    hint.textContent = "已插入 " + refs.length + " 段音频。"; input.value = "";
+  } catch (e) { setStatus("音频上传失败：" + (e.message || e), "error"); }
+  finally { input.disabled = false; }
+}
+
+async function openAudioPicker(target) {
+  els.audioPicker.classList.remove("hidden");
+  els.audioPickerCount.textContent = "正在载入…";
+  els.audioPickerList.innerHTML = "";
+  try {
+    const token = await getToken(); await blogResolveFolder(token);
+    const res = await fetch(`${blogDriveBase}:/audio:/children?$select=name,file,size,lastModifiedDateTime&$top=200`, { headers: { Authorization: "Bearer " + token } });
+    if (res.status === 404) { els.audioPickerCount.textContent = "audio/ 文件夹暂无音频。"; return; }
+    if (!res.ok) throw new Error(String(res.status));
+    const items = (await res.json()).value || [];
+    const audios = items.filter((it) => it.file && AUDIO_EXT.test(it.name || ""))
+      .sort((a, b) => new Date(b.lastModifiedDateTime || 0) - new Date(a.lastModifiedDateTime || 0));
+    els.audioPickerCount.textContent = "共 " + audios.length + " 段音频（点击插入）";
+    audios.forEach((it) => {
+      const btn = document.createElement("button"); btn.type = "button"; btn.className = "audio-picker-item";
+      btn.textContent = it.name + (it.size ? "（" + (it.size / 1024 / 1024).toFixed(1) + "MB）" : "");
+      btn.onclick = () => { blogInsertAtCursor(target, "\n\n@[audio](audio/" + it.name + ")\n\n"); if (target !== els.blogBodyInput) forumAutoGrowEditor(target); };
+      els.audioPickerList.appendChild(btn);
+    });
+  } catch (e) { setStatus("载入已有音频失败：" + (e.message || e), "error"); }
+}
 function blogInsertAtCursor(ta, text) {
   const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
   ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
@@ -9848,6 +9937,8 @@ function blogWireEvents() {
   els.blogListGo.onclick = goBlogPage;
   els.blogListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goBlogPage(); });
   els.blogPickExistingBtn.onclick = () => blogTogglePicker();
+  els.blogAudioInput.onchange = () => uploadAudioFiles(els.blogAudioInput.files, els.blogBodyInput, els.blogAudioInput, els.blogAudioHint);
+  els.blogPickAudioBtn.onclick = () => openAudioPicker(els.blogBodyInput);
   els.blogMdToolbar.addEventListener("click", (e) => {
     const btn = e.target.closest(".md-btn");
     if (btn && btn.dataset.md) blogMdAction(btn.dataset.md, els.blogBodyInput);
@@ -10415,6 +10506,11 @@ function forumWireEvents() {
   els.forumReplyImageInput.onchange = () => forumUploadImages(els.forumReplyImageInput.files, els.forumReplyInput, els.forumReplyImageInput, els.forumReplyImageHint);
   els.forumTopicPickBtn.onclick = () => forumOpenImagePicker(els.forumBodyInput);
   els.forumReplyPickBtn.onclick = () => forumOpenImagePicker(els.forumReplyInput);
+  els.forumTopicAudioInput.onchange = () => uploadAudioFiles(els.forumTopicAudioInput.files, els.forumBodyInput, els.forumTopicAudioInput, els.forumTopicAudioHint);
+  els.forumReplyAudioInput.onchange = () => uploadAudioFiles(els.forumReplyAudioInput.files, els.forumReplyInput, els.forumReplyAudioInput, els.forumReplyAudioHint);
+  els.forumTopicAudioPickBtn.onclick = () => openAudioPicker(els.forumBodyInput);
+  els.forumReplyAudioPickBtn.onclick = () => openAudioPicker(els.forumReplyInput);
+  els.audioPickerClose.onclick = () => els.audioPicker.classList.add("hidden");
   els.forumImgPickerClose.onclick = () => els.forumImgPicker.classList.add("hidden");
   els.forumImgPickerPrev.onclick = () => { forumPickerPage--; forumRenderImagePickerPage(); };
   els.forumImgPickerNext.onclick = () => { forumPickerPage++; forumRenderImagePickerPage(); };
