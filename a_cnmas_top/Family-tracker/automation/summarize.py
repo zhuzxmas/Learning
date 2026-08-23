@@ -224,21 +224,37 @@ def in_utc_window(value, window):
     return bool(parsed and window["start_utc"] <= parsed <= window["end_utc"])
 
 
-def collect_blog(token, days_cutoff):
+def blog_published_at(pid, meta):
+    """Publication instant; legacy IDs carry a Beijing-local creation date."""
+    created = parse_utc((meta or {}).get("created"))
+    if created:
+        return created
+    try:
+        local_date = dt.date.fromisoformat(str(pid)[:10])
+        return dt.datetime.combine(local_date, dt.time.min, tzinfo=BEIJING) \
+            .astimezone(dt.timezone.utc)
+    except ValueError:
+        return None
+
+
+def collect_blog(token, window):
     base = resolve_folder(token, BLOG_FOLDER_SHARE_URL)
-    idx = load_index_map(token, base, "blog-index.json", "id", ["title", "date"])
-    files = recent(list_children(token, base, "posts"), days_cutoff)
-    files.sort(key=lambda f: f.get("lastModifiedDateTime", ""))
+    idx = load_index_map(token, base, "blog-index.json", "id", ["title", "date", "created"])
+    files = list_children(token, base, "posts")
     parts = []
     for f in files:
         name = f["name"]
         pid = name[:-3] if name.endswith(".md") else name
         meta = idx.get(pid, {})
+        published = blog_published_at(pid, meta)
+        if not published or not (window["start_utc"] <= published <= window["end_utc"]):
+            continue
         title = meta.get("title") or pid
-        date = meta.get("date") or f.get("lastModifiedDateTime", "")[:10]
+        date = meta.get("date") or published.astimezone(BEIJING).date().isoformat()
         body = get_text(token, base, "posts/" + name) or ""
-        parts.append("### [博客] %s（%s）\n%s" % (title, date, body.strip()))
-    return base, parts
+        parts.append((published, "### [博客] %s（%s）\n%s" % (title, date, body.strip())))
+    parts.sort(key=lambda item: item[0])
+    return base, [item[1] for item in parts]
 
 
 def collect_forum(token, blog_base, window):
@@ -511,7 +527,7 @@ def main():
         window["start_bj"].strftime("%Y-%m-%d %H:%M"),
         window["end_bj"].strftime("%Y-%m-%d %H:%M")))
 
-    blog_base, blog_parts = collect_blog(access_token, cutoff)
+    blog_base, blog_parts = collect_blog(access_token, window)
     forum_parts = collect_forum(access_token, blog_base, window)
     travel_parts = collect_travel(access_token, window)
     chat_parts = collect_chats(access_token, cutoff)

@@ -43,6 +43,34 @@ class CollectorTests(unittest.TestCase):
         self.assertNotIn("旧首楼", text)
         self.assertNotIn("无活动", text)
 
+    def test_blog_uses_publication_time_not_modified_time(self):
+        index = {"posts": [
+            {"id": "2026-08-18-01", "title": "本期发表", "date": "2026-08-18",
+             "created": "2026-08-18T01:00:00Z"},
+            {"id": "2026-07-01-01", "title": "旧文修改", "date": "2026-07-01",
+             "created": "2026-07-01T01:00:00Z"},
+            {"id": "2026-08-10-01", "title": "旧格式本期文章", "date": "2026-08-10"},
+        ]}
+        files = [
+            {"name": "2026-08-18-01.md", "file": {}, "lastModifiedDateTime": "2026-08-18T02:00:00Z"},
+            {"name": "2026-07-01-01.md", "file": {}, "lastModifiedDateTime": "2026-08-19T02:00:00Z"},
+            {"name": "2026-08-10-01.md", "file": {}, "lastModifiedDateTime": "2026-08-10T02:00:00Z"},
+        ]
+        texts = {
+            "blog-index.json": json.dumps(index),
+            "posts/2026-08-18-01.md": "新正文",
+            "posts/2026-07-01-01.md": "旧正文被修改",
+            "posts/2026-08-10-01.md": "旧格式正文",
+        }
+        with patch.object(summarize, "resolve_folder", return_value="blog-base"), \
+             patch.object(summarize, "list_children", return_value=files), \
+             patch.object(summarize, "get_text", side_effect=lambda token, base, path: texts.get(path)):
+            _, parts = summarize.collect_blog("token", self.window)
+        text = "\n".join(parts)
+        self.assertIn("本期发表", text)
+        self.assertIn("旧格式本期文章", text)
+        self.assertNotIn("旧文修改", text)
+
     def test_travel_uses_visit_date_and_includes_boundaries(self):
         records = {"records": [
             {"title": "起始日", "date": "2026-08-06", "people": ["Nathan"],
