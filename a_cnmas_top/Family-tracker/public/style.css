@@ -1038,6 +1038,16 @@ td:nth-child(6) {
   font-size: 15px;
 }
 #blogTabEdit .form-actions { margin-top: 16px; }
+#blogTabEdit .blog-image-tools {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+#blogTabEdit .media-tools {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
 .blog-list { display: flex; flex-direction: column; gap: 8px; }
 .blog-item {
   padding: 12px 14px;
