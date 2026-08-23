@@ -9648,7 +9648,8 @@ function blogRenderList() {
     }
     const meta = document.createElement("div");
     meta.className = "blog-item-meta";
-    meta.textContent = (p.date || "") + (p.created ? "　·　发表于 " + formatBeijingTime(p.created) : "") + (p.images ? "　·　" + p.images + " 图" : "");
+    meta.textContent = (p.created ? "发表于 " + formatBeijingTime(p.created) : (p.date || "")) +
+      (p.images ? "　·　" + p.images + " 图" : "");
     const ex = document.createElement("div");
     ex.className = "blog-item-excerpt";
     ex.textContent = p.excerpt || "";
