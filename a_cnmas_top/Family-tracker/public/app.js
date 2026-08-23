@@ -775,6 +775,7 @@ const els = {
   blogDeleteThisBtn: $("blogDeleteThisBtn"),
   blogViewTitle: $("blogViewTitle"),
   blogViewDate: $("blogViewDate"),
+  blogTopBtn: $("blogTopBtn"),
   blogSummarySources: $("blogSummarySources"),
   summaryModelInput: $("summaryModelInput"),
   summaryModelSaveBtn: $("summaryModelSaveBtn"),
@@ -9794,6 +9795,21 @@ function blogSwitchTab(tab) {
   els.blogTabEdit.classList.toggle("hidden", tab !== "edit");
   els.blogTabForum.classList.toggle("hidden", tab !== "forum");
   els.blogTabViewBtn.classList.toggle("hidden", !blogViewId || tab === "forum");
+  if (tab !== "view") els.blogTopBtn.classList.add("hidden");
+}
+
+function blogUpdateTopButton() {
+  const reading = !els.blogTabView.classList.contains("hidden");
+  if (!reading) { els.blogTopBtn.classList.add("hidden"); return; }
+  const titleTop = els.blogViewTitle.getBoundingClientRect().top + window.scrollY;
+  els.blogTopBtn.classList.toggle("hidden", window.scrollY < titleTop + 500);
+}
+
+function blogScrollToTitle() {
+  const tabs = document.querySelector("#blogApp > .tabs");
+  const offset = (tabs ? tabs.offsetHeight : 0) + 8;
+  const top = els.blogViewTitle.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
 // ---- edit / new ----------------------------------------------------------
@@ -10189,6 +10205,8 @@ function blogWireEvents() {
   els.blogTabListBtn.onclick = () => blogSwitchTab("list");
   els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
   els.blogTabEditBtn.onclick = () => blogNew();
+  els.blogTopBtn.onclick = () => blogScrollToTitle();
+  window.addEventListener("scroll", blogUpdateTopButton, { passive: true });
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
   els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
   const goBlogPage = () => {
