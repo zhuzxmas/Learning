@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=48" />
+  <link rel="stylesheet" href="style.css?v=49" />
 </head>
 <body>
   <header class="topbar">
@@ -1867,7 +1867,8 @@
           </div>
           <div class="field field-wide">
             <label for="blogImageInput">插入图片</label>
-            <input type="file" id="blogImageInput" accept="image/*" multiple />
+            <input type="file" id="blogImageInput" class="media-file-input" accept="image/*" multiple />
+            <button type="button" class="btn btn-ghost media-local-btn" data-input="blogImageInput">从本机选择图片</button>
             <p class="muted" id="blogImageHint">选择图片后会上传，并在正文光标处插入引用。</p>
             <button type="button" class="btn btn-ghost" id="blogPickExistingBtn">从已有图片选择</button>
             <div id="blogImgPicker" class="blog-img-picker hidden">
@@ -1885,7 +1886,8 @@
           </div>
           <div class="field field-wide media-tools">
             <label for="blogAudioInput">插入音频</label>
-            <input type="file" id="blogAudioInput" accept="audio/*,.m4a,.mp3,.wav,.aac" multiple />
+            <input type="file" id="blogAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple />
+            <button type="button" class="btn btn-ghost media-local-btn" data-input="blogAudioInput">从本机选择音频</button>
             <p class="muted" id="blogAudioHint">支持 iPhone 语音备忘录导出的 M4A，以及 MP3、WAV、AAC；单文件不超过 50MB。</p>
             <button type="button" class="btn btn-ghost" id="blogPickAudioBtn">从已有音频选择</button>
           </div>
@@ -1929,8 +1931,8 @@
               </div>
               <textarea id="forumBodyInput" rows="8" placeholder="支持 Markdown：# 标题、**加粗**、- 列表、[链接](url)…"></textarea>
             </div>
-            <div class="forum-image-tools"><input type="file" id="forumTopicImageInput" accept="image/*" multiple /><button type="button" class="btn btn-ghost" id="forumTopicPickBtn">从云端选择图片</button><span class="muted" id="forumTopicImageHint"></span></div>
-            <div class="forum-image-tools"><input type="file" id="forumTopicAudioInput" accept="audio/*,.m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost" id="forumTopicAudioPickBtn">从云端选择音频</button><span class="muted" id="forumTopicAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
+            <div class="forum-image-tools"><input type="file" id="forumTopicImageInput" class="media-file-input" accept="image/*" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumTopicImageInput">从本机选择图片</button><button type="button" class="btn btn-ghost" id="forumTopicPickBtn">从云端选择图片</button><span class="muted" id="forumTopicImageHint"></span></div>
+            <div class="forum-image-tools"><input type="file" id="forumTopicAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumTopicAudioInput">从本机选择音频</button><button type="button" class="btn btn-ghost" id="forumTopicAudioPickBtn">从云端选择音频</button><span class="muted" id="forumTopicAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
             <div class="form-actions">
               <button type="button" class="btn btn-primary" id="forumSaveBtn">发布主题</button>
               <button type="button" class="btn btn-ghost" id="forumCancelBtn">取消</button>
@@ -1956,8 +1958,8 @@
                 <button type="button" class="md-btn" data-md="bold"><b>B</b></button><button type="button" class="md-btn" data-md="italic"><i>I</i></button><button type="button" class="md-btn" data-md="underline"><u>U</u></button><button type="button" class="md-btn" data-md="h2">H2</button><button type="button" class="md-btn" data-md="quote">“”</button><button type="button" class="md-btn" data-md="ul">• 列表</button><button type="button" class="md-btn" data-md="ol">1. 列表</button><button type="button" class="md-btn" data-md="link">链接</button><button type="button" class="md-btn" data-md="code">&lt;/&gt;</button><button type="button" class="md-btn" data-md="hr">—</button>
               </div>
               <textarea id="forumReplyInput" rows="3" placeholder="输入回复内容…"></textarea>
-              <div class="forum-image-tools"><input type="file" id="forumReplyImageInput" accept="image/*" multiple /><button type="button" class="btn btn-ghost" id="forumReplyPickBtn">从云端选择图片</button><span class="muted" id="forumReplyImageHint"></span></div>
-              <div class="forum-image-tools"><input type="file" id="forumReplyAudioInput" accept="audio/*,.m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost" id="forumReplyAudioPickBtn">从云端选择音频</button><span class="muted" id="forumReplyAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
+              <div class="forum-image-tools"><input type="file" id="forumReplyImageInput" class="media-file-input" accept="image/*" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumReplyImageInput">从本机选择图片</button><button type="button" class="btn btn-ghost" id="forumReplyPickBtn">从云端选择图片</button><span class="muted" id="forumReplyImageHint"></span></div>
+              <div class="forum-image-tools"><input type="file" id="forumReplyAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumReplyAudioInput">从本机选择音频</button><button type="button" class="btn btn-ghost" id="forumReplyAudioPickBtn">从云端选择音频</button><span class="muted" id="forumReplyAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
               <div class="forum-reply-actions">
                 <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
                 <button type="button" class="btn btn-ghost hidden" id="forumReplyCancelBtn">取消编辑</button>
@@ -2010,6 +2012,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=55"></script>
+  <script src="app.js?v=56"></script>
 </body>
 </html>

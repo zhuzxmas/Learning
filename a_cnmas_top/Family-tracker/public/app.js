@@ -10812,6 +10812,13 @@ function travelCreateMarkerLayer(geometries) {
   });
 }
 
+document.querySelectorAll(".media-local-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.getElementById(btn.dataset.input);
+    if (input) input.click();
+  });
+});
+
 function travelRenderMarkers() {
   const filtered = travelFilteredRecords();
   const valid = filtered.filter(travelValidCoords);

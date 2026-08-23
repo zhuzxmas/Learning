@@ -1260,16 +1260,8 @@ td:nth-child(6) {
 .forum-reply-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .forum-image-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 14px; }
 .forum-image-tools input[type="file"] { max-width: 100%; }
-.forum-image-tools input[type="file"]::file-selector-button {
-  min-height: 40px;
-  padding: 8px 12px;
-  margin-right: 8px;
-}
-.forum-image-tools input[type="file"]::-webkit-file-upload-button {
-  min-height: 40px;
-  padding: 8px 12px;
-  margin-right: 8px;
-}
+.media-file-input { display: none !important; }
+.media-local-btn { border-radius: 8px; min-height: 40px; }
 .media-tools { margin-top: 10px; }
 .audio-picker-list { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
 .audio-picker-item {
