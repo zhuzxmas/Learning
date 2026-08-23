@@ -9598,11 +9598,14 @@ async function blogSaveComment() {
 }
 async function blogDeleteComment(id) {
   const c = blogCommentsData.find((x) => x.id === id);
-  if (!c || !blogOwnComment(c) || !confirm("确定删除这条评论吗？")) return;
+  if (!c || !blogOwnComment(c) || !blogConfirmDeleteComment()) return;
   try {
     const token = await getToken(); await blogMutateComments(token, blogViewId, (comments) => comments.filter((x) => x.id !== id || !blogOwnComment(x)));
     await blogRenderComments(token); setStatus("评论已删除。", "ok", 2000);
   } catch (e) { setStatus("删除评论失败：" + (e.message || e), "error"); }
+}
+function blogConfirmDeleteComment() {
+  return confirm("确定删除这条评论吗？");
 }
 
 // Fetch the full-resolution image as a blob URL (cached per session).
@@ -11737,7 +11740,7 @@ async function chatSend() {
     chatClearTurnSpacer();
 
     // Append the user message, render it.
-    chatMessages.push({ role: "user", content: text });
+    chatMessages.push({ role: "user", content: text, created: new Date().toISOString() });
     els.aiMessages.querySelector(".ai-empty")?.remove();
     const userWrap = chatBubble({ role: "user", content: text });
     els.aiMessages.appendChild(userWrap);
@@ -11825,7 +11828,7 @@ async function chatSend() {
 
     // Persist the assistant message.
     chatSetStreamStatus("正在保存…", "", 0);
-    const msg = { role: "assistant", content: acc };
+    const msg = { role: "assistant", content: acc, created: new Date().toISOString() };
     if (reasoning) msg.reasoning = reasoning;
     chatMessages.push(msg);
     await chatPersistAfterTurn(text);

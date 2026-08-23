@@ -103,8 +103,13 @@ class CollectorTests(unittest.TestCase):
             "chat-index.json": json.dumps({"convs": [
                 {"id": "inside", "title": "窗口内"}, {"id": "after", "title": "窗口后"}
             ]}),
-            "chats/inside.json": json.dumps({"messages": [{"role": "user", "content": "保留"}]}),
-            "chats/after.json": json.dumps({"messages": [{"role": "user", "content": "排除"}]}),
+            "chats/inside.json": json.dumps({"messages": [
+                {"role": "user", "content": "无时间戳历史", "created": None},
+                {"role": "user", "content": "窗口前消息", "created": "2026-08-01T01:00:00Z"},
+                {"role": "user", "content": "保留", "created": "2026-08-20T01:00:00Z"},
+                {"role": "assistant", "content": "保留回答", "created": "2026-08-20T01:01:00Z"},
+            ]}),
+            "chats/after.json": json.dumps({"messages": [{"role": "user", "content": "排除", "created": "2026-08-21T22:12:00Z"}]}),
         }
         window = summarize.beijing_window(
             dt.datetime(2026, 8, 22, 6, 11, tzinfo=summarize.BEIJING), days=14)
@@ -114,6 +119,9 @@ class CollectorTests(unittest.TestCase):
             parts = summarize.collect_chats("token", window)
         self.assertEqual(len(parts), 1)
         self.assertIn("窗口内", parts[0])
+        self.assertIn("保留回答", parts[0])
+        self.assertNotIn("无时间戳历史", parts[0])
+        self.assertNotIn("窗口前消息", parts[0])
         self.assertNotIn("窗口后", parts[0])
 
     def test_summary_model_from_onedrive_and_fallback(self):

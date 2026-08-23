@@ -404,10 +404,13 @@ def collect_chats(token, window):
             msgs = []
         lines = []
         for m in msgs:
+            if not in_utc_window(m.get("created"), window):
+                continue
             role = "我" if m.get("role") == "user" else "AI"
             content = (m.get("content") or "").strip()
             if content:
-                lines.append("%s：%s" % (role, content))
+                created = parse_utc(m.get("created")).astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
+                lines.append("%s %s：%s" % (created, role, content))
         if lines:
             parts.append("### [对话] %s\n%s" % (title, "\n".join(lines)))
     return parts
