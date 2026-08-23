@@ -773,6 +773,7 @@ const els = {
   blogList: $("blogList"),
   blogEmpty: $("blogEmpty"),
   blogBackBtn: $("blogBackBtn"),
+  blogShareBtn: $("blogShareBtn"),
   blogEditThisBtn: $("blogEditThisBtn"),
   blogDeleteThisBtn: $("blogDeleteThisBtn"),
   blogViewTitle: $("blogViewTitle"),
@@ -829,6 +830,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumSaveBtn: $("forumSaveBtn"),
   forumCancelBtn: $("forumCancelBtn"),
   forumBackBtn: $("forumBackBtn"),
+  forumShareBtn: $("forumShareBtn"),
   forumEditBtn: $("forumEditBtn"),
   forumDeleteBtn: $("forumDeleteBtn"),
   forumViewTitle: $("forumViewTitle"),
@@ -928,6 +930,41 @@ function setDirty(v) {
   dirty = v;
 }
 
+const DEEP_LINK_KEY = "familyTrackerDeepLink";
+function readDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get("view"), id = params.get("id");
+  if ((view === "blog" || view === "forum") && id) {
+    const link = { view, id };
+    try { sessionStorage.setItem(DEEP_LINK_KEY, JSON.stringify(link)); } catch {}
+    return link;
+  }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(DEEP_LINK_KEY) || "null");
+    return saved && (saved.view === "blog" || saved.view === "forum") && saved.id ? saved : null;
+  } catch { return null; }
+}
+function clearDeepLink() {
+  try { sessionStorage.removeItem(DEEP_LINK_KEY); } catch {}
+  const url = new URL(window.location.href);
+  url.searchParams.delete("view"); url.searchParams.delete("id");
+  history.replaceState(null, "", url.pathname + url.search + url.hash);
+}
+function deepLinkUrl(view, id) {
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set("view", view); url.searchParams.set("id", id);
+  return url.toString();
+}
+async function sharePrivateLink(view, id, title) {
+  const url = deepLinkUrl(view, id);
+  if (navigator.share) {
+    try { await navigator.share({ title, url }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(url); setStatus("链接已复制。", "ok", 1800); }
+  catch { prompt("复制此链接：", url); }
+}
+
 /* --------------------------- Auth ---------------------------------------- */
 async function getToken() {
   const req = { scopes: SCOPES, account };
@@ -949,6 +986,7 @@ async function getToken() {
 async function login() {
   // Full-page redirect login — never blocked by popup blockers. The response
   // is handled by handleRedirectPromise() during boot when the page returns.
+  readDeepLink(); // preserve a shared article/topic target across the redirect
   await msalApp.loginRedirect({ scopes: SCOPES });
 }
 
@@ -986,7 +1024,28 @@ async function onSignedIn() {
   show(els.logoutBtn);
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
-  await setMode(mode);
+  const deepLink = readDeepLink();
+  await setMode(deepLink ? "blog" : mode);
+  if (deepLink) await openDeepLink(deepLink);
+}
+
+async function openDeepLink(link) {
+  try {
+    await blogLoad();
+    if (link.view === "blog") {
+      const post = blogAllEntries().find((p) => p.id === link.id);
+      if (!post) throw new Error("文章不存在或已删除。");
+      await blogOpen(link.id, true);
+    } else {
+      blogSwitchTab("forum"); await forumLoad();
+      const topic = forumTopics.find((t) => t.id === link.id);
+      if (!topic) throw new Error("贴吧主题不存在或已删除。");
+      await forumOpenTopic(link.id, true);
+    }
+  } catch (e) {
+    clearDeepLink(); blogSwitchTab("list");
+    setStatus(e.message || String(e), "warn", 5000);
+  }
 }
 
 /* --------------------------- Graph I/O ----------------------------------- */
@@ -9603,10 +9662,10 @@ function blogRenderList() {
 }
 
 // ---- open / view ---------------------------------------------------------
-async function blogOpen(id) {
+async function blogOpen(id, fromDeepLink) {
   const post = blogAllEntries().find((p) => p.id === id);
   if (!post) return;
-  if (!els.blogTabList.classList.contains("hidden")) {
+  if (!fromDeepLink && !els.blogTabList.classList.contains("hidden")) {
     blogListReturnState = {
       id,
       page: blogListPage,
@@ -9616,6 +9675,7 @@ async function blogOpen(id) {
     };
   }
   blogViewId = id;
+  history.replaceState(null, "", deepLinkUrl("blog", id));
   blogSwitchTab("view");
   window.scrollTo({ top: 0, behavior: "auto" });
   // Summaries are read-only: hide edit/delete controls.
@@ -9658,7 +9718,7 @@ function blogReturnToList() {
     blogSearchText = state.search;
     els.blogSearch.value = state.input;
   }
-  blogSwitchTab("list");
+  clearDeepLink(); blogSwitchTab("list");
   blogRenderList();
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (!state) return;
@@ -10322,7 +10382,7 @@ function blogRenderPickerPage() {
 function blogWireEvents() {
   els.summaryModelInput.addEventListener("input", updateSummaryModelSaveState);
   els.summaryModelSaveBtn.onclick = () => saveSummaryModel();
-  els.blogTabListBtn.onclick = () => blogSwitchTab("list");
+  els.blogTabListBtn.onclick = () => { clearDeepLink(); blogSwitchTab("list"); };
   els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
   els.blogTabEditBtn.onclick = () => blogNew();
   els.blogTagToggle.onclick = (e) => { e.stopPropagation(); els.blogTagPanel.classList.toggle("hidden"); };
@@ -10379,6 +10439,10 @@ function blogWireEvents() {
     if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
   });
   els.blogBackBtn.onclick = () => blogReturnToList();
+  els.blogShareBtn.onclick = () => {
+    const post = blogAllEntries().find((p) => p.id === blogViewId);
+    if (post) sharePrivateLink("blog", post.id, post.title || "博客文章");
+  };
   els.blogEditThisBtn.onclick = () => blogEditThis();
   els.blogDeleteThisBtn.onclick = () => blogDeleteThis();
   els.blogSaveBtn.onclick = () => blogSave();
@@ -10574,10 +10638,11 @@ function forumRenderList() {
 }
 
 // ---- open / view a topic --------------------------------------------------
-async function forumOpenTopic(id) {
+async function forumOpenTopic(id, fromDeepLink) {
   const topic = forumTopics.find((t) => t.id === id);
   if (!topic) return;
   forumCurTopicId = id;
+  history.replaceState(null, "", deepLinkUrl("forum", id));
   forumSwitchTab("view");
   els.forumViewTitle.textContent = topic.title || "(无标题)";
   els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + formatBeijingTime(topic.created) + " · " + (topic.postCount || 0) + " 楼";
@@ -10896,7 +10961,7 @@ async function forumDeleteTopic() {
 
 // ---- wiring --------------------------------------------------------------
 function forumWireEvents() {
-  els.blogTabForumBtn.onclick = () => { blogSwitchTab("forum"); forumLoad(); };
+  els.blogTabForumBtn.onclick = () => { clearDeepLink(); blogSwitchTab("forum"); forumLoad(); };
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
   els.forumSearch.addEventListener("input", () => { forumListPage = 0; forumSearchText = els.forumSearch.value; forumRenderList(); });
   els.forumClearFilterBtn.onclick = () => {
@@ -10918,7 +10983,11 @@ function forumWireEvents() {
   els.forumListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPage(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
   els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
-  els.forumBackBtn.onclick = () => forumSwitchTab("list");
+  els.forumBackBtn.onclick = () => { clearDeepLink(); forumSwitchTab("list"); };
+  els.forumShareBtn.onclick = () => {
+    const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+    if (topic) sharePrivateLink("forum", topic.id, topic.title || "贴吧主题");
+  };
   els.forumEditBtn.onclick = () => forumEditTopic();
   els.forumDeleteBtn.onclick = () => forumDeleteTopic();
   els.forumReplyBtn.onclick = () => forumReply();
