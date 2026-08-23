@@ -9178,6 +9178,8 @@ const blogImgCache = {};     // "images/x.jpg" -> object URL
 let blogCommentsData = [];
 let blogCommentsEtag = null;
 let blogCommentsFolderReady = false;
+let blogCommentSaving = false;
+let blogCommentOriginalContent = "";
 let summaryModel = SUMMARY_MODEL_DEFAULT;
 let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
@@ -9557,20 +9559,31 @@ async function blogRenderComments(token) {
 
 function blogResetCommentEditor() {
   els.blogEditCommentId.value = ""; els.blogCommentInput.value = "";
+  blogCommentOriginalContent = ""; blogCommentSaving = false;
   els.blogCommentLabel.textContent = "发表评论（Markdown）"; els.blogCommentSubmitBtn.textContent = "发表评论";
   els.blogCommentCancelBtn.classList.add("hidden"); forumAutoGrowEditor(els.blogCommentInput);
+  updateBlogCommentSubmitState();
 }
 function blogStartEditComment(id) {
   const c = blogCommentsData.find((x) => x.id === id);
   if (!c || !blogOwnComment(c)) return;
   els.blogEditCommentId.value = id; els.blogCommentInput.value = c.content || "";
+  blogCommentOriginalContent = c.content || ""; blogCommentSaving = false;
   els.blogCommentLabel.textContent = "编辑评论（Markdown）"; els.blogCommentSubmitBtn.textContent = "保存修改";
-  els.blogCommentCancelBtn.classList.remove("hidden"); forumAutoGrowEditor(els.blogCommentInput); els.blogCommentInput.focus();
+  els.blogCommentCancelBtn.classList.remove("hidden"); forumAutoGrowEditor(els.blogCommentInput);
+  updateBlogCommentSubmitState(); els.blogCommentInput.focus();
+}
+function updateBlogCommentSubmitState() {
+  const content = els.blogCommentInput.value.trim();
+  const editId = els.blogEditCommentId.value;
+  const unchanged = !!editId && content === blogCommentOriginalContent.trim();
+  els.blogCommentSubmitBtn.disabled = blogCommentSaving || !content || unchanged;
 }
 async function blogSaveComment() {
   const content = els.blogCommentInput.value.trim(), editId = els.blogEditCommentId.value;
   if (!content || !blogViewId) return;
   const actor = blogCurrentActor(), now = new Date().toISOString();
+  blogCommentSaving = true; updateBlogCommentSubmitState();
   try {
     const token = await getToken(); await blogResolveFolder(token);
     await blogMutateComments(token, blogViewId, (comments) => {
@@ -9578,7 +9591,10 @@ async function blogSaveComment() {
       comments.push({ id: uuid(), authorId: actor.id, author: actor.name, content, created: now }); return comments;
     });
     blogResetCommentEditor(); await blogRenderComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
-  } catch (e) { setStatus("保存评论失败：" + (e.message || e), "error"); }
+  } catch (e) {
+    blogCommentSaving = false; updateBlogCommentSubmitState();
+    setStatus("保存评论失败：" + (e.message || e), "error");
+  }
 }
 async function blogDeleteComment(id) {
   const c = blogCommentsData.find((x) => x.id === id);
@@ -9989,6 +10005,7 @@ function blogInsertAtCursor(ta, text) {
   const pos = s + text.length;
   ta.selectionStart = ta.selectionEnd = pos;
   ta.focus();
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 // ---- Markdown toolbar helpers --------------------------------------------
@@ -10002,6 +10019,7 @@ function blogWrapSelection(ta, before, after, placeholder) {
   ta.selectionStart = s + before.length;
   ta.selectionEnd = s + before.length + sel.length;
   ta.focus();
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
 }
 // Prepend a prefix to every line touched by the selection (or the cursor line).
 function blogLinePrefix(ta, prefix) {
@@ -10015,6 +10033,7 @@ function blogLinePrefix(ta, prefix) {
   ta.selectionStart = ls;
   ta.selectionEnd = ls + replaced.length;
   ta.focus();
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
 }
 function blogMdAction(md, ta) {
   ta = ta || els.blogBodyInput;
@@ -10038,6 +10057,7 @@ function blogMdAction(md, ta) {
       ta.selectionStart = urlStart;
       ta.selectionEnd = urlStart + 3;
       ta.focus();
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
       return;
     }
   }
@@ -10159,7 +10179,10 @@ function blogWireEvents() {
   els.blogImgPickerPrev.onclick = () => { blogPickerPage--; blogRenderPickerPage(); };
   els.blogImgPickerNext.onclick = () => { blogPickerPage++; blogRenderPickerPage(); };
   els.blogLightbox.onclick = () => blogCloseLightbox();
-  els.blogCommentInput.addEventListener("input", () => forumAutoGrowEditor(els.blogCommentInput));
+  els.blogCommentInput.addEventListener("input", () => {
+    forumAutoGrowEditor(els.blogCommentInput);
+    updateBlogCommentSubmitState();
+  });
   document.querySelector(".comment-md-toolbar").addEventListener("click", (e) => {
     const btn = e.target.closest(".md-btn");
     if (btn && btn.dataset.md) { blogMdAction(btn.dataset.md, els.blogCommentInput); forumAutoGrowEditor(els.blogCommentInput); }
