@@ -10323,7 +10323,7 @@ function blogResetForm() {
   els.blogVideoInput.value = "";
   els.blogImageHint.textContent = "选择图片后会上传，并在正文光标处插入引用。";
   els.blogAudioHint.textContent = "支持 iPhone 语音备忘录导出的 M4A，以及 MP3、WAV、AAC；单文件不超过 50MB。";
-  els.blogVideoHint.textContent = "支持 MP4 / MOV，单文件不超过 200MB。";
+  els.blogVideoHint.textContent = "支持 MP4 / MOV，单文件不超过 200MB。云端位置：OneDrive / Apps / BlogTracker / video/";
   els.blogImgPicker.classList.add("hidden");
   els.blogEditFormTitle.textContent = "写博文";
 }
