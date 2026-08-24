@@ -272,7 +272,7 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   top: 0;
   left: 0;
   right: 0;
-  z-index: 50;
+  z-index: 1300;
   pointer-events: none;
 }
 .savebar .spacer { flex: 1; }
@@ -283,7 +283,8 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   background: var(--card);
   padding: 6px 14px;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #dbe4f0;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
   max-width: 92vw;
   pointer-events: auto;
 }
