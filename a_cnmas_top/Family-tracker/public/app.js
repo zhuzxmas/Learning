@@ -1045,32 +1045,57 @@ async function onSignedIn() {
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
-  await setMode(deepLink ? "blog" : mode);
-  try {
-    const token = await getToken();
-    await blogResolveFolder(token);
-    if (!blogLoaded) await blogLoad(); else await blogLoadUnreadComments(token);
-  } catch (e) { console.warn("comment reminder load:", e); }
+  await setMode(deepLink ? "blog" : mode, { skipLoad: !!deepLink });
+  // Reminders are independent from the visible mode. Load them silently in the
+  // background so opening 支出 never waits for or shows blog loading status.
+  if (!deepLink) blogLoadCommentRemindersSilently();
   if (deepLink) await openDeepLink(deepLink);
 }
 
 async function openDeepLink(link) {
   try {
-    await blogLoad();
+    const token = await getToken();
+    await blogResolveFolder(token);
     if (link.view === "blog") {
-      const post = blogAllEntries().find((p) => p.id === link.id);
-      if (!post) throw new Error("文章不存在或已删除。");
+      const post = await blogLoadDeepLinkTarget(token, link.id);
       await blogOpen(link.id, true);
+      loadSummarySettings(token).catch((e) => console.warn("summary settings:", e));
     } else {
-      blogSwitchTab("forum"); await forumLoad();
+      blogSwitchTab("forum");
+      const idx = await forumReadIndex(token);
+      forumTopics = idx.topics.slice().sort(forumCmp);
+      forumIndexEtag = idx.etag;
       const topic = forumTopics.find((t) => t.id === link.id);
       if (!topic) throw new Error("贴吧主题不存在或已删除。");
+      forumLoaded = true;
       await forumOpenTopic(link.id, true);
     }
   } catch (e) {
     clearDeepLink(); blogSwitchTab("list");
     setStatus(e.message || String(e), "warn", 5000);
   }
+}
+
+async function blogLoadDeepLinkTarget(token, id) {
+  let post = null;
+  if (id.startsWith("summary::")) {
+    const name = id.slice("summary::".length);
+    const match = name.match(/(\d{4}-\d{2}-\d{2})/);
+    const date = match ? match[1] : "";
+    post = {
+      id, title: "定期总结 · " + date, date,
+      excerpt: "自动生成的双周回顾", isSummary: true,
+      summaryPath: "summaries/" + name,
+    };
+    if (!blogSummaries.some((p) => p.id === id)) blogSummaries.push(post);
+  } else {
+    const idx = await blogReadIndex(token);
+    post = idx.posts.find((p) => p.id === id) || null;
+    if (!post) throw new Error("文章不存在或已删除。");
+    blogIndexEtag = idx.etag;
+    if (!blogPosts.some((p) => p.id === id)) blogPosts.push(post);
+  }
+  return post;
 }
 
 /* --------------------------- Graph I/O ----------------------------------- */
@@ -4147,7 +4172,8 @@ async function sbtRemoveStock(code) {
 }
 
 /* --------------------------- Mode switch --------------------------------- */
-async function setMode(next) {
+async function setMode(next, options) {
+  options = options || {};
   mode = next;
   const isInc = next === "income";
   const isStk = next === "stock";
@@ -4210,7 +4236,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   } else if (next === "health") {
     try { await heaLoad(); }
     catch (e) { setStatus("健康数据载入失败：" + (e.message || e), "error"); }
-  } else if (next === "blog") {
+  } else if (next === "blog" && !options.skipLoad) {
     try { await blogLoad(); }
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
 } else if (next === "ai") {
@@ -9276,6 +9302,7 @@ let blogListReturnState = null;
 let blogUnreadComments = [];
 let blogReadCommentIds = new Set();
 let blogReadReceiptEtag = null;
+let blogReminderTitles = new Map();
 let blogCommentObserver = null;
 const BLOG_POSITION_KEY = "familyTrackerBlogPositions";
 function blogLoadPositions() { try { return JSON.parse(sessionStorage.getItem(BLOG_POSITION_KEY) || "{}") || {}; } catch { return {}; } }
@@ -9570,13 +9597,27 @@ async function blogLoadUnreadComments(token) {
     if (!raw.ok) continue;
     const data = await raw.json(); const articleId = data.articleId;
     const post = blogAllEntries().find((p) => p.id === articleId);
+    let title = post ? post.title : blogReminderTitles.get(articleId);
+    if (!title && String(articleId || "").startsWith("summary::")) {
+      const date = String(articleId).split("summary-").pop().split(".md")[0];
+      title = "定期总结 · " + date;
+    }
     (data.comments || []).forEach((c) => {
       if (c.authorId === actor.id || blogReadCommentIds.has(c.id)) return;
-      unread.push({ articleId, commentId: c.id, title: post ? post.title : articleId, author: c.author || "匿名", created: c.created, excerpt: String(c.content || "").replace(/\s+/g, " ").slice(0, 70) });
+      unread.push({ articleId, commentId: c.id, title: title || articleId, author: c.author || "匿名", created: c.created, excerpt: String(c.content || "").replace(/\s+/g, " ").slice(0, 70) });
     });
   }
   blogUnreadComments = unread.sort((a, b) => String(b.created).localeCompare(String(a.created)));
   blogRenderCommentReminder();
+}
+async function blogLoadCommentRemindersSilently() {
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    const idx = await blogReadIndex(token);
+    blogReminderTitles = new Map(idx.posts.map((post) => [post.id, post.title || post.id]));
+    await blogLoadUnreadComments(token);
+  } catch (e) { console.warn("comment reminder load:", e); }
 }
 function blogRenderCommentReminder() {
   const n = blogUnreadComments.length;

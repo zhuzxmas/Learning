@@ -40,7 +40,7 @@ body {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 1002;
 }
 .topbar h1 { font-size: 18px; margin: 0; }
 .user-area { display: flex; align-items: center; gap: 10px; }
@@ -654,10 +654,10 @@ td:nth-child(6) {
 /* 更多 ▾ dropdown (extra modules) */
 .mode-bar {
   display: flex; align-items: stretch; gap: 0; margin-bottom: 16px; width: 100%;
-  position: sticky; top: var(--topbar-height, 57px); z-index: 24;
+  position: sticky; top: var(--topbar-height, 57px); z-index: 1001;
   background: var(--bg); padding: 6px 0;
 }
-#blogApp > .tabs { top: calc(var(--topbar-height, 57px) + var(--modebar-height, 52px)); z-index: 23; }
+#blogApp > .tabs { top: calc(var(--topbar-height, 57px) + var(--modebar-height, 52px)); z-index: 1000; }
 .mode-bar .mode-switch { margin-bottom: 0; border-radius: 10px 0 0 10px; flex: 1 1 auto; display: flex; }
 .mode-bar .mode-switch .mode-btn { flex: 1 1 0; padding-left: 8px; padding-right: 8px; }
 .mode-more { position: relative; display: flex; }
@@ -671,7 +671,7 @@ td:nth-child(6) {
   top: calc(100% + 6px);
   right: 0;
   left: auto;
-  z-index: 30;
+  z-index: 1100;
   min-width: 150px;
   background: var(--card);
   border: 1px solid var(--border);
