@@ -4,12 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=54" />
+  <link rel="stylesheet" href="style.css?v=55" />
 </head>
 <body>
   <header class="topbar">
     <h1>家庭记账</h1>
     <div class="user-area">
+      <div class="comment-reminder-wrap hidden" id="commentReminderWrap">
+        <button type="button" class="comment-reminder-btn" id="commentReminderBtn">评论 <span id="commentReminderCount">0</span></button>
+        <div class="comment-reminder-panel hidden" id="commentReminderPanel"></div>
+      </div>
       <span id="userName" class="user-name"></span>
       <button id="loginBtn" class="btn btn-primary">使用 Microsoft 登录</button>
       <button id="logoutBtn" class="btn btn-ghost hidden">退出</button>
@@ -2021,7 +2025,7 @@
         <div id="forumImgPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="forumImgPickerCount"></span><button type="button" class="btn btn-ghost" id="forumImgPickerClose">关闭</button></div><div id="forumImgPickerGrid" class="blog-img-picker-grid"></div><div id="forumImgPickerPager" class="blog-img-picker-pager hidden"><button type="button" class="btn btn-ghost" id="forumImgPickerPrev">上一页</button><span class="muted" id="forumImgPickerPageInfo"></span><button type="button" class="btn btn-ghost" id="forumImgPickerNext">下一页</button></div></div>
       </div>
       </div><!-- /#blogApp -->
-      <button type="button" class="blog-top-btn hidden" id="blogTopBtn" aria-label="回到顶端">↑ 顶端</button>
+      <div class="blog-floating-actions hidden" id="blogFloatingActions"><button type="button" class="blog-top-btn" id="blogCommentBtn">去评论</button><button type="button" class="blog-top-btn" id="blogTopBtn" aria-label="回到顶端">↑ 顶端</button></div>
       <div id="audioPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="audioPickerCount"></span><button type="button" class="btn btn-ghost" id="audioPickerClose">关闭</button></div><div id="audioPickerList" class="audio-picker-list"></div></div>
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
 
@@ -2064,6 +2068,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=70"></script>
+  <script src="app.js?v=72"></script>
 </body>
 </html>

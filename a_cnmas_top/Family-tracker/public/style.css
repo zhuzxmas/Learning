@@ -45,6 +45,13 @@ body {
 .topbar h1 { font-size: 18px; margin: 0; }
 .user-area { display: flex; align-items: center; gap: 10px; }
 .user-name { color: var(--gray); font-size: 14px; }
+.comment-reminder-wrap { position: relative; }
+.comment-reminder-btn { border: 1px solid #f5c2c7; border-radius: 999px; background: #fff5f5; color: #b42318; padding: 5px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.comment-reminder-panel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 80; width: min(330px, 88vw); max-height: 55vh; overflow-y: auto; padding: 8px; border: 1px solid #ddd; border-radius: 9px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.comment-reminder-item { display: block; width: 100%; padding: 8px; border: 0; border-bottom: 1px solid #eee; background: #fff; text-align: left; cursor: pointer; }
+.comment-reminder-item:last-child { border-bottom: 0; }
+.comment-reminder-title { font-weight: 700; font-size: 13px; }
+.comment-reminder-meta { color: #777; font-size: 11px; margin-top: 2px; }
 
 main {
   max-width: 1000px;
@@ -1135,13 +1142,17 @@ button.blog-tag:hover { background: #dbeafe; }
 .summary-sources-body p { margin: 5px 0; }
 .summary-sources-body ul { margin: 5px 0; padding-left: 20px; }
 .blog-comments { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.blog-comments { scroll-margin-top: 64px; }
 .blog-comments > h3 { margin: 0 0 10px; font-size: 16px; }
 .blog-comments .forum-reply-box textarea { min-height: 210px; }
-.blog-top-btn {
+.blog-floating-actions {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px));
   z-index: 45;
+  display: flex; gap: 8px; align-items: center;
+}
+.blog-top-btn {
   min-width: 68px;
   padding: 10px 13px;
   border: 1px solid #bfdbfe;

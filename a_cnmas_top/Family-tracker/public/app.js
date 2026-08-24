@@ -236,6 +236,7 @@ const els = {
   loginBtn: $("loginBtn"),
   loginBtn2: $("loginBtn2"),
   logoutBtn: $("logoutBtn"),
+  commentReminderWrap: $("commentReminderWrap"), commentReminderBtn: $("commentReminderBtn"), commentReminderCount: $("commentReminderCount"), commentReminderPanel: $("commentReminderPanel"),
   userName: $("userName"),
   form: $("recordForm"),
   editId: $("editId"),
@@ -784,6 +785,7 @@ const els = {
   blogViewDate: $("blogViewDate"),
   blogViewTags: $("blogViewTags"),
   blogTopBtn: $("blogTopBtn"),
+  blogFloatingActions: $("blogFloatingActions"), blogCommentBtn: $("blogCommentBtn"),
   blogSummarySources: $("blogSummarySources"),
   summaryModelInput: $("summaryModelInput"),
   summaryModelSaveBtn: $("summaryModelSaveBtn"),
@@ -1018,6 +1020,8 @@ function logout() {
   hide(els.logoutBtn);
   show(els.loginBtn);
   els.userName.textContent = "";
+  els.commentReminderWrap.classList.add("hidden");
+  els.commentReminderPanel.classList.add("hidden");
 }
 
 async function onSignedIn() {
@@ -1030,6 +1034,11 @@ async function onSignedIn() {
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
   await setMode(deepLink ? "blog" : mode);
+  try {
+    const token = await getToken();
+    await blogResolveFolder(token);
+    if (!blogLoaded) await blogLoad(); else await blogLoadUnreadComments(token);
+  } catch (e) { console.warn("comment reminder load:", e); }
   if (deepLink) await openDeepLink(deepLink);
 }
 
@@ -9250,6 +9259,34 @@ let blogCommentsFolderReady = false;
 let blogCommentSaving = false;
 let blogCommentOriginalContent = "";
 let blogListReturnState = null;
+let blogUnreadComments = [];
+let blogReadCommentIds = new Set();
+let blogReadReceiptEtag = null;
+let blogCommentObserver = null;
+const BLOG_POSITION_KEY = "familyTrackerBlogPositions";
+function blogLoadPositions() { try { return JSON.parse(sessionStorage.getItem(BLOG_POSITION_KEY) || "{}") || {}; } catch { return {}; } }
+function blogSavePositions(state) { try { sessionStorage.setItem(BLOG_POSITION_KEY, JSON.stringify(state)); } catch {} }
+function blogCapturePosition(section) {
+  const state = blogLoadPositions();
+  if (section === "list") state.list = { scrollY: window.scrollY, page: blogListPage, search: blogSearchText, tag: blogTagFilter };
+  else if (section === "view" && blogViewId) { state.views = state.views || {}; state.views[blogViewId] = window.scrollY; }
+  else if (section === "forum") state.forum = { scrollY: window.scrollY, page: forumListPage, search: forumSearchText, topicId: forumCurTopicId, subview: els.forumTopicView.classList.contains("hidden") ? "list" : "view" };
+  blogSavePositions(state);
+}
+function blogRestorePosition(section) {
+  const state = blogLoadPositions();
+  let pos = null;
+  if (section === "list" && state.list) { blogListPage = state.list.page || 0; blogSearchText = state.list.search || ""; blogTagFilter = state.list.tag || ""; els.blogSearch.value = blogSearchText; blogRenderList(); pos = state.list.scrollY; }
+  else if (section === "view" && blogViewId && state.views) pos = state.views[blogViewId];
+  else if (section === "forum" && state.forum) { forumListPage = state.forum.page || 0; forumSearchText = state.forum.search || ""; els.forumSearch.value = forumSearchText; forumRenderList(); pos = state.forum.scrollY; }
+  if (pos != null) requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: pos, behavior: "auto" })));
+}
+function blogActiveSection() {
+  if (!els.blogTabList.classList.contains("hidden")) return "list";
+  if (!els.blogTabView.classList.contains("hidden")) return "view";
+  if (!els.blogTabForum.classList.contains("hidden")) return "forum";
+  return "edit";
+}
 let summaryModel = SUMMARY_MODEL_DEFAULT;
 let summarySettingsEtag = null;
 let summarySettingsLoaded = false;
@@ -9466,6 +9503,79 @@ function blogCommentFileName(articleId) {
   return encodeURIComponent(String(articleId || "")).replace(/%/g, "_") + ".json";
 }
 function blogCommentPath(articleId) { return "comments/" + blogCommentFileName(articleId); }
+function blogReceiptFileName() {
+  const id = String((account && account.username) || "unknown").toLowerCase();
+  return encodeURIComponent(id).replace(/%/g, "_") + ".json";
+}
+async function blogReadReceipt(token) {
+  const path = "comment-read/" + blogReceiptFileName();
+  const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) { blogReadCommentIds = new Set(); blogReadReceiptEtag = null; return; }
+  if (!res.ok) throw new Error("载入评论已读状态失败：" + res.status);
+  let data = null; try { data = await res.json(); } catch {}
+  blogReadCommentIds = new Set(data && Array.isArray(data.seenCommentIds) ? data.seenCommentIds : []);
+  blogReadReceiptEtag = res.headers.get("ETag");
+}
+async function blogSaveReceipt(token, ids) {
+  if (!ids.length) return;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await ensureBlogReadFolder(token);
+    const path = "comment-read/" + blogReceiptFileName();
+    const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+    let remote = [];
+    if (res.ok) { let data = null; try { data = await res.json(); } catch {} remote = data && data.seenCommentIds || []; }
+    else if (res.status !== 404) throw new Error("载入评论已读状态失败：" + res.status);
+    const seen = [...new Set(remote.concat(ids))];
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    const etag = res.headers.get("ETag"); if (etag) headers["If-Match"] = etag; else headers["If-None-Match"] = "*";
+    const put = await fetch(blogContentUrl(path), { method: "PUT", headers, body: JSON.stringify({ seenCommentIds: seen, modified: new Date().toISOString() }) });
+    if (put.ok) { blogReadCommentIds = new Set(seen); blogReadReceiptEtag = (await put.json()).eTag || null; return; }
+    if (put.status === 409 || put.status === 412) continue;
+    throw new Error("保存评论已读状态失败：" + put.status);
+  }
+}
+let blogReadFolderReady = false;
+async function ensureBlogReadFolder(token) {
+  if (blogReadFolderReady) return;
+  const check = await fetch(`${blogDriveBase}:/comment-read`, { headers: { Authorization: "Bearer " + token } });
+  if (check.ok) { blogReadFolderReady = true; return; }
+  if (check.status !== 404) throw new Error("检查评论已读目录失败：" + check.status);
+  const create = await fetch(`${blogDriveBase}/children`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ name: "comment-read", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) });
+  if (!create.ok && create.status !== 409) throw new Error("创建评论已读目录失败：" + create.status);
+  blogReadFolderReady = true;
+}
+async function blogLoadUnreadComments(token) {
+  await blogReadReceipt(token);
+  const list = await fetch(`${blogDriveBase}:/comments:/children?$select=name,file&$top=200`, { headers: { Authorization: "Bearer " + token } });
+  if (list.status === 404) { blogUnreadComments = []; blogRenderCommentReminder(); return; }
+  if (!list.ok) throw new Error("载入评论提醒失败：" + list.status);
+  const files = (await list.json()).value || [];
+  const actor = blogCurrentActor(); const unread = [];
+  for (const file of files.filter((f) => f.file && /\.json$/i.test(f.name || ""))) {
+    const raw = await fetch(blogContentUrl("comments/" + file.name), { headers: { Authorization: "Bearer " + token } });
+    if (!raw.ok) continue;
+    const data = await raw.json(); const articleId = data.articleId;
+    const post = blogAllEntries().find((p) => p.id === articleId);
+    (data.comments || []).forEach((c) => {
+      if (c.authorId === actor.id || blogReadCommentIds.has(c.id)) return;
+      unread.push({ articleId, commentId: c.id, title: post ? post.title : articleId, author: c.author || "匿名", created: c.created, excerpt: String(c.content || "").replace(/\s+/g, " ").slice(0, 70) });
+    });
+  }
+  blogUnreadComments = unread.sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  blogRenderCommentReminder();
+}
+function blogRenderCommentReminder() {
+  const n = blogUnreadComments.length;
+  els.commentReminderWrap.classList.toggle("hidden", !account || n === 0);
+  els.commentReminderCount.textContent = n;
+  els.commentReminderPanel.innerHTML = "";
+  blogUnreadComments.forEach((item) => {
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "comment-reminder-item";
+    btn.innerHTML = `<div class="comment-reminder-title">${escapeHtml(item.title)}</div><div class="comment-reminder-meta">${escapeHtml(item.author)} · ${escapeHtml(formatBeijingTime(item.created))}<br>${escapeHtml(item.excerpt)}</div>`;
+    btn.onclick = async () => { els.commentReminderPanel.classList.add("hidden"); await setMode("blog"); await blogOpen(item.articleId, true); requestAnimationFrame(() => { const el = document.querySelector(`[data-comment-id="${CSS.escape(item.commentId)}"]`); if (el) el.scrollIntoView({ block: "center" }); }); };
+    els.commentReminderPanel.appendChild(btn);
+  });
+}
 async function ensureBlogCommentsFolder(token) {
   if (blogCommentsFolderReady) return;
   const check = await fetch(`${blogDriveBase}:/comments`, { headers: { Authorization: "Bearer " + token } });
@@ -9602,6 +9712,7 @@ async function blogLoad() {
   blogLoaded = true;
   blogRenderTagOptions();
   blogRenderList();
+  try { await blogLoadUnreadComments(token); } catch (e) { console.warn("comment reminders:", e); }
   setStatus("已载入 " + blogPosts.length + " 篇文章、" + blogSummaries.length + " 篇总结。", "ok", 2000);
 }
 
@@ -9686,7 +9797,7 @@ async function blogOpen(id, fromDeepLink) {
   els.blogSummarySources.classList.toggle("hidden", !post.isSummary);
   els.blogSummarySources.open = false;
   els.blogViewTitle.textContent = post.title || "(无标题)";
-  els.blogViewDate.textContent = (post.date || "") + (post.created ? "　·　发表于 " + formatBeijingTime(post.created) : "");
+  blogRenderViewMeta(post, 0);
   blogRenderTagChips(els.blogViewTags, post.tags, true);
   els.blogViewBody.innerHTML = "<p class='muted'>正在载入…</p>";
   const token = await getToken();
@@ -9739,8 +9850,15 @@ function blogReturnToList() {
 async function blogLoadComments(token, articleId) {
   const data = await blogReadComments(token, articleId);
   blogCommentsData = data.comments; blogCommentsEtag = data.etag;
+  const post = blogAllEntries().find((p) => p.id === articleId);
+  if (post) blogRenderViewMeta(post, blogCommentsData.length);
   blogResetCommentEditor();
   await blogRenderComments(token);
+}
+
+function blogRenderViewMeta(post, commentCount) {
+  const base = post.created ? "发表于 " + formatBeijingTime(post.created) : (post.date || "");
+  els.blogViewDate.textContent = base + (commentCount > 0 ? "　·　" + commentCount + " 条评论" : "");
 }
 
 async function blogRenderComments(token) {
@@ -9751,6 +9869,7 @@ async function blogRenderComments(token) {
   els.blogCommentList.innerHTML = "";
   rows.forEach((comment) => {
     const div = document.createElement("div"); div.className = "forum-post";
+    div.dataset.commentId = comment.id;
     const meta = document.createElement("div"); meta.className = "forum-post-meta";
     meta.textContent = (comment.author || "匿名") + " · " + formatBeijingTime(comment.created) +
       (comment.modified ? "（已编辑）" : "");
@@ -9766,6 +9885,16 @@ async function blogRenderComments(token) {
     els.blogCommentList.appendChild(div);
   });
   if (token) await blogResolveImages(token, els.blogCommentList);
+  if (blogCommentObserver) blogCommentObserver.disconnect();
+  blogCommentObserver = new IntersectionObserver((entries) => {
+    const ids = entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target.dataset.commentId).filter(Boolean);
+    if (!ids.length) return;
+    blogSaveReceipt(token, ids).then(() => {
+      blogUnreadComments = blogUnreadComments.filter((item) => !ids.includes(item.commentId));
+      blogRenderCommentReminder();
+    }).catch((e) => console.warn("mark comments read:", e));
+  }, { threshold: 0.35 });
+  els.blogCommentList.querySelectorAll("[data-comment-id]").forEach((el) => blogCommentObserver.observe(el));
 }
 
 function blogResetCommentEditor() {
@@ -9801,7 +9930,7 @@ async function blogSaveComment() {
       if (editId) return comments.map((c) => c.id === editId && blogOwnComment(c) ? Object.assign({}, c, { content, modified: now }) : c);
       comments.push({ id: uuid(), authorId: actor.id, author: actor.name, content, created: now }); return comments;
     });
-    blogResetCommentEditor(); await blogRenderComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
+    blogResetCommentEditor(); await blogRenderComments(token); await blogLoadUnreadComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
   } catch (e) {
     blogCommentSaving = false; updateBlogCommentSubmitState();
     setStatus("保存评论失败：" + (e.message || e), "error");
@@ -9976,10 +10105,11 @@ function blogSwitchTab(tab) {
 function blogUpdateTopButton() {
   const reading = !els.blogTabView.classList.contains("hidden");
   const listing = !els.blogTabList.classList.contains("hidden");
-  if (!reading && !listing) { els.blogTopBtn.classList.add("hidden"); return; }
+  if (!reading && !listing) { els.blogFloatingActions.classList.add("hidden"); return; }
   const anchor = reading ? els.blogViewTitle : els.blogList;
   const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
-  els.blogTopBtn.classList.toggle("hidden", window.scrollY < anchorTop + 500);
+  els.blogFloatingActions.classList.toggle("hidden", window.scrollY < anchorTop + 500);
+  els.blogCommentBtn.classList.toggle("hidden", !reading);
 }
 
 function blogScrollToTitle() {
@@ -10005,7 +10135,7 @@ function blogResetForm() {
   els.blogImgPicker.classList.add("hidden");
   els.blogEditFormTitle.textContent = "写博文";
 }
-function blogNew() { blogResetForm(); blogSwitchTab("edit"); }
+function blogNew() { blogCapturePosition(blogActiveSection()); blogResetForm(); blogSwitchTab("edit"); window.scrollTo({ top: 0, behavior: "auto" }); }
 async function blogEditThis() {
   const post = blogPosts.find((p) => p.id === blogViewId);
   if (!post) return;
@@ -10015,7 +10145,7 @@ async function blogEditThis() {
   els.blogTitleInput.value = post.title || "";
   els.blogDateInput.value = post.date || todayStr();
   blogSelectedTags = new Set(blogNormalizeTags(post.tags)); blogRenderTagOptions();
-  blogSwitchTab("edit");
+  blogCapturePosition("view"); blogSwitchTab("edit"); window.scrollTo({ top: 0, behavior: "auto" });
   els.blogBodyInput.value = "载入中…";
   try {
     const token = await getToken();
@@ -10382,16 +10512,19 @@ function blogRenderPickerPage() {
 
 // ---- wiring --------------------------------------------------------------
 function blogWireEvents() {
+  els.commentReminderBtn.onclick = (e) => { e.stopPropagation(); els.commentReminderPanel.classList.toggle("hidden"); };
+  document.addEventListener("click", (e) => { if (!els.commentReminderWrap.contains(e.target)) els.commentReminderPanel.classList.add("hidden"); });
   els.summaryModelInput.addEventListener("input", updateSummaryModelSaveState);
   els.summaryModelSaveBtn.onclick = () => saveSummaryModel();
-  els.blogTabListBtn.onclick = () => { clearDeepLink(); blogSwitchTab("list"); };
-  els.blogTabViewBtn.onclick = () => { if (blogViewId) blogSwitchTab("view"); };
+  els.blogTabListBtn.onclick = () => { blogCapturePosition(blogActiveSection()); clearDeepLink(); blogSwitchTab("list"); blogRestorePosition("list"); };
+  els.blogTabViewBtn.onclick = () => { if (blogViewId) { blogCapturePosition(blogActiveSection()); blogSwitchTab("view"); blogRestorePosition("view"); } };
   els.blogTabEditBtn.onclick = () => blogNew();
   els.blogTagToggle.onclick = (e) => { e.stopPropagation(); els.blogTagPanel.classList.toggle("hidden"); };
   els.blogTagAddBtn.onclick = () => blogAddTagCandidate();
   els.blogTagNewInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); blogAddTagCandidate(); } });
   document.addEventListener("click", (e) => { if (!els.blogTagSelect.contains(e.target)) els.blogTagPanel.classList.add("hidden"); });
   els.blogTopBtn.onclick = () => blogScrollToTitle();
+  els.blogCommentBtn.onclick = () => els.blogComments.scrollIntoView({ block: "start", behavior: "smooth" });
   window.addEventListener("scroll", blogUpdateTopButton, { passive: true });
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
   els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
@@ -10440,7 +10573,7 @@ function blogWireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
   });
-  els.blogBackBtn.onclick = () => blogReturnToList();
+  els.blogBackBtn.onclick = () => { blogCapturePosition("view"); blogReturnToList(); };
   els.blogShareBtn.onclick = () => {
     const post = blogAllEntries().find((p) => p.id === blogViewId);
     if (post) sharePrivateLink("blog", post.id, post.title || "博客文章");
@@ -10963,7 +11096,7 @@ async function forumDeleteTopic() {
 
 // ---- wiring --------------------------------------------------------------
 function forumWireEvents() {
-  els.blogTabForumBtn.onclick = () => { clearDeepLink(); blogSwitchTab("forum"); forumLoad(); };
+  els.blogTabForumBtn.onclick = async () => { blogCapturePosition(blogActiveSection()); clearDeepLink(); blogSwitchTab("forum"); await forumLoad(); blogRestorePosition("forum"); };
   els.forumNewTopicBtn.onclick = () => forumNewTopic();
   els.forumSearch.addEventListener("input", () => { forumListPage = 0; forumSearchText = els.forumSearch.value; forumRenderList(); });
   els.forumClearFilterBtn.onclick = () => {
