@@ -1042,6 +1042,7 @@ async function onSignedIn() {
   show(els.appView);
   hide(els.loginBtn);
   show(els.logoutBtn);
+  setStatus("正在载入数据…");
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
@@ -9611,13 +9612,23 @@ async function blogLoadUnreadComments(token) {
   blogRenderCommentReminder();
 }
 async function blogLoadCommentRemindersSilently() {
+  els.commentReminderWrap.classList.remove("hidden");
+  els.commentReminderBtn.disabled = true;
+  els.commentReminderBtn.firstChild.textContent = "评论检查中 ";
+  els.commentReminderCount.textContent = "…";
   try {
     const token = await getToken();
     await blogResolveFolder(token);
     const idx = await blogReadIndex(token);
     blogReminderTitles = new Map(idx.posts.map((post) => [post.id, post.title || post.id]));
     await blogLoadUnreadComments(token);
-  } catch (e) { console.warn("comment reminder load:", e); }
+  } catch (e) {
+    console.warn("comment reminder load:", e);
+    els.commentReminderWrap.classList.add("hidden");
+  } finally {
+    els.commentReminderBtn.disabled = false;
+    els.commentReminderBtn.firstChild.textContent = "评论 ";
+  }
 }
 function blogRenderCommentReminder() {
   const n = blogUnreadComments.length;
