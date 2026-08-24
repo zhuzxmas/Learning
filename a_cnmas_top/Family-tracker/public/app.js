@@ -1119,7 +1119,7 @@ async function blogLoadDeepLinkTarget(token, id) {
     post = idx.posts.find((p) => p.id === id) || null;
     if (!post) throw new Error("文章不存在或已删除。");
     blogIndexEtag = idx.etag;
-    if (!blogPosts.some((p) => p.id === id)) blogPosts.push(post);
+    blogPosts = idx.posts.slice().sort(blogCmp);
   }
   return post;
 }
@@ -9364,6 +9364,7 @@ let blogDriveBase = "";
 let blogPosts = [];          // index entries [{id,title,date,excerpt,searchText,images}]
 let blogIndexEtag = null;
 let blogLoaded = false;
+let blogLoadPromise = null;
  let blogViewId = null;       // id currently open in 阅读
 let blogSearchText = "";
 let blogTagFilter = "";
@@ -9837,6 +9838,13 @@ function blogCmp(a, b) {
 // ---- load ----------------------------------------------------------------
 async function blogLoad() {
   if (blogLoaded) return;
+  if (blogLoadPromise) return blogLoadPromise;
+  blogLoadPromise = blogLoadFull();
+  try { await blogLoadPromise; }
+  finally { blogLoadPromise = null; }
+}
+
+async function blogLoadFull() {
   setStatus("正在载入博客…");
   const token = await getToken();
   await blogResolveFolder(token);
@@ -9965,8 +9973,17 @@ async function blogOpen(id, fromDeepLink) {
   }
 }
 
-function blogReturnToList() {
+async function blogReturnToList() {
   const state = blogListReturnState;
+  if (!blogLoaded) {
+    setStatus("正在载入文章列表…");
+    try { await blogLoad(); }
+    catch (e) {
+      blogSwitchTab("view");
+      setStatus("文章列表载入失败：" + (e.message || e), "error", 6000);
+      return;
+    }
+  }
   if (state) {
     blogListPage = state.page;
     blogSearchText = state.search;
@@ -9986,6 +10003,22 @@ function blogReturnToList() {
     }
     });
   }));
+}
+
+async function blogOpenListTab() {
+  const previous = blogActiveSection();
+  blogCapturePosition(previous);
+  if (!blogLoaded) {
+    setStatus("正在载入文章列表…");
+    try { await blogLoad(); }
+    catch (e) {
+      setStatus("文章列表载入失败：" + (e.message || e), "error", 6000);
+      return;
+    }
+  }
+  clearDeepLink();
+  blogSwitchTab("list");
+  blogRestorePosition("list");
 }
 
 async function blogLoadComments(token, articleId) {
@@ -10720,7 +10753,7 @@ function blogWireEvents() {
   document.addEventListener("click", (e) => { if (!els.commentReminderWrap.contains(e.target)) els.commentReminderPanel.classList.add("hidden"); });
   els.summaryModelInput.addEventListener("input", updateSummaryModelSaveState);
   els.summaryModelSaveBtn.onclick = () => saveSummaryModel();
-  els.blogTabListBtn.onclick = () => { blogCapturePosition(blogActiveSection()); clearDeepLink(); blogSwitchTab("list"); blogRestorePosition("list"); };
+  els.blogTabListBtn.onclick = () => blogOpenListTab();
   els.blogTabViewBtn.onclick = () => { if (blogViewId) { blogCapturePosition(blogActiveSection()); blogSwitchTab("view"); blogRestorePosition("view"); } };
   els.blogTabEditBtn.onclick = () => blogNew();
   els.blogTagToggle.onclick = (e) => { e.stopPropagation(); els.blogTagPanel.classList.toggle("hidden"); };
