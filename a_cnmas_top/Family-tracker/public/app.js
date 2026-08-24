@@ -1054,26 +1054,51 @@ async function onSignedIn() {
 }
 
 async function openDeepLink(link) {
+  showDeepLinkSkeleton(link);
   try {
     const token = await getToken();
     await blogResolveFolder(token);
-    if (link.view === "blog") {
-      const post = await blogLoadDeepLinkTarget(token, link.id);
-      await blogOpen(link.id, true);
-      loadSummarySettings(token).catch((e) => console.warn("summary settings:", e));
-    } else {
-      blogSwitchTab("forum");
-      const idx = await forumReadIndex(token);
-      forumTopics = idx.topics.slice().sort(forumCmp);
-      forumIndexEtag = idx.etag;
-      const topic = forumTopics.find((t) => t.id === link.id);
-      if (!topic) throw new Error("贴吧主题不存在或已删除。");
-      forumLoaded = true;
-      await forumOpenTopic(link.id, true);
-    }
+    if (link.view === "blog") await loadBlogDeepLink(token, link.id);
+    else await loadForumDeepLink(token, link.id);
   } catch (e) {
-    clearDeepLink(); blogSwitchTab("list");
-    setStatus(e.message || String(e), "warn", 5000);
+    const message = e.message || String(e);
+    if (link.view === "blog") els.blogViewBody.innerHTML = '<p class="ai-error">' + escapeHtml(message) + "</p>";
+    else els.forumPosts.innerHTML = '<p class="ai-error">' + escapeHtml(message) + "</p>";
+    setStatus(message, "warn", 5000);
+  }
+}
+
+function showDeepLinkSkeleton(link) {
+  window.scrollTo({ top: 0, behavior: "auto" });
+  if (link.view === "blog") {
+    blogViewId = link.id;
+    blogSwitchTab("view");
+    history.replaceState(null, "", deepLinkUrl("blog", link.id));
+    const isSummary = link.id.startsWith("summary::");
+    const name = isSummary ? link.id.slice("summary::".length) : "";
+    const match = name.match(/(\d{4}-\d{2}-\d{2})/);
+    els.blogViewTitle.textContent = isSummary ? "定期总结 · " + (match ? match[1] : "") : "正在载入文章…";
+    els.blogViewDate.textContent = "";
+    els.blogViewTags.innerHTML = "";
+    els.blogEditThisBtn.classList.toggle("hidden", isSummary);
+    els.blogDeleteThisBtn.classList.toggle("hidden", isSummary);
+    els.blogSummarySources.classList.toggle("hidden", !isSummary);
+    els.blogSummarySources.open = false;
+    els.blogViewBody.innerHTML = '<p class="muted">正在载入正文…</p>';
+    els.blogCommentList.innerHTML = '<p class="muted">正在载入评论…</p>';
+    els.blogCommentCount.textContent = "";
+    els.blogCommentEmpty.classList.add("hidden");
+  } else {
+    blogSwitchTab("forum");
+    forumCurTopicId = link.id;
+    forumSwitchTab("view");
+    history.replaceState(null, "", deepLinkUrl("forum", link.id));
+    els.forumViewTitle.textContent = "正在载入主题…";
+    els.forumViewMeta.textContent = "";
+    els.forumEditBtn.classList.add("hidden");
+    els.forumDeleteBtn.classList.add("hidden");
+    els.forumPosts.innerHTML = '<p class="muted">正在载入正文…</p>';
+    forumResetReplyEditor();
   }
 }
 
@@ -1097,6 +1122,56 @@ async function blogLoadDeepLinkTarget(token, id) {
     if (!blogPosts.some((p) => p.id === id)) blogPosts.push(post);
   }
   return post;
+}
+
+async function loadBlogDeepLink(token, id) {
+  const targetPromise = blogLoadDeepLinkTarget(token, id);
+  const commentPromise = blogReadComments(token, id);
+  const bodyPath = id.startsWith("summary::")
+    ? "summaries/" + id.slice("summary::".length)
+    : "posts/" + id + ".md";
+  const bodyPromise = blogReadText(token, bodyPath);
+  const post = await targetPromise;
+  blogViewId = id;
+  els.blogViewTitle.textContent = post.title || "(无标题)";
+  blogRenderViewMeta(post, 0);
+  blogRenderTagChips(els.blogViewTags, post.tags, true);
+  els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
+  els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
+  els.blogSummarySources.classList.toggle("hidden", !post.isSummary);
+  const md = await bodyPromise;
+  if (md == null) throw new Error("文章不存在或已删除。");
+  els.blogViewBody.innerHTML = blogRenderMarkdown(md);
+  blogResolveImages(token, els.blogViewBody).catch((e) => console.warn("article media:", e));
+  commentPromise.then(async (data) => {
+    blogCommentsData = data.comments; blogCommentsEtag = data.etag;
+    blogRenderViewMeta(post, blogCommentsData.length);
+    blogResetCommentEditor();
+    await blogRenderComments(token);
+  }).catch((e) => {
+    els.blogCommentList.innerHTML = '<p class="muted">评论载入失败：' + escapeHtml(e.message || String(e)) + "</p>";
+  });
+  loadSummarySettings(token).catch((e) => console.warn("summary settings:", e));
+}
+
+async function loadForumDeepLink(token, id) {
+  const idxPromise = forumReadIndex(token);
+  const topicPromise = forumReadTopic(token, id);
+  const [idx, data] = await Promise.all([idxPromise, topicPromise]);
+  forumTopics = idx.topics.slice().sort(forumCmp);
+  forumIndexEtag = idx.etag;
+  const topic = forumTopics.find((t) => t.id === id) || (data.topic && data.topic.id === id ? data.topic : null);
+  if (!topic) throw new Error("贴吧主题不存在或已删除。");
+  if (!forumTopics.some((t) => t.id === id)) forumTopics.push(topic);
+  forumLoaded = true;
+  forumCurTopicId = id;
+  forumCurPosts = data.posts;
+  forumCurEtag = data.etag;
+  els.forumViewTitle.textContent = topic.title || "(无标题)";
+  els.forumViewMeta.textContent = (topic.author || "匿名") + " 发起 · " + formatBeijingTime(topic.created) + " · " + (topic.postCount || data.posts.length || 0) + " 楼";
+  els.forumEditBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
+  els.forumDeleteBtn.classList.toggle("hidden", forumCannotDeleteTopic(topic) || !forumIsAuthor(topic.author));
+  await forumRenderPosts(token);
 }
 
 /* --------------------------- Graph I/O ----------------------------------- */
