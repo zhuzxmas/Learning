@@ -652,7 +652,12 @@ td:nth-child(6) {
 .mode-btn.active { background: #118DFF; color: #fff; }
 
 /* 更多 ▾ dropdown (extra modules) */
-.mode-bar { display: flex; align-items: stretch; gap: 0; margin-bottom: 16px; width: 100%; }
+.mode-bar {
+  display: flex; align-items: stretch; gap: 0; margin-bottom: 16px; width: 100%;
+  position: sticky; top: var(--topbar-height, 57px); z-index: 24;
+  background: var(--bg); padding: 6px 0;
+}
+#blogApp > .tabs { top: calc(var(--topbar-height, 57px) + var(--modebar-height, 52px)); z-index: 23; }
 .mode-bar .mode-switch { margin-bottom: 0; border-radius: 10px 0 0 10px; flex: 1 1 auto; display: flex; }
 .mode-bar .mode-switch .mode-btn { flex: 1 1 0; padding-left: 8px; padding-right: 8px; }
 .mode-more { position: relative; display: flex; }
@@ -1201,6 +1206,7 @@ button.blog-tag:hover { background: #dbeafe; }
 .blog-body a { color: #1a6fd0; }
 .blog-body img { max-width: 100%; height: auto; border-radius: 8px; margin: .5em 0; display: block; }
 .blog-body audio { display: block; width: min(100%, 520px); margin: .7em 0; }
+.blog-body video { display: block; width: min(100%, 720px); max-height: 70vh; margin: .7em 0; background: #000; border-radius: 8px; }
 .blog-body blockquote {
   margin: .7em 0; padding: .3em .9em;
   border-left: 4px solid #26890D; background: #f4f8f2; color: #444;

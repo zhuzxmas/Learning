@@ -795,6 +795,7 @@ const els = {
   blogCommentLabel: $("blogCommentLabel"), blogEditCommentId: $("blogEditCommentId"), blogCommentInput: $("blogCommentInput"), blogCommentSubmitBtn: $("blogCommentSubmitBtn"), blogCommentCancelBtn: $("blogCommentCancelBtn"),
   blogCommentImageInput: $("blogCommentImageInput"), blogCommentPickImageBtn: $("blogCommentPickImageBtn"), blogCommentImageHint: $("blogCommentImageHint"),
   blogCommentAudioInput: $("blogCommentAudioInput"), blogCommentPickAudioBtn: $("blogCommentPickAudioBtn"), blogCommentAudioHint: $("blogCommentAudioHint"),
+  blogCommentVideoInput: $("blogCommentVideoInput"), blogCommentPickVideoBtn: $("blogCommentPickVideoBtn"), blogCommentVideoHint: $("blogCommentVideoHint"),
   blogEditFormTitle: $("blogEditFormTitle"),
   blogEditId: $("blogEditId"),
   blogTitleInput: $("blogTitleInput"),
@@ -805,6 +806,7 @@ const els = {
   blogImageInput: $("blogImageInput"),
   blogImageHint: $("blogImageHint"),
   blogAudioInput: $("blogAudioInput"), blogAudioHint: $("blogAudioHint"), blogPickAudioBtn: $("blogPickAudioBtn"),
+  blogVideoInput: $("blogVideoInput"), blogVideoHint: $("blogVideoHint"), blogPickVideoBtn: $("blogPickVideoBtn"),
   blogPickExistingBtn: $("blogPickExistingBtn"),
   blogImgPicker: $("blogImgPicker"),
   blogImgPickerGrid: $("blogImgPickerGrid"),
@@ -851,7 +853,10 @@ blogSaveBtn: $("blogSaveBtn"),
   forumReplyImageInput: $("forumReplyImageInput"), forumReplyPickBtn: $("forumReplyPickBtn"), forumReplyImageHint: $("forumReplyImageHint"),
   forumTopicAudioInput: $("forumTopicAudioInput"), forumTopicAudioPickBtn: $("forumTopicAudioPickBtn"), forumTopicAudioHint: $("forumTopicAudioHint"),
   forumReplyAudioInput: $("forumReplyAudioInput"), forumReplyAudioPickBtn: $("forumReplyAudioPickBtn"), forumReplyAudioHint: $("forumReplyAudioHint"),
+  forumTopicVideoInput: $("forumTopicVideoInput"), forumTopicVideoPickBtn: $("forumTopicVideoPickBtn"), forumTopicVideoHint: $("forumTopicVideoHint"),
+  forumReplyVideoInput: $("forumReplyVideoInput"), forumReplyVideoPickBtn: $("forumReplyVideoPickBtn"), forumReplyVideoHint: $("forumReplyVideoHint"),
   audioPicker: $("audioPicker"), audioPickerCount: $("audioPickerCount"), audioPickerList: $("audioPickerList"), audioPickerClose: $("audioPickerClose"),
+  videoPicker: $("videoPicker"), videoPickerCount: $("videoPickerCount"), videoPickerList: $("videoPickerList"), videoPickerClose: $("videoPickerClose"),
   forumImgPicker: $("forumImgPicker"), forumImgPickerCount: $("forumImgPickerCount"), forumImgPickerGrid: $("forumImgPickerGrid"), forumImgPickerClose: $("forumImgPickerClose"), forumImgPickerPager: $("forumImgPickerPager"), forumImgPickerPrev: $("forumImgPickerPrev"), forumImgPickerNext: $("forumImgPickerNext"), forumImgPickerPageInfo: $("forumImgPickerPageInfo"),
   // 旅行地图 (travel*)
   travelApp: $("travelApp"),
@@ -934,6 +939,13 @@ function setStatus(msg, kind, autoHideMs) {
 }
 function setDirty(v) {
   dirty = v;
+}
+
+function syncStickyNavOffsets() {
+  const topbar = document.querySelector(".topbar");
+  const modebar = document.querySelector(".mode-bar");
+  if (topbar) document.documentElement.style.setProperty("--topbar-height", topbar.offsetHeight + "px");
+  if (modebar) document.documentElement.style.setProperty("--modebar-height", modebar.offsetHeight + "px");
 }
 
 const DEEP_LINK_KEY = "familyTrackerDeepLink";
@@ -5641,6 +5653,8 @@ function stkWireEvents() {
   initCategoryDropdowns();
   resetForm();
   wireEvents();
+  syncStickyNavOffsets();
+  window.addEventListener("resize", syncStickyNavOffsets);
   if (els.secretExpirySaveBtn) els.secretExpirySaveBtn.disabled = true;
   els.filterDate.value = todayStr(); // show today's date instead of a blank box
   fillCatFilters();                  // populate 分类 filter dropdowns
@@ -10004,6 +10018,19 @@ async function blogResolveImages(token, container) {
       } catch { setStatus("音频加载失败：" + path, "error", 3000); }
     }, { once: true });
   }
+  const videos = Array.from(container.querySelectorAll("video[data-src]"));
+  for (const video of videos) {
+    const path = video.getAttribute("data-src"); video.removeAttribute("data-src"); video.preload = "none";
+    video.addEventListener("pointerdown", async () => {
+      if (video.dataset.loadedBlob) return;
+      try {
+        const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+        if (!res.ok) throw new Error(String(res.status));
+        video.src = URL.createObjectURL(await res.blob()); video.dataset.loadedBlob = "1";
+        try { await video.play(); } catch {}
+      } catch { setStatus("视频加载失败：" + path, "error", 3000); }
+    }, { once: true });
+  }
 }
 
 // Full-screen lightbox: show thumbnail immediately, then swap in full-res.
@@ -10024,6 +10051,8 @@ function blogEsc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function blogInline(s) {
+  s = s.replace(/@\[video\]\(([^)]+)\)/g,
+    (m, u) => '<video controls playsinline preload="none" data-src="' + u + '"></video>');
   s = s.replace(/@\[audio\]\(([^)]+)\)/g,
     (m, u) => '<audio controls preload="none" data-src="' + u + '"></audio>');
   s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -10099,7 +10128,8 @@ function blogSwitchTab(tab) {
   els.blogTabEdit.classList.toggle("hidden", tab !== "edit");
   els.blogTabForum.classList.toggle("hidden", tab !== "forum");
   els.blogTabViewBtn.classList.toggle("hidden", !blogViewId || tab === "forum");
-  if (tab !== "view") els.blogTopBtn.classList.add("hidden");
+  if (tab !== "view" && tab !== "list") els.blogFloatingActions.classList.add("hidden");
+  requestAnimationFrame(blogUpdateTopButton);
 }
 
 function blogUpdateTopButton() {
@@ -10130,8 +10160,10 @@ function blogResetForm() {
   els.blogBodyInput.value = "";
   els.blogImageInput.value = "";
   els.blogAudioInput.value = "";
+  els.blogVideoInput.value = "";
   els.blogImageHint.textContent = "选择图片后会上传，并在正文光标处插入引用。";
   els.blogAudioHint.textContent = "支持 iPhone 语音备忘录导出的 M4A，以及 MP3、WAV、AAC；单文件不超过 50MB。";
+  els.blogVideoHint.textContent = "支持 MP4 / MOV，单文件不超过 200MB。";
   els.blogImgPicker.classList.add("hidden");
   els.blogEditFormTitle.textContent = "写博文";
 }
@@ -10365,6 +10397,51 @@ async function openAudioPicker(target) {
     });
   } catch (e) { setStatus("载入已有音频失败：" + (e.message || e), "error"); }
 }
+
+const VIDEO_EXT = /\.(mp4|mov)$/i;
+const VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+let videoFolderReady = false;
+async function ensureVideoFolder(token) {
+  if (videoFolderReady) return;
+  const check = await fetch(`${blogDriveBase}:/video`, { headers: { Authorization: "Bearer " + token } });
+  if (check.ok) { videoFolderReady = true; return; }
+  if (check.status !== 404) throw new Error("检查 video 文件夹失败：" + check.status);
+  const create = await fetch(`${blogDriveBase}/children`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ name: "video", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) });
+  if (!create.ok && create.status !== 409) throw new Error("创建 video 文件夹失败：" + create.status);
+  videoFolderReady = true;
+}
+async function uploadVideoFiles(files, target, input, hint) {
+  if (!files || !files.length) return; input.disabled = true;
+  try {
+    const token = await getToken(); await blogResolveFolder(token); await ensureVideoFolder(token);
+    const refs = [];
+    for (const f of files) {
+      if (f.size > VIDEO_MAX_BYTES) throw new Error(f.name + " 超过 200MB");
+      const ext = blogSlugExt(f.name); if (!VIDEO_EXT.test("." + ext)) throw new Error("不支持的视频格式：" + f.name);
+      const name = "video" + Date.now() + Math.floor(Math.random() * 1000) + "." + ext;
+      hint.textContent = "正在上传 " + name + " …";
+      const res = await fetch(blogContentUrl("video/" + name), { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": f.type || "application/octet-stream" }, body: await f.arrayBuffer() });
+      if (!res.ok) throw new Error("上传失败(" + name + ")：" + res.status);
+      refs.push("@[video](video/" + name + ")");
+    }
+    blogInsertAtCursor(target, "\n\n" + refs.join("\n\n") + "\n\n");
+    if (target !== els.blogBodyInput) forumAutoGrowEditor(target);
+    hint.textContent = "已插入 " + refs.length + " 段视频。"; input.value = "";
+  } catch (e) { setStatus("视频上传失败：" + (e.message || e), "error"); }
+  finally { input.disabled = false; }
+}
+async function openVideoPicker(target) {
+  els.videoPicker.classList.remove("hidden"); els.videoPickerCount.textContent = "正在载入…"; els.videoPickerList.innerHTML = "";
+  try {
+    const token = await getToken(); await blogResolveFolder(token);
+    const res = await fetch(`${blogDriveBase}:/video:/children?$select=name,file,size,lastModifiedDateTime&$top=200`, { headers: { Authorization: "Bearer " + token } });
+    if (res.status === 404) { els.videoPickerCount.textContent = "video/ 文件夹暂无视频。"; return; }
+    if (!res.ok) throw new Error(String(res.status));
+    const items = ((await res.json()).value || []).filter((it) => it.file && VIDEO_EXT.test(it.name || ""));
+    els.videoPickerCount.textContent = "共 " + items.length + " 段视频（点击插入）";
+    items.forEach((it) => { const btn = document.createElement("button"); btn.type = "button"; btn.className = "audio-picker-item"; btn.textContent = it.name + (it.size ? "（" + (it.size/1024/1024).toFixed(1) + "MB）" : ""); btn.onclick = () => { blogInsertAtCursor(target, "\n\n@[video](video/" + it.name + ")\n\n"); if (target !== els.blogBodyInput) forumAutoGrowEditor(target); }; els.videoPickerList.appendChild(btn); });
+  } catch (e) { setStatus("载入已有视频失败：" + (e.message || e), "error"); }
+}
 function blogInsertAtCursor(ta, text) {
   const s = ta.selectionStart || 0, e = ta.selectionEnd || 0;
   ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
@@ -10548,6 +10625,8 @@ function blogWireEvents() {
   els.blogPickExistingBtn.onclick = () => blogTogglePicker();
   els.blogAudioInput.onchange = () => uploadAudioFiles(els.blogAudioInput.files, els.blogBodyInput, els.blogAudioInput, els.blogAudioHint);
   els.blogPickAudioBtn.onclick = () => openAudioPicker(els.blogBodyInput);
+  els.blogVideoInput.onchange = () => uploadVideoFiles(els.blogVideoInput.files, els.blogBodyInput, els.blogVideoInput, els.blogVideoHint);
+  els.blogPickVideoBtn.onclick = () => openVideoPicker(els.blogBodyInput);
   els.blogMdToolbar.addEventListener("click", (e) => {
     const btn = e.target.closest(".md-btn");
     if (btn && btn.dataset.md) blogMdAction(btn.dataset.md, els.blogBodyInput);
@@ -10568,8 +10647,10 @@ function blogWireEvents() {
   els.blogCommentCancelBtn.onclick = () => blogResetCommentEditor();
   els.blogCommentImageInput.onchange = () => forumUploadImages(els.blogCommentImageInput.files, els.blogCommentInput, els.blogCommentImageInput, els.blogCommentImageHint);
   els.blogCommentAudioInput.onchange = () => uploadAudioFiles(els.blogCommentAudioInput.files, els.blogCommentInput, els.blogCommentAudioInput, els.blogCommentAudioHint);
+  els.blogCommentVideoInput.onchange = () => uploadVideoFiles(els.blogCommentVideoInput.files, els.blogCommentInput, els.blogCommentVideoInput, els.blogCommentVideoHint);
   els.blogCommentPickImageBtn.onclick = () => forumOpenImagePicker(els.blogCommentInput);
   els.blogCommentPickAudioBtn.onclick = () => openAudioPicker(els.blogCommentInput);
+  els.blogCommentPickVideoBtn.onclick = () => openVideoPicker(els.blogCommentInput);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.blogLightbox.classList.contains("hidden")) blogCloseLightbox();
   });
@@ -11142,7 +11223,12 @@ function forumWireEvents() {
   els.forumReplyAudioInput.onchange = () => uploadAudioFiles(els.forumReplyAudioInput.files, els.forumReplyInput, els.forumReplyAudioInput, els.forumReplyAudioHint);
   els.forumTopicAudioPickBtn.onclick = () => openAudioPicker(els.forumBodyInput);
   els.forumReplyAudioPickBtn.onclick = () => openAudioPicker(els.forumReplyInput);
+  els.forumTopicVideoInput.onchange = () => uploadVideoFiles(els.forumTopicVideoInput.files, els.forumBodyInput, els.forumTopicVideoInput, els.forumTopicVideoHint);
+  els.forumReplyVideoInput.onchange = () => uploadVideoFiles(els.forumReplyVideoInput.files, els.forumReplyInput, els.forumReplyVideoInput, els.forumReplyVideoHint);
+  els.forumTopicVideoPickBtn.onclick = () => openVideoPicker(els.forumBodyInput);
+  els.forumReplyVideoPickBtn.onclick = () => openVideoPicker(els.forumReplyInput);
   els.audioPickerClose.onclick = () => els.audioPicker.classList.add("hidden");
+  els.videoPickerClose.onclick = () => els.videoPicker.classList.add("hidden");
   els.forumImgPickerClose.onclick = () => els.forumImgPicker.classList.add("hidden");
   els.forumImgPickerPrev.onclick = () => { forumPickerPage--; forumRenderImagePickerPage(); };
   els.forumImgPickerNext.onclick = () => { forumPickerPage++; forumRenderImagePickerPage(); };

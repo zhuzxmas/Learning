@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=55" />
+  <link rel="stylesheet" href="style.css?v=56" />
 </head>
 <body>
   <header class="topbar">
@@ -1851,7 +1851,7 @@
                 <li>AI 对话：仅包含期间新增的消息，并保留对话标题。</li>
                 <li>日历：已经发生的日程、时间、地点和简要说明。</li>
               </ul>
-              <p>图片和音频不参与总结。AI 会将以上信息融合为概览、要点、待办及一句话总结与鼓励。</p>
+              <p>图片、音频和视频不参与总结。AI 会将以上信息融合为概览、要点、待办及一句话总结与鼓励。</p>
               <div class="summary-model-setting">
                 <label for="summaryModelInput">总结模型</label>
                 <input type="text" id="summaryModelInput" autocomplete="off" placeholder="deepseek-v4-flash" />
@@ -1874,6 +1874,7 @@
               <textarea id="blogCommentInput" rows="3" placeholder="输入评论内容…"></textarea>
               <div class="forum-image-tools"><input type="file" id="blogCommentImageInput" class="media-file-input" accept="image/*" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="blogCommentImageInput">从本机选择图片</button><button type="button" class="btn btn-ghost" id="blogCommentPickImageBtn">从云端选择图片</button><span class="muted" id="blogCommentImageHint"></span></div>
               <div class="forum-image-tools"><input type="file" id="blogCommentAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="blogCommentAudioInput">从本机选择音频</button><button type="button" class="btn btn-ghost" id="blogCommentPickAudioBtn">从云端选择音频</button><span class="muted" id="blogCommentAudioHint"></span></div>
+              <div class="forum-image-tools"><input type="file" id="blogCommentVideoInput" class="media-file-input" accept=".mp4,.mov" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="blogCommentVideoInput">从本机选择视频</button><button type="button" class="btn btn-ghost" id="blogCommentPickVideoBtn">从云端选择视频</button><span class="muted" id="blogCommentVideoHint"></span></div>
               <div class="forum-reply-actions"><button type="button" class="btn btn-primary" id="blogCommentSubmitBtn" disabled>发表评论</button><button type="button" class="btn btn-ghost hidden" id="blogCommentCancelBtn">取消编辑</button></div>
             </div>
           </section>
@@ -1945,6 +1946,7 @@
             <p class="muted" id="blogAudioHint">支持 iPhone 语音备忘录导出的 M4A，以及 MP3、WAV、AAC；单文件不超过 50MB。</p>
             <button type="button" class="btn btn-ghost" id="blogPickAudioBtn">从已有音频选择</button>
           </div>
+          <div class="field field-wide media-tools"><label for="blogVideoInput">插入视频</label><input type="file" id="blogVideoInput" class="media-file-input" accept=".mp4,.mov" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="blogVideoInput">从本机选择视频</button><p class="muted" id="blogVideoHint">支持 MP4 / MOV，单文件不超过 200MB。</p><button type="button" class="btn btn-ghost" id="blogPickVideoBtn">从已有视频选择</button></div>
           <div class="form-actions">
             <button type="button" class="btn btn-primary" id="blogSaveBtn">保存</button>
             <button type="button" class="btn btn-ghost" id="blogCancelBtn">取消</button>
@@ -1987,6 +1989,7 @@
             </div>
             <div class="forum-image-tools"><input type="file" id="forumTopicImageInput" class="media-file-input" accept="image/*" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumTopicImageInput">从本机选择图片</button><button type="button" class="btn btn-ghost" id="forumTopicPickBtn">从云端选择图片</button><span class="muted" id="forumTopicImageHint"></span></div>
             <div class="forum-image-tools"><input type="file" id="forumTopicAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumTopicAudioInput">从本机选择音频</button><button type="button" class="btn btn-ghost" id="forumTopicAudioPickBtn">从云端选择音频</button><span class="muted" id="forumTopicAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
+            <div class="forum-image-tools"><input type="file" id="forumTopicVideoInput" class="media-file-input" accept=".mp4,.mov" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumTopicVideoInput">从本机选择视频</button><button type="button" class="btn btn-ghost" id="forumTopicVideoPickBtn">从云端选择视频</button><span class="muted" id="forumTopicVideoHint">支持 MP4 / MOV，单文件不超过 200MB。</span></div>
             <div class="form-actions">
               <button type="button" class="btn btn-primary" id="forumSaveBtn">发布主题</button>
               <button type="button" class="btn btn-ghost" id="forumCancelBtn">取消</button>
@@ -2015,6 +2018,7 @@
               <textarea id="forumReplyInput" rows="3" placeholder="输入回复内容…"></textarea>
               <div class="forum-image-tools"><input type="file" id="forumReplyImageInput" class="media-file-input" accept="image/*" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumReplyImageInput">从本机选择图片</button><button type="button" class="btn btn-ghost" id="forumReplyPickBtn">从云端选择图片</button><span class="muted" id="forumReplyImageHint"></span></div>
               <div class="forum-image-tools"><input type="file" id="forumReplyAudioInput" class="media-file-input" accept=".m4a,.mp3,.wav,.aac" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumReplyAudioInput">从本机选择音频</button><button type="button" class="btn btn-ghost" id="forumReplyAudioPickBtn">从云端选择音频</button><span class="muted" id="forumReplyAudioHint">支持 M4A / MP3 / WAV / AAC，单文件不超过 50MB。</span></div>
+              <div class="forum-image-tools"><input type="file" id="forumReplyVideoInput" class="media-file-input" accept=".mp4,.mov" multiple /><button type="button" class="btn btn-ghost media-local-btn" data-input="forumReplyVideoInput">从本机选择视频</button><button type="button" class="btn btn-ghost" id="forumReplyVideoPickBtn">从云端选择视频</button><span class="muted" id="forumReplyVideoHint">支持 MP4 / MOV，单文件不超过 200MB。</span></div>
               <div class="forum-reply-actions">
                 <button type="button" class="btn btn-primary" id="forumReplyBtn">发表回复</button>
                 <button type="button" class="btn btn-ghost hidden" id="forumReplyCancelBtn">取消编辑</button>
@@ -2027,6 +2031,7 @@
       </div><!-- /#blogApp -->
       <div class="blog-floating-actions hidden" id="blogFloatingActions"><button type="button" class="blog-top-btn" id="blogCommentBtn">去评论</button><button type="button" class="blog-top-btn" id="blogTopBtn" aria-label="回到顶端">↑ 顶端</button></div>
       <div id="audioPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="audioPickerCount"></span><button type="button" class="btn btn-ghost" id="audioPickerClose">关闭</button></div><div id="audioPickerList" class="audio-picker-list"></div></div>
+      <div id="videoPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="videoPickerCount"></span><button type="button" class="btn btn-ghost" id="videoPickerClose">关闭</button></div><div id="videoPickerList" class="audio-picker-list"></div></div>
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
 
       <!-- ============ AI 对话 (chat) APP ============ -->
@@ -2068,6 +2073,6 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=72"></script>
+  <script src="app.js?v=73"></script>
 </body>
 </html>
