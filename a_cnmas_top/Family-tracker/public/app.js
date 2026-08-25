@@ -844,6 +844,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumViewTitle: $("forumViewTitle"),
   forumViewMeta: $("forumViewMeta"),
   forumPosts: $("forumPosts"),
+  forumPostPager: $("forumPostPager"), forumPostFirst: $("forumPostFirst"), forumPostPrev: $("forumPostPrev"), forumPostNext: $("forumPostNext"), forumPostLast: $("forumPostLast"), forumPostPageInfo: $("forumPostPageInfo"), forumPostPageInput: $("forumPostPageInput"), forumPostGo: $("forumPostGo"),
   forumReplyInput: $("forumReplyInput"),
   forumReplyLabel: $("forumReplyLabel"),
   forumEditPostId: $("forumEditPostId"),
@@ -1102,6 +1103,7 @@ function showDeepLinkSkeleton(link) {
     els.forumEditBtn.classList.add("hidden");
     els.forumDeleteBtn.classList.add("hidden");
     els.forumPosts.innerHTML = '<p class="muted">正在载入正文…</p>';
+    els.forumPostPager.classList.add("hidden");
     forumResetReplyEditor();
   }
 }
@@ -1174,6 +1176,7 @@ async function loadForumDeepLink(token, id) {
   if (!forumTopics.some((t) => t.id === id)) forumTopics.push(topic);
   forumLoaded = true;
   forumCurTopicId = id;
+  forumPostPage = 0;
   forumCurPosts = data.posts;
   forumCurEtag = data.etag;
   els.forumViewTitle.textContent = topic.title || "(无标题)";
@@ -10126,14 +10129,17 @@ async function blogSaveComment() {
   const content = els.blogCommentInput.value.trim(), editId = els.blogEditCommentId.value;
   if (!content || !blogViewId) return;
   const actor = blogCurrentActor(), now = new Date().toISOString();
+  const targetId = editId || uuid();
   blogCommentSaving = true; updateBlogCommentSubmitState();
   try {
     const token = await getToken(); await blogResolveFolder(token);
     await blogMutateComments(token, blogViewId, (comments) => {
       if (editId) return comments.map((c) => c.id === editId && blogOwnComment(c) ? Object.assign({}, c, { content, modified: now }) : c);
-      comments.push({ id: uuid(), authorId: actor.id, author: actor.name, content, created: now }); return comments;
+      comments.push({ id: targetId, authorId: actor.id, author: actor.name, content, created: now }); return comments;
     });
-    blogResetCommentEditor(); await blogRenderComments(token); await blogLoadUnreadComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
+    blogResetCommentEditor(); await blogRenderComments(token);
+    scrollToRenderedItem(`[data-comment-id="${CSS.escape(targetId)}"]`);
+    await blogLoadUnreadComments(token); setStatus(editId ? "评论已更新。" : "评论已发表。", "ok", 2000);
   } catch (e) {
     blogCommentSaving = false; updateBlogCommentSubmitState();
     setStatus("保存评论失败：" + (e.message || e), "error");
@@ -10876,6 +10882,8 @@ let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrenc
 let forumSearchText = "";      // topic-title search filter
 const FORUM_LIST_PAGE_SIZE = 20;
 let forumListPage = 0;
+const FORUM_POST_PAGE_SIZE = 20;
+let forumPostPage = 0;
 let forumPickerTarget = null;
 let forumPickerItems = [];
 let forumPickerPage = 0;
@@ -11092,6 +11100,7 @@ async function forumOpenTopic(id, fromDeepLink) {
   const topic = forumTopics.find((t) => t.id === id);
   if (!topic) return;
   forumCurTopicId = id;
+  forumPostPage = 0;
   history.replaceState(null, "", deepLinkUrl("forum", id));
   forumSwitchTab("view");
   els.forumViewTitle.textContent = topic.title || "(无标题)";
@@ -11099,6 +11108,7 @@ async function forumOpenTopic(id, fromDeepLink) {
   els.forumEditBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
   els.forumDeleteBtn.classList.toggle("hidden", forumCannotDeleteTopic(topic) || !forumIsAuthor(topic.author));
   els.forumPosts.innerHTML = "<p class='muted'>正在载入…</p>";
+  els.forumPostPager.classList.add("hidden");
   forumResetReplyEditor();
   try {
     const token = await getToken();
@@ -11117,6 +11127,7 @@ async function forumRenderPosts(token) {
   els.forumPosts.innerHTML = "";
   if (!forumCurPosts.length) {
     els.forumPosts.innerHTML = "<p class='muted'>暂无回帖。</p>";
+    els.forumPostPager.classList.add("hidden");
     return;
   }
   const chronological = forumCurPosts.slice().sort((a, b) =>
@@ -11125,15 +11136,29 @@ async function forumRenderPosts(token) {
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
   const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
   const intro = chronological.find((p) => p.id === STK_FORUM_INTRO_POST_ID);
-  const displayPosts = isSystemTopic
-    ? (intro ? [intro] : []).concat(chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID).reverse())
-    : chronological.slice(0, 1).concat(chronological.slice(1).reverse());
+  const fixedPost = isSystemTopic ? intro : chronological[0];
+  const replies = (isSystemTopic
+    ? chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID)
+    : chronological.slice(1)).reverse();
+  const pages = Math.max(1, Math.ceil(replies.length / FORUM_POST_PAGE_SIZE));
+  forumPostPage = Math.max(0, Math.min(forumPostPage, pages - 1));
+  const pageReplies = replies.slice(forumPostPage * FORUM_POST_PAGE_SIZE, (forumPostPage + 1) * FORUM_POST_PAGE_SIZE);
+  const displayPosts = (fixedPost ? [fixedPost] : []).concat(pageReplies);
+  els.forumPostPageInput.value = forumPostPage + 1;
+  els.forumPostPageInput.max = pages;
+  els.forumPostPageInfo.textContent = "/ " + pages + " 页";
+  els.forumPostFirst.disabled = forumPostPage === 0;
+  els.forumPostPrev.disabled = forumPostPage === 0;
+  els.forumPostNext.disabled = forumPostPage >= pages - 1;
+  els.forumPostLast.disabled = forumPostPage >= pages - 1;
+  els.forumPostPager.classList.toggle("hidden", pages <= 1);
   const floorById = new Map(chronological.map((p, i) => [p.id, i + 1]));
   displayPosts.forEach((p) => {
     const floor = floorById.get(p.id) || 1;
     const isOp = (!isSystemTopic && floor === 1) || p.id === STK_FORUM_INTRO_POST_ID;
     const div = document.createElement("div");
     div.className = "forum-post" + (isOp ? " forum-post-op" : "");
+    div.dataset.postId = p.id;
     const meta = document.createElement("div");
     meta.className = "forum-post-meta";
     meta.textContent = (isOp ? "楼主 " : floor + "楼 ") +
@@ -11160,6 +11185,26 @@ async function forumRenderPosts(token) {
     els.forumPosts.appendChild(div);
   });
   if (token) await blogResolveImages(token, els.forumPosts);
+}
+
+function forumPageForPost(id) {
+  const chronological = forumCurPosts.slice().sort((a, b) =>
+    String(a.created || "").localeCompare(String(b.created || "")) ||
+    String(a.id || "").localeCompare(String(b.id || "")));
+  const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+  const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
+  const replies = (isSystemTopic
+    ? chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID)
+    : chronological.slice(1)).reverse();
+  const index = replies.findIndex((p) => p.id === id);
+  return index < 0 ? 0 : Math.floor(index / FORUM_POST_PAGE_SIZE);
+}
+
+function scrollToRenderedItem(selector) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const target = document.querySelector(selector);
+    if (target) target.scrollIntoView({ block: "center", behavior: "smooth" });
+  }));
 }
 
 // ---- new topic ------------------------------------------------------------
@@ -11369,7 +11414,10 @@ async function forumReply() {
     forumTopics.sort(forumCmp);
     await forumWriteIndex(token);
     forumResetReplyEditor();
+    const targetId = editId || post.id;
+    forumPostPage = forumPageForPost(targetId);
     await forumRenderPosts(token);
+    scrollToRenderedItem(`[data-post-id="${CSS.escape(targetId)}"]`);
     forumRenderList();
     setStatus(editId ? "回复已更新。" : "已回复。", "ok", 2000);
   } catch (e) {
@@ -11431,6 +11479,20 @@ function forumWireEvents() {
   els.forumListLast.onclick = () => { forumListPage = Number(els.forumListPageInput.max || 1) - 1; forumRenderList(); };
   els.forumListGo.onclick = goForumPage;
   els.forumListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPage(); });
+  const goForumPostPage = async () => {
+    const wanted = Math.floor(Number(els.forumPostPageInput.value));
+    if (!isFinite(wanted)) return;
+    const pages = Number(els.forumPostPageInput.max || 1);
+    forumPostPage = Math.max(0, Math.min(pages - 1, wanted - 1));
+    await forumRenderPosts(await getToken());
+    els.forumPosts.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+  els.forumPostFirst.onclick = async () => { forumPostPage = 0; await forumRenderPosts(await getToken()); els.forumPosts.scrollIntoView({ block: "start", behavior: "smooth" }); };
+  els.forumPostPrev.onclick = async () => { forumPostPage--; await forumRenderPosts(await getToken()); els.forumPosts.scrollIntoView({ block: "start", behavior: "smooth" }); };
+  els.forumPostNext.onclick = async () => { forumPostPage++; await forumRenderPosts(await getToken()); els.forumPosts.scrollIntoView({ block: "start", behavior: "smooth" }); };
+  els.forumPostLast.onclick = async () => { forumPostPage = Number(els.forumPostPageInput.max || 1) - 1; await forumRenderPosts(await getToken()); els.forumPosts.scrollIntoView({ block: "start", behavior: "smooth" }); };
+  els.forumPostGo.onclick = goForumPostPage;
+  els.forumPostPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPostPage(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
   els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
   els.forumBackBtn.onclick = () => { blogCapturePosition("forum"); forumReturnToList(); };

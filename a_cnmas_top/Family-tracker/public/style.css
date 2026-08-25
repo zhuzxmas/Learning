@@ -1348,7 +1348,9 @@ button.blog-tag:hover { background: #dbeafe; }
   border: 1px solid #e5e5e5;
   border-radius: 10px;
   background: #fff;
+  scroll-margin-top: 88px;
 }
+.forum-posts { scroll-margin-top: 88px; }
 .forum-post-op {
   border-left: 4px solid #26890D;
   background: #f6faf4;
