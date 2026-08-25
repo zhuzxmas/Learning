@@ -1155,13 +1155,18 @@ async function loadBlogDeepLink(token, id) {
 }
 
 async function loadForumDeepLink(token, id) {
-  const idxPromise = forumReadIndex(token);
-  const topicPromise = forumReadTopic(token, id);
-  const [idx, data] = await Promise.all([idxPromise, topicPromise]);
+  let [idx, data] = await Promise.all([forumReadIndex(token), forumReadTopic(token, id)]);
+  let topic = forumFindDeepLinkTopic(idx.topics, data.topic, id);
+  if (!topic || !data.topic || data.notFound) {
+    [idx, data] = await Promise.all([forumReadIndex(token), forumReadTopic(token, id)]);
+    topic = forumFindDeepLinkTopic(idx.topics, data.topic, id);
+  }
   forumTopics = idx.topics.slice().sort(forumCmp);
   forumIndexEtag = idx.etag;
-  const topic = forumTopics.find((t) => t.id === id) || (data.topic && data.topic.id === id ? data.topic : null);
-  if (!topic) throw new Error("贴吧主题不存在或已删除。");
+  if (data.notFound) throw new Error("贴吧主题不存在或已删除。");
+  if (!topic) {
+    throw new Error("主题文件缺少主题信息，请稍后下拉刷新重试。");
+  }
   if (!forumTopics.some((t) => t.id === id)) forumTopics.push(topic);
   forumLoaded = true;
   forumCurTopicId = id;
@@ -1172,6 +1177,10 @@ async function loadForumDeepLink(token, id) {
   els.forumEditBtn.classList.toggle("hidden", forumIsProtectedTopic(topic) || !forumIsAuthor(topic.author));
   els.forumDeleteBtn.classList.toggle("hidden", forumCannotDeleteTopic(topic) || !forumIsAuthor(topic.author));
   await forumRenderPosts(token);
+}
+
+function forumFindDeepLinkTopic(topics, fileTopic, id) {
+  return topics.find((t) => t.id === id) || (fileTopic && fileTopic.id === id ? fileTopic : null);
 }
 
 async function forumReturnToList() {
@@ -10892,11 +10901,15 @@ function forumContentUrl(path) { return `${forumDriveBase}:/${forumEncPath(path)
 
 // ---- index JSON read/write (eTag optimistic concurrency) -----------------
 async function forumReadIndex(token) {
-  const res = await fetch(forumContentUrl(FORUM_INDEX_FILE), { headers: { Authorization: "Bearer " + token } });
+  const res = await fetch(forumContentUrl(FORUM_INDEX_FILE), {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + token, "Cache-Control": "no-cache" },
+  });
   if (res.status === 404) return { topics: [], etag: null };
   if (!res.ok) throw new Error("载入贴吧索引失败：" + res.status);
   let data = null;
-  try { data = await res.json(); } catch { data = null; }
+  try { data = await res.json(); }
+  catch { throw new Error("贴吧索引内容无法解析，请下拉刷新重试。"); }
   const topics = (data && Array.isArray(data.topics)) ? data.topics : [];
   return { topics, etag: res.headers.get("ETag") };
 }
@@ -10923,13 +10936,17 @@ async function forumWriteIndex(token) {
 
 // ---- single topic read/write (posts merged by id on conflict) ------------
 async function forumReadTopic(token, id) {
-  const res = await fetch(forumContentUrl("forum/" + id + ".json"), { headers: { Authorization: "Bearer " + token } });
-  if (res.status === 404) return { topic: null, posts: [], etag: null };
+  const res = await fetch(forumContentUrl("forum/" + id + ".json"), {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + token, "Cache-Control": "no-cache" },
+  });
+  if (res.status === 404) return { topic: null, posts: [], etag: null, notFound: true };
   if (!res.ok) throw new Error("载入主题失败：" + res.status);
   let data = null;
-  try { data = await res.json(); } catch { data = null; }
+  try { data = await res.json(); }
+  catch { throw new Error("主题内容无法解析，请下拉刷新重试。"); }
   const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
-  return { topic: data && data.topic || null, posts, etag: res.headers.get("ETag") };
+  return { topic: data && data.topic || null, posts, etag: res.headers.get("ETag"), notFound: false };
 }
 async function forumWriteTopic(token, topic, posts) {
   for (let attempt = 0; attempt < 4; attempt++) {
