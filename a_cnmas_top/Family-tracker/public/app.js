@@ -10940,13 +10940,40 @@ async function forumReadTopic(token, id) {
     cache: "no-store",
     headers: { Authorization: "Bearer " + token, "Cache-Control": "no-cache" },
   });
-  if (res.status === 404) return { topic: null, posts: [], etag: null, notFound: true };
+  if (res.status === 404) return await forumReadTopicByFileId(token, id);
   if (!res.ok) throw new Error("载入主题失败：" + res.status);
-  let data = null;
-  try { data = await res.json(); }
-  catch { throw new Error("主题内容无法解析，请下拉刷新重试。"); }
+  const data = await forumParseTopicResponse(res);
   const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
   return { topic: data && data.topic || null, posts, etag: res.headers.get("ETag"), notFound: false };
+}
+
+async function forumReadTopicByFileId(token, id) {
+  const list = await fetch(`${forumDriveBase}:/forum:/children?$top=200`, {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + token, "Cache-Control": "no-cache" },
+  });
+  if (!list.ok) throw new Error("核对主题文件失败：" + list.status);
+  let items = null;
+  try { items = await list.json(); }
+  catch { throw new Error("主题目录内容无法解析，请下拉刷新重试。"); }
+  const expected = id + ".json";
+  const item = ((items && items.value) || []).find((entry) => entry.name === expected);
+  if (!item) return { topic: null, posts: [], etag: null, notFound: true };
+  const driveId = item.parentReference && item.parentReference.driveId;
+  if (!driveId || !item.id) throw new Error("主题文件信息不完整，请下拉刷新重试。");
+  const res = await fetch(`${GRAPH}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(item.id)}/content`, {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + token, "Cache-Control": "no-cache" },
+  });
+  if (!res.ok) throw new Error("按文件编号载入主题失败：" + res.status);
+  const data = await forumParseTopicResponse(res);
+  const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
+  return { topic: data && data.topic || null, posts, etag: res.headers.get("ETag") || item.eTag || null, notFound: false };
+}
+
+async function forumParseTopicResponse(res) {
+  try { return await res.json(); }
+  catch { throw new Error("主题内容无法解析，请下拉刷新重试。"); }
 }
 async function forumWriteTopic(token, topic, posts) {
   for (let attempt = 0; attempt < 4; attempt++) {
