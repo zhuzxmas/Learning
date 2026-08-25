@@ -1174,6 +1174,22 @@ async function loadForumDeepLink(token, id) {
   await forumRenderPosts(token);
 }
 
+async function forumReturnToList() {
+  if (!forumLoaded) {
+    setStatus("正在载入主题列表…");
+    try { await forumLoad(); }
+    catch (e) {
+      forumSwitchTab("view");
+      setStatus("主题列表载入失败：" + (e.message || e), "error", 6000);
+      return;
+    }
+  }
+  clearDeepLink();
+  forumSwitchTab("list");
+  forumRenderList();
+  blogRestorePosition("forum");
+}
+
 /* --------------------------- Graph I/O ----------------------------------- */
 // Resolved folder addressing, set once by resolveFolder().
 let driveBase = null;      // Graph URL prefix for the folder holding our files
@@ -10161,35 +10177,38 @@ async function blogResolveImages(token, container) {
       }
     }
   }
-  const audios = Array.from(container.querySelectorAll("audio[data-src]"));
-  for (const audio of audios) {
-    const path = audio.getAttribute("data-src");
-    audio.removeAttribute("data-src");
-    audio.preload = "none";
-    audio.setAttribute("data-auth-audio", path);
-    audio.addEventListener("pointerdown", async () => {
-      if (audio.dataset.loadedBlob) return;
-      try {
-        const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
-        if (!res.ok) throw new Error(String(res.status));
-        audio.src = URL.createObjectURL(await res.blob());
-        audio.dataset.loadedBlob = "1";
-        try { await audio.play(); } catch { /* second tap starts playback */ }
-      } catch { setStatus("音频加载失败：" + path, "error", 3000); }
-    }, { once: true });
-  }
-  const videos = Array.from(container.querySelectorAll("video[data-src]"));
-  for (const video of videos) {
-    const path = video.getAttribute("data-src"); video.removeAttribute("data-src"); video.preload = "none";
-    video.addEventListener("pointerdown", async () => {
-      if (video.dataset.loadedBlob) return;
-      try {
-        const res = await fetch(blogContentUrl(path), { headers: { Authorization: "Bearer " + token } });
-        if (!res.ok) throw new Error(String(res.status));
-        video.src = URL.createObjectURL(await res.blob()); video.dataset.loadedBlob = "1";
-        try { await video.play(); } catch {}
-      } catch { setStatus("视频加载失败：" + path, "error", 3000); }
-    }, { once: true });
+  const media = Array.from(container.querySelectorAll("audio[data-src],video[data-src]"));
+  await Promise.all(media.map((el) => blogResolveMedia(token, el)));
+}
+
+async function blogMediaDownloadUrl(token, path) {
+  const res = await fetch(`${blogDriveBase}:/${blogEncPath(path)}`, {
+    headers: { Authorization: "Bearer " + token },
+  });
+  if (!res.ok) throw new Error(String(res.status));
+  const data = await res.json();
+  return data["@microsoft.graph.downloadUrl"] || "";
+}
+
+async function blogResolveMedia(token, media) {
+  const path = media.getAttribute("data-src");
+  media.removeAttribute("data-src");
+  media.preload = "metadata";
+  media.dataset.mediaPath = path;
+  try {
+    const url = await blogMediaDownloadUrl(token, path);
+    if (!url) throw new Error("missing downloadUrl");
+    media.src = url;
+    media.load();
+    let refreshed = false;
+    media.addEventListener("error", async () => {
+      if (refreshed) return;
+      refreshed = true;
+      try { media.src = await blogMediaDownloadUrl(token, path); media.load(); }
+      catch { setStatus((media.tagName === "AUDIO" ? "音频" : "视频") + "加载失败：" + path, "error", 3000); }
+    });
+  } catch {
+    setStatus((media.tagName === "AUDIO" ? "音频" : "视频") + "加载失败：" + path, "error", 3000);
   }
 }
 
@@ -10212,9 +10231,9 @@ function blogEsc(s) {
 }
 function blogInline(s) {
   s = s.replace(/@\[video\]\(([^)]+)\)/g,
-    (m, u) => '<video controls playsinline preload="none" data-src="' + u + '"></video>');
+    (m, u) => '<video controls playsinline preload="metadata" data-src="' + u + '"></video>');
   s = s.replace(/@\[audio\]\(([^)]+)\)/g,
-    (m, u) => '<audio controls preload="none" data-src="' + u + '"></audio>');
+    (m, u) => '<audio controls preload="metadata" data-src="' + u + '"></audio>');
   s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
     (m, a, u) => '<img alt="' + a + '" data-src="' + u + '" loading="lazy" />');
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
@@ -10837,6 +10856,7 @@ let forumDriveBase = "";
 let forumTopics = [];          // index entries [{id,title,author,created,postCount,lastUpdated}]
 let forumIndexEtag = null;
 let forumLoaded = false;
+let forumLoadPromise = null;
 let forumCurTopicId = null;    // id of the open topic
 let forumCurPosts = [];        // posts of the open topic
 let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrency)
@@ -10904,12 +10924,12 @@ async function forumWriteIndex(token) {
 // ---- single topic read/write (posts merged by id on conflict) ------------
 async function forumReadTopic(token, id) {
   const res = await fetch(forumContentUrl("forum/" + id + ".json"), { headers: { Authorization: "Bearer " + token } });
-  if (res.status === 404) return { posts: [], etag: null };
+  if (res.status === 404) return { topic: null, posts: [], etag: null };
   if (!res.ok) throw new Error("载入主题失败：" + res.status);
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   const posts = (data && Array.isArray(data.posts)) ? data.posts : [];
-  return { posts, etag: res.headers.get("ETag") };
+  return { topic: data && data.topic || null, posts, etag: res.headers.get("ETag") };
 }
 async function forumWriteTopic(token, topic, posts) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -10943,6 +10963,12 @@ function forumCmp(a, b) {
 // ---- load ----------------------------------------------------------------
 async function forumLoad() {
   if (forumLoaded) return;
+  if (forumLoadPromise) return forumLoadPromise;
+  forumLoadPromise = forumLoadFull();
+  try { await forumLoadPromise; }
+  finally { forumLoadPromise = null; }
+}
+async function forumLoadFull() {
   setStatus("正在载入贴吧…");
   const token = await getToken();
   await forumResolveFolder(token);
@@ -11359,7 +11385,7 @@ function forumWireEvents() {
   els.forumListPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPage(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
   els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
-  els.forumBackBtn.onclick = () => { clearDeepLink(); forumSwitchTab("list"); };
+  els.forumBackBtn.onclick = () => { blogCapturePosition("forum"); forumReturnToList(); };
   els.forumShareBtn.onclick = () => {
     const topic = forumTopics.find((t) => t.id === forumCurTopicId);
     if (topic) sharePrivateLink("forum", topic.id, topic.title || "贴吧主题");
