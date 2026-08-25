@@ -1057,9 +1057,13 @@ async function openDeepLink(link) {
   showDeepLinkSkeleton(link);
   try {
     const token = await getToken();
-    await blogResolveFolder(token);
-    if (link.view === "blog") await loadBlogDeepLink(token, link.id);
-    else await loadForumDeepLink(token, link.id);
+    if (link.view === "blog") {
+      await blogResolveFolder(token);
+      await loadBlogDeepLink(token, link.id);
+    } else {
+      await forumResolveFolder(token);
+      await loadForumDeepLink(token, link.id);
+    }
   } catch (e) {
     const message = e.message || String(e);
     if (link.view === "blog") els.blogViewBody.innerHTML = '<p class="ai-error">' + escapeHtml(message) + "</p>";
