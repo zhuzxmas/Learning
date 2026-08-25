@@ -845,6 +845,7 @@ blogSaveBtn: $("blogSaveBtn"),
   forumViewMeta: $("forumViewMeta"),
   forumPosts: $("forumPosts"),
   forumPostPager: $("forumPostPager"), forumPostFirst: $("forumPostFirst"), forumPostPrev: $("forumPostPrev"), forumPostNext: $("forumPostNext"), forumPostLast: $("forumPostLast"), forumPostPageInfo: $("forumPostPageInfo"), forumPostPageInput: $("forumPostPageInput"), forumPostGo: $("forumPostGo"),
+  forumReplyBox: $("forumReplyBox"),
   forumReplyInput: $("forumReplyInput"),
   forumReplyLabel: $("forumReplyLabel"),
   forumEditPostId: $("forumEditPostId"),
@@ -10333,16 +10334,32 @@ function blogSwitchTab(tab) {
 function blogUpdateTopButton() {
   const reading = !els.blogTabView.classList.contains("hidden");
   const listing = !els.blogTabList.classList.contains("hidden");
-  if (!reading && !listing) { els.blogFloatingActions.classList.add("hidden"); return; }
-  const anchor = reading ? els.blogViewTitle : els.blogList;
+  const forumViewing = !els.blogTabForum.classList.contains("hidden") &&
+    !els.forumTopicView.classList.contains("hidden");
+  if (!reading && !listing && !forumViewing) { els.blogFloatingActions.classList.add("hidden"); return; }
+  const anchor = forumViewing ? els.forumViewTitle : reading ? els.blogViewTitle : els.blogList;
   const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
-  els.blogFloatingActions.classList.toggle("hidden", window.scrollY < anchorTop + 500);
+  const scrolled = window.scrollY >= anchorTop + 500;
+  if (forumViewing) {
+    const replyRect = els.forumReplyBox.getBoundingClientRect();
+    const replyVisible = replyRect.top < window.innerHeight && replyRect.bottom > 0;
+    els.blogFloatingActions.classList.remove("hidden");
+    els.blogCommentBtn.textContent = "去回复";
+    els.blogCommentBtn.classList.toggle("hidden", replyVisible);
+    els.blogTopBtn.classList.toggle("hidden", !scrolled);
+    return;
+  }
+  els.blogFloatingActions.classList.toggle("hidden", !scrolled);
+  els.blogCommentBtn.textContent = "去评论";
   els.blogCommentBtn.classList.toggle("hidden", !reading);
+  els.blogTopBtn.classList.remove("hidden");
 }
 
 function blogScrollToTitle() {
   const reading = !els.blogTabView.classList.contains("hidden");
-  const anchor = reading ? els.blogViewTitle : els.blogList;
+  const forumViewing = !els.blogTabForum.classList.contains("hidden") &&
+    !els.forumTopicView.classList.contains("hidden");
+  const anchor = forumViewing ? els.forumViewTitle : reading ? els.blogViewTitle : els.blogList;
   const tabs = document.querySelector("#blogApp > .tabs");
   const offset = (tabs ? tabs.offsetHeight : 0) + 8;
   const top = anchor.getBoundingClientRect().top + window.scrollY - offset;
@@ -10799,7 +10816,13 @@ function blogWireEvents() {
   els.blogTagNewInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); blogAddTagCandidate(); } });
   document.addEventListener("click", (e) => { if (!els.blogTagSelect.contains(e.target)) els.blogTagPanel.classList.add("hidden"); });
   els.blogTopBtn.onclick = () => blogScrollToTitle();
-  els.blogCommentBtn.onclick = () => els.blogComments.scrollIntoView({ block: "start", behavior: "smooth" });
+  els.blogCommentBtn.onclick = () => {
+    const forumViewing = !els.blogTabForum.classList.contains("hidden") &&
+      !els.forumTopicView.classList.contains("hidden");
+    const target = forumViewing ? els.forumReplyBox : els.blogComments;
+    target.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (forumViewing) setTimeout(() => els.forumReplyInput.focus({ preventScroll: true }), 350);
+  };
   window.addEventListener("scroll", blogUpdateTopButton, { passive: true });
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
   els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
@@ -11048,6 +11071,7 @@ function forumSwitchTab(tab) {
   els.forumTopicList.classList.toggle("hidden", tab !== "list");
   els.forumTopicEdit.classList.toggle("hidden", tab !== "edit");
   els.forumTopicView.classList.toggle("hidden", tab !== "view");
+  requestAnimationFrame(blogUpdateTopButton);
 }
 
 // ---- topic list rendering -------------------------------------------------
