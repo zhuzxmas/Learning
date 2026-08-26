@@ -423,7 +423,7 @@
       <div class="tab-panel hidden" id="incTabSettings">
       <div class="card">
         <h2>设置</h2>
-        <p class="muted mini"><b>自动同步说明：</b>股票清仓盈亏会写入“股票投资收入”，盈利为正、亏损为负；此类记录只读，请在股票交易中修改或删除。</p>
+        <p class="muted mini"><b>自动同步说明：</b>历史清仓收益以及新交易的每笔卖出、股息收益会写入“股票投资收入”，盈利为正、亏损为负；此类记录只读，请在股票交易中修改或删除。</p>
         <div class="cat-manager">
           <h3>管理隐藏分类</h3>
           <div id="incHiddenCats"></div>
@@ -561,12 +561,12 @@
       <div class="card">
         <div class="chart-header stk-chart-header">
           <div class="chart-title">
-            <div class="chart-title-year">已清仓盈亏</div>
+            <div class="chart-title-year">已实现盈亏</div>
           </div>
           <div class="stk-head-cols">
             <div class="chart-total-box">
               <div class="chart-total" id="stkChartTotal">0.00</div>
-              <div class="chart-total-label" id="stkChartTotalLabel">全部年度已清仓盈亏</div>
+              <div class="chart-total-label" id="stkChartTotalLabel">全部年度已实现盈亏</div>
             </div>
             <div class="chart-asof">
               <div class="chart-asof-label">买入年度：</div>
@@ -576,7 +576,7 @@
         </div>
         <div id="stkAcctBreakdown" class="stk-acct-breakdown"></div>
         <div class="chart-cell">
-          <div class="chart-cell-title">各年已清仓盈亏（按买入年度归属，含手续费；柱内按账户分色）</div>
+          <div class="chart-cell-title">各年已实现盈亏（按卖出或股息发生年度归属，含手续费；柱内按账户分色）</div>
           <div id="stkPnlBars" class="waterfall"></div>
           <div id="stkPnlLegend" class="pie-legend cat-legend"></div>
         </div>
@@ -2074,6 +2074,7 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="app.js?v=84"></script>
+  <script src="stock-realization.js?v=1"></script>
+  <script src="app.js?v=85"></script>
 </body>
 </html>

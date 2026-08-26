@@ -3014,7 +3014,7 @@ function incStartEdit(id) {
   const r = incomeRecords.find((x) => x.id === id);
   if (!r) return;
   if (stkIsGeneratedIncome(r)) {
-    setStatus("该收入由股票清仓自动同步，只能在股票交易中修改。", "warn", 5000);
+    setStatus("该收入由股票已实现收益自动同步，只能在股票交易中修改。", "warn", 5000);
     return;
   }
   els.incEditId.value = r.id;
@@ -3042,7 +3042,7 @@ async function incDelete(id) {
   const r = incomeRecords.find((x) => x.id === id);
   if (!r) return;
   if (stkIsGeneratedIncome(r)) {
-    setStatus("该收入由股票清仓自动同步，只能在股票交易中删除或调整。", "warn", 5000);
+    setStatus("该收入由股票已实现收益自动同步，只能在股票交易中删除或调整。", "warn", 5000);
     return;
   }
   if (!confirm(`确定删除这条收入记录吗？\n${r.date} ${r.title} ${r.payee} ${fmtAmount(r.netAmount)}`)) return;
@@ -4463,11 +4463,14 @@ function stkCloneFees(f) {
 
 const STK_INCOME_SOURCE_TYPE = "closed-cycle";
 const STK_INCOME_ID_PREFIX = "generated:stock-close:v1:";
+const STK_REALIZED_SOURCE_TYPE = "realized-transaction";
+const STK_REALIZED_ID_PREFIX = "generated:stock-realized:v2:";
 const STK_FORUM_TOPIC_TITLE = "股票投资收益记录";
 const STK_FORUM_TOPIC_ID = "generated-stock-investment-income";
 const STK_FORUM_POST_PREFIX = "generated:stock-close:v1:";
+const STK_REALIZED_FORUM_POST_PREFIX = "generated:stock-realized:v2:";
 const STK_FORUM_INTRO_POST_ID = "generated:stock-topic:intro:v1";
-const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。系统会根据股票交易记录自动新增、更新或删除对应的清仓总结；数据没有变化时，不会重复写入。";
+const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。历史收益沿用清仓口径；新交易按每笔卖出和股息统计已实现收益。系统会自动新增、更新或删除对应记录，数据没有变化时不会重复写入。";
 const CLOUD_GROWTH_TOPIC_ID = "2026-08-21-01";
 
 function stkIncomePayee(accountName) {
@@ -4501,12 +4504,14 @@ function stkDeriveClosedCycles(records) {
     const split = key.indexOf("\u0000");
     const code = key.slice(0, split), accountName = key.slice(split + 1);
     const completed = [];
-    let net = 0, sum = 0, startDate = "", txIds = [];
+    let net = 0, sum = 0, startDate = "", txIds = [], hasV2Sale = false;
     let buyShares = 0, buyAmount = 0, buyCost = 0;
     for (const r of trades) {
       const sh = Number(r.shares) || 0;
       const total = Number(r.total) || 0;
+      hasV2Sale = hasV2Sale || (sh > 0 && Number(r.realizationVersion) >= 2);
       if (sh === 0) {
+        if (Number(r.realizationVersion) >= 2) continue;
         if (Math.abs(net) >= 0.5) {
           sum += total; txIds.push(r.id);
         } else if (completed.length) {
@@ -4535,19 +4540,25 @@ function stkDeriveClosedCycles(records) {
         const cycle = {
           code, account: accountName, startDate,
           endDate: String(r.date || ""), closingTransactionId: r.id,
+          realizationOrder: Number(r.tradeOrder) || 0,
           transactionIds: txIds.slice(), pnl: round2(sum),
           buyShares, buyAmount: round2(buyAmount), buyCost: round2(buyCost),
           averageBuyPrice: buyShares ? round2(buyAmount / buyShares) : 0,
           eligible: r.incomeSyncEligible === true,
           modified: r.modified || r.createdAt || "",
         };
-        completed.push(cycle); cycles.push(cycle);
+        completed.push(cycle); if (!hasV2Sale) cycles.push(cycle);
         net = 0; sum = 0; startDate = ""; txIds = [];
+        hasV2Sale = false;
         buyShares = 0; buyAmount = 0; buyCost = 0;
       }
     }
   }
   return { cycles, unmatchedDividends };
+}
+
+function stkDeriveRealizedEvents(records) {
+  return StockRealization.derive(records);
 }
 
 function stkForumAccountLabel(accountName) {
@@ -4568,16 +4579,32 @@ function stkForumDate(value) {
   return String(value || "").replace(/-/g, "/");
 }
 
-function stkForumPostContent(cycle, allCycles) {
-  const completed = allCycles.filter((c) =>
-    String(c.endDate || "") <= String(cycle.endDate || ""));
-  const year = String(cycle.startDate || "").slice(0, 4);
-  const yearCycles = completed.filter((c) => String(c.startDate || "").slice(0, 4) === year);
-  const sumFor = (rows, educational) => round2(rows.filter((c) =>
-    stkForumAccountLabel(c.account) === (educational ? "教育账户" : "主账户"))
-    .reduce((sum, c) => sum + Number(c.pnl || 0), 0));
-  const yearEdu = sumFor(yearCycles, true), yearMain = sumFor(yearCycles, false);
-  const totalEdu = sumFor(completed, true), totalMain = sumFor(completed, false);
+function stkRealizedSortKey(row) {
+  const date = String(row.date || row.endDate || "");
+  const order = String(Math.max(0, Number(row.realizationOrder) || 0)).padStart(16, "0");
+  return date + "\u0000" + order + "\u0000" + String(row.transactionId || row.closingTransactionId || "");
+}
+
+function stkRealizedYear(row) {
+  return String(row.kind === "legacy" ? row.startDate : (row.date || row.endDate) || "").slice(0, 4);
+}
+
+function stkRealizedTotals(target, allRows) {
+  const completed = allRows.filter((row) => stkRealizedSortKey(row) <= stkRealizedSortKey(target));
+  const year = stkRealizedYear(target);
+  const yearRows = completed.filter((row) => stkRealizedYear(row) === year);
+  const sumFor = (rows, educational) => round2(rows.filter((row) =>
+    stkForumAccountLabel(row.account) === (educational ? "教育账户" : "主账户"))
+    .reduce((sum, row) => sum + Number(row.pnl || 0), 0));
+  return {
+    year, yearEdu: sumFor(yearRows, true), yearMain: sumFor(yearRows, false),
+    totalEdu: sumFor(completed, true), totalMain: sumFor(completed, false),
+  };
+}
+
+function stkForumPostContent(cycle, allRows) {
+  const totals = stkRealizedTotals(cycle, allRows);
+  const { year, yearEdu, yearMain, totalEdu, totalMain } = totals;
   const codeName = String(cycle.code || "").replace(/^H?\d+/, "") || cycle.code;
   const accountLabel = stkForumAccountLabel(cycle.account);
   return `本轮投资${codeName}（${accountLabel}），收益${stkForumMoney(cycle.pnl)}，` +
@@ -4616,7 +4643,8 @@ function stkFindOversell(records, onlyCode, onlyAccount) {
 
 function stkIsGeneratedIncome(r) {
   return !!(r && r.generated === true && r.source &&
-    r.source.module === "stock" && r.source.type === STK_INCOME_SOURCE_TYPE);
+    r.source.module === "stock" &&
+    (r.source.type === STK_INCOME_SOURCE_TYPE || r.source.type === STK_REALIZED_SOURCE_TYPE));
 }
 
 function stkBuildGeneratedIncome(cycle) {
@@ -4638,6 +4666,27 @@ function stkBuildGeneratedIncome(cycle) {
       sourceKey: cycle.code + "\u0000" + cycle.account,
       closingTransactionId: cycle.closingTransactionId,
       transactionIds: cycle.transactionIds.slice(),
+    },
+  };
+}
+function stkBuildRealizedIncome(event) {
+  const payee = stkIncomePayee(event.account);
+  if (!payee || !event.eligible) return null;
+  const pnl = round2(event.pnl);
+  const kind = event.kind === "dividend" ? "股息" : `卖出 ${fmtInt(event.shares)} 股`;
+  return {
+    id: STK_REALIZED_ID_PREFIX + event.transactionId,
+    title: "股票投资收入", payee, date: event.date,
+    baseSalary: 0, overtime: 0, bonus: 0, otherIncome: pnl,
+    grossTotal: pnl, socialSecurity: 0, housingFund: 0,
+    incomeTax: 0, netAmount: pnl,
+    note: `${event.code} / ${event.account}；${kind}已实现收益`,
+    createdBy: "股票模块自动同步", modified: event.modified,
+    generated: true,
+    source: {
+      module: "stock", type: STK_REALIZED_SOURCE_TYPE, version: 2,
+      sourceKey: event.code + "\u0000" + event.account,
+      transactionId: event.transactionId, kind: event.kind,
     },
   };
 }
@@ -4788,7 +4837,7 @@ async function stkLoad() {
   try {
     const sync = await stkReconcileIncome();
     if (sync.unmappedCycles) {
-      setStatus("股票已载入；存在未配置家庭成员的账户，清仓收入同步待处理。", "warn", 7000);
+      setStatus("股票已载入；存在未配置家庭成员的账户，已实现收益同步待处理。", "warn", 7000);
     } else if (sync.unmatchedDividends) {
       setStatus("股票已载入；有红利未匹配到上线后的自动清仓周期。", "warn", 7000);
     }
@@ -4852,9 +4901,10 @@ async function stkReconcileIncome() {
   await incResolveFolder(token);
   const derived = stkDeriveClosedCycles(stockRecords);
   const desired = derived.cycles
-    .map(stkBuildGeneratedIncome).filter(Boolean);
-  const unmappedCycles = derived.cycles
-    .filter((c) => c.eligible && !stkIncomePayee(c.account)).length;
+    .map(stkBuildGeneratedIncome).concat(stkDeriveRealizedEvents(stockRecords)
+      .map(stkBuildRealizedIncome)).filter(Boolean);
+  const unmappedCycles = derived.cycles.concat(stkDeriveRealizedEvents(stockRecords))
+    .filter((row) => row.eligible && !stkIncomePayee(row.account)).length;
   const unmatchedDividends = derived.unmatchedDividends.length;
   let current = await incReadJson(token, INCOME_RECORDS_FILE);
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -4910,12 +4960,32 @@ function stkForumPostCreated(cycle) {
     : (cycle.modified || new Date().toISOString());
 }
 
+function stkRealizedForumPostContent(event, allRows) {
+  const { year, yearEdu, yearMain, totalEdu, totalMain } = stkRealizedTotals(event, allRows);
+  const codeName = String(event.code || "").replace(/^H?\d+/, "") || event.code;
+  const accountLabel = stkForumAccountLabel(event.account);
+  const detail = event.kind === "dividend"
+    ? `收到股息${stkForumMoney(event.proceeds)}`
+    : `卖出${fmtInt(event.shares)}股，净到账${stkForumMoney(event.proceeds)}，` +
+      `平均成本${Number(event.averageCost || 0).toFixed(2)}元，成本${stkForumMoney(event.costBasis)}，` +
+      `剩余持仓${fmtInt(event.remainingShares)}股`;
+  return `${stkForumDate(event.date)}，${codeName}（${accountLabel}）${detail}；` +
+    `本笔收益${stkForumMoney(event.pnl)}。\n\n` +
+    `${year}年度已实现收益 ${stkForumMoney(yearEdu + yearMain)}` +
+    `（教育账户${stkForumCompactMoney(yearEdu)}，主账户${stkForumCompactMoney(yearMain)}）；` +
+    `截至该日，总收益 ${stkForumCompactMoney(totalEdu + totalMain)}` +
+    `（教育账户${stkForumCompactMoney(totalEdu)}，主账户${stkForumCompactMoney(totalMain)}）。`;
+}
+
 async function stkReconcileForum() {
   const token = await getToken();
   await forumResolveFolder(token);
   const cycles = stkDeriveClosedCycles(stockRecords).cycles
     .slice().sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)) ||
       String(a.account).localeCompare(String(b.account)));
+  const events = stkDeriveRealizedEvents(stockRecords);
+  const allRealized = cycles.map((cycle) => Object.assign({ kind: "legacy", date: cycle.endDate }, cycle)).concat(events)
+    .sort((a, b) => stkRealizedSortKey(a).localeCompare(stkRealizedSortKey(b)));
   const desired = [{
     id: STK_FORUM_INTRO_POST_ID,
     author: "股票模块自动同步",
@@ -4926,13 +4996,23 @@ async function stkReconcileForum() {
   }].concat(cycles.map((cycle) => ({
     id: STK_FORUM_POST_PREFIX + cycle.closingTransactionId,
     author: "股票模块自动同步",
-    content: stkForumPostContent(cycle, cycles),
+    content: stkForumPostContent(Object.assign({ kind: "legacy", date: cycle.endDate }, cycle), allRealized),
     created: stkForumPostCreated(cycle),
     generated: true,
     source: {
       module: "stock", type: STK_INCOME_SOURCE_TYPE, version: 1,
       closingTransactionId: cycle.closingTransactionId,
       transactionIds: cycle.transactionIds.slice(),
+    },
+  }))).concat(events.map((event) => ({
+    id: STK_REALIZED_FORUM_POST_PREFIX + event.transactionId,
+    author: "股票模块自动同步",
+    content: stkRealizedForumPostContent(event, allRealized),
+    created: stkForumPostCreated({ endDate: event.date, modified: event.modified }),
+    generated: true,
+    source: {
+      module: "stock", type: STK_REALIZED_SOURCE_TYPE, version: 2,
+      transactionId: event.transactionId, kind: event.kind,
     },
   })));
 
@@ -4947,12 +5027,6 @@ async function stkReconcileForum() {
     const existingGenerated = topicData.posts.filter((p) => p.generated === true && p.source && p.source.module === "stock")
       .slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
     const desiredSorted = desired.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    if (topic && topic.pinned === true && topic.protected === true &&
-        topic.title === STK_FORUM_TOPIC_TITLE &&
-        JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted) &&
-        Number(topic.postCount || 0) === topicData.posts.length) {
-      return { postCount: desired.length, topicId };
-    }
     const posts = manual.concat(desired).sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")));
     const lastUpdated = posts.reduce((max, p) => String(p.created || "") > max ? String(p.created || "") : max, created);
     const nextTopic = {
@@ -4961,6 +5035,11 @@ async function stkReconcileForum() {
       created, postCount: posts.length, lastUpdated,
       generated: true, pinned: true, protected: true,
     };
+    if (topic && JSON.stringify(existingGenerated) === JSON.stringify(desiredSorted) &&
+        ["id", "title", "author", "created", "postCount", "lastUpdated", "generated", "pinned", "protected"]
+          .every((key) => topic[key] === nextTopic[key])) {
+      return { postCount: desired.length, topicId };
+    }
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (topicData.etag) headers["If-Match"] = topicData.etag;
     const writeTopic = await fetch(forumContentUrl("forum/" + topicId + ".json"), {
@@ -5132,6 +5211,7 @@ async function stkOnSubmit(e) {
     createdAt: (oldRec && oldRec.createdAt) || nowIso,
     tradeOrder: oldRec ? oldRec.tradeOrder : Date.now(),
     incomeSyncEligible: oldRec ? oldRec.incomeSyncEligible === true : true,
+    realizationVersion: oldRec ? oldRec.realizationVersion : 2,
     modified: nowIso,
   };
 
@@ -5152,8 +5232,7 @@ async function stkOnSubmit(e) {
     setStatus(`卖出股数超过当前持仓，不能保存：${oversell.code} / ${oversell.account}，可卖 ${fmtInt(oversell.available)}，本次卖出 ${fmtInt(oversell.selling)}。`, "warn", 8000);
     return;
   }
-  const isNewClose = !isEdit && stkDeriveClosedCycles(stockRecords).cycles
-    .some((c) => c.closingTransactionId === rec.id && c.eligible);
+  const isNewRealization = !isEdit && rec.realizationVersion === 2 && shares >= 0;
   els.stkAddBtn.disabled = true;
   stkFillFilters();
   stkRender();
@@ -5163,12 +5242,12 @@ async function stkOnSubmit(e) {
     try {
       const sync = await stkReconcileIncome();
       if (sync.unmappedCycles) {
-        setStatus("股票已保存；存在未配置家庭成员的账户，清仓收入同步待处理。", "warn", 8000);
+        setStatus("股票已保存；存在未配置家庭成员的账户，已实现收益同步待处理。", "warn", 8000);
       } else if (sync.unmatchedDividends) {
         setStatus("股票已保存；红利未匹配到上线后的自动清仓周期，请手工调整家庭收入。", "warn", 8000);
       } else {
-        setStatus(isNewClose
-          ? "已添加并保存；清仓盈亏已自动添加到家庭收入。"
+        setStatus(isNewRealization
+          ? "已添加并保存；本笔已实现收益已自动添加到家庭收入。"
           : (isEdit ? "已保存修改；家庭收入已同步。" : "已添加并保存。"), "ok", 5000);
       }
     } catch (syncErr) {
@@ -5480,37 +5559,23 @@ function stkYearsAsc() {
   return [...s].sort();
 }
 
-// Realized P&L per (buy-year, account). Cleared-cycle detection is done per
-// code+account independently. Returns byYearAcct: year -> (account -> pnl),
+// Realized P&L per (realization-year, account), combining legacy closed cycles
+// with v2 per-sale and dividend events. Returns byYearAcct: year -> (account -> pnl),
 // the sorted account list, and yearTotals: year -> net pnl.
 function stkRealizedByYearAccount() {
-  const groups = new Map();
-  for (const r of stockRecords) {
-    const key = (r.code || "") + "\u0000" + (r.account || "(未知)");
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(r);
-  }
   const byYearAcct = new Map();
   const accounts = new Set();
-  for (const [key, trades] of groups) {
-    const acct = key.slice(key.indexOf("\u0000") + 1);
-    trades.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-    let net = 0, sum = 0, buyYear = null;
-    for (const r of trades) {
-      const sh = Number(r.shares) || 0;
-      net += sh;
-      sum += Number(r.total) || 0;
-      const y = (r.date || "").slice(0, 4);
-      if (sh < 0 && y && (!buyYear || y < buyYear)) buyYear = y;
-      if (Math.abs(net) < 0.5) { // cycle cleared
-        const year = buyYear || y || "";
-        if (!byYearAcct.has(year)) byYearAcct.set(year, new Map());
-        const am = byYearAcct.get(year);
-        am.set(acct, round2((am.get(acct) || 0) + sum));
-        accounts.add(acct);
-        net = 0; sum = 0; buyYear = null;
-      }
-    }
+  const rows = stkDeriveClosedCycles(stockRecords).cycles.map((cycle) => ({
+    date: cycle.endDate, account: cycle.account, pnl: cycle.pnl,
+  })).concat(stkDeriveRealizedEvents(stockRecords));
+  for (const row of rows) {
+    const year = String(row.date || "").slice(0, 4);
+    const acct = row.account || "(未知)";
+    if (!year) continue;
+    if (!byYearAcct.has(year)) byYearAcct.set(year, new Map());
+    const am = byYearAcct.get(year);
+    am.set(acct, round2((am.get(acct) || 0) + Number(row.pnl || 0)));
+    accounts.add(acct);
   }
   const yearTotals = new Map();
   for (const [year, am] of byYearAcct) {
@@ -5655,7 +5720,7 @@ function stkRenderChart() {
     els.stkPnlLegend.innerHTML = "";
     els.stkAcctBreakdown.innerHTML = "";
     els.stkChartTotal.textContent = "0.00";
-    els.stkChartTotalLabel.textContent = "已清仓盈亏合计";
+    els.stkChartTotalLabel.textContent = "已实现盈亏合计";
     return;
   }
 
@@ -5672,7 +5737,7 @@ function stkRenderChart() {
   else headTotal = yearTotals.get(yr) || 0;
   els.stkChartTotal.textContent = fmtAmount(round2(headTotal));
   els.stkChartTotal.classList.toggle("neg", headTotal < 0);
-  els.stkChartTotalLabel.textContent = (yr === "ALL" ? "全部年度" : yr + " 年") + "已清仓盈亏";
+  els.stkChartTotalLabel.textContent = (yr === "ALL" ? "全部年度" : yr + " 年") + "已实现盈亏";
 
   // Per-account realized P&L for the selected year (grand total when 全部年度),
   // driven by the same year selector. Lists ALL accounts (0.00 when none).
@@ -6619,7 +6684,7 @@ function stkCsvCell(v) {
 function stkBuildCsv() {
   const headers = [
     "日期", "代码名称", "账户", "价格", "股数", "汇率",
-    "成交金额", "佣金", "印花税", "过户费", "总金额", "记录人", "修改时间",
+    "成交金额", "佣金", "印花税", "过户费", "总金额", "收益规则版本", "记录人", "修改时间",
   ];
   const rows = stockRecords.slice().sort((a, b) =>
     String(a.date || "").localeCompare(String(b.date || "")));
@@ -6628,7 +6693,7 @@ function stkBuildCsv() {
     lines.push([
       r.date, r.code, r.account, r.price, r.shares, r.fx,
       r.amount, r.commission, r.stampTax, r.transferFee, r.total,
-      r.createdBy, r.modified,
+      r.realizationVersion || 1, r.createdBy, r.modified,
     ].map(stkCsvCell).join(","));
   }
   // Leading BOM so Excel reads the UTF-8 Chinese correctly.

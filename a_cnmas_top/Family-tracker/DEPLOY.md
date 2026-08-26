@@ -1,7 +1,7 @@
 # Deploy (Cloudflare Pages — static Direct Upload)
 
 The app is a **pure static SPA** — everything lives in `public/`
-(`index.html`, `app.js`, `style.css`, `categories.js`, `msal-browser.min.js`).
+(`index.html`, `app.js`, `stock-realization.js`, `style.css`, `categories.js`, `msal-browser.min.js`).
 There is no server-side code, so you can deploy by simply uploading a zip in the
 Cloudflare dashboard. No GitHub repo, no Node/npm/wrangler needed.
 
@@ -26,7 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File spending-tracker/tools/build
 This produces `spending-tracker/spending-tracker-public.zip` containing exactly
 the static files:
 ```
-app.js  categories.js  index.html  msal-browser.min.js  style.css
+app.js  stock-realization.js  categories.js  index.html  msal-browser.min.js  style.css
 ```
 (You can also just skip the zip and drag the raw files from `public/` in Step 2.)
 
