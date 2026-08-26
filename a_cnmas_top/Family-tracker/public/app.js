@@ -1162,10 +1162,13 @@ async function loadBlogDeepLink(token, id) {
 }
 
 async function loadForumDeepLink(token, id) {
+  const requestId = ++forumOpenRequestId;
   let [idx, data] = await Promise.all([forumReadIndex(token), forumReadTopic(token, id)]);
+  if (requestId !== forumOpenRequestId) return;
   let topic = forumFindDeepLinkTopic(idx.topics, data.topic, id);
   if (!topic || !data.topic || data.notFound) {
     [idx, data] = await Promise.all([forumReadIndex(token), forumReadTopic(token, id)]);
+    if (requestId !== forumOpenRequestId) return;
     topic = forumFindDeepLinkTopic(idx.topics, data.topic, id);
   }
   forumTopics = idx.topics.slice().sort(forumCmp);
@@ -1192,6 +1195,7 @@ function forumFindDeepLinkTopic(topics, fileTopic, id) {
 }
 
 async function forumReturnToList() {
+  forumOpenRequestId++;
   if (!forumLoaded) {
     setStatus("正在载入主题列表…");
     try { await forumLoad(); }
@@ -5047,6 +5051,7 @@ async function stkReconcileForum() {
     });
     if (writeTopic.status === 412) continue;
     if (!writeTopic.ok) throw new Error("同步股票收益主题失败：" + writeTopic.status + " " + (await writeTopic.text()));
+    const writeTopicItem = await writeTopic.json();
 
     const freshIdx = await forumReadIndex(token);
     const topics = freshIdx.topics.filter((t) => t.id !== topicId);
@@ -5064,7 +5069,11 @@ async function stkReconcileForum() {
       forumTopics = topics;
       forumIndexEtag = (await writeIndex.json()).eTag || null;
       forumRenderList();
-      if (forumCurTopicId === topicId) await forumOpenTopic(topicId);
+      if (forumCurTopicId === topicId && !els.forumTopicView.classList.contains("hidden")) {
+        forumCurPosts = posts;
+        forumCurEtag = writeTopicItem.eTag || null;
+        await forumRenderPosts(token);
+      }
     }
     return { postCount: desired.length, topicId };
   }
@@ -10967,6 +10976,7 @@ let forumLoadPromise = null;
 let forumCurTopicId = null;    // id of the open topic
 let forumCurPosts = [];        // posts of the open topic
 let forumCurEtag = null;       // eTag of forum/<id>.json (optimistic concurrency)
+let forumOpenRequestId = 0;    // stale reads must not replace a newer topic
 let forumSearchText = "";      // topic-title search filter
 const FORUM_LIST_PAGE_SIZE = 20;
 let forumListPage = 0;
@@ -11188,6 +11198,7 @@ function forumRenderList() {
 async function forumOpenTopic(id, fromDeepLink) {
   const topic = forumTopics.find((t) => t.id === id);
   if (!topic) return;
+  const requestId = ++forumOpenRequestId;
   forumCurTopicId = id;
   forumPostPage = 0;
   history.replaceState(null, "", deepLinkUrl("forum", id));
@@ -11203,10 +11214,12 @@ async function forumOpenTopic(id, fromDeepLink) {
     const token = await getToken();
     await forumResolveFolder(token);
     const data = await forumReadTopic(token, id);
+    if (requestId !== forumOpenRequestId || forumCurTopicId !== id) return;
     forumCurPosts = data.posts;
     forumCurEtag = data.etag;
     await forumRenderPosts(token);
   } catch (e) {
+    if (requestId !== forumOpenRequestId || forumCurTopicId !== id) return;
     els.forumPosts.innerHTML = "";
     setStatus("打开主题失败：" + (e.message || e), "error");
   }
@@ -11298,6 +11311,7 @@ function scrollToRenderedItem(selector) {
 
 // ---- new topic ------------------------------------------------------------
 function forumNewTopic() {
+  forumOpenRequestId++;
   els.forumEditTitle.textContent = "新建主题";
   els.forumEditTopicId.value = "";
   els.forumSaveBtn.textContent = "发布主题";
@@ -11369,6 +11383,14 @@ function forumEditTopic() {
   els.forumBodyInput.value = chronological[0] ? chronological[0].content || "" : "";
   forumAutoGrowEditor(els.forumBodyInput);
   forumSwitchTab("edit");
+}
+
+function forumCancelTopicEdit() {
+  const id = els.forumEditTopicId.value;
+  if (!id) { forumSwitchTab("list"); return; }
+  forumCurTopicId = id;
+  history.replaceState(null, "", deepLinkUrl("forum", id));
+  forumSwitchTab("view");
 }
 
 function forumResetReplyEditor() {
@@ -11474,7 +11496,8 @@ async function forumDeletePost(id) {
 async function forumReply() {
   const content = els.forumReplyInput.value.trim();
   if (!content) { setStatus("请填写回复内容。", "warn"); els.forumReplyInput.focus(); return; }
-  if (!forumCurTopicId) return;
+  const topicId = forumCurTopicId;
+  if (!topicId) return;
   const editId = els.forumEditPostId.value;
   let post = null;
   els.forumReplyBtn.disabled = true;
@@ -11483,7 +11506,8 @@ async function forumReply() {
     const token = await getToken();
     await forumResolveFolder(token);
     const author = (account && (account.name || account.username)) || "";
-    const topic = forumTopics.find((t) => t.id === forumCurTopicId);
+    const topic = forumTopics.find((t) => t.id === topicId);
+    if (!topic || forumCurTopicId !== topicId) throw new Error("当前主题已变化，请重新发表回复。");
     if (editId) {
       const existing = forumCurPosts.find((p) => p.id === editId);
       if (!existing || forumIsProtectedPost(existing) || !forumIsAuthor(existing.author)) throw new Error("无权编辑该回复。");
@@ -11502,6 +11526,8 @@ async function forumReply() {
     }
     forumTopics.sort(forumCmp);
     await forumWriteIndex(token);
+    if (forumCurTopicId !== topicId) return;
+    history.replaceState(null, "", deepLinkUrl("forum", topicId));
     forumResetReplyEditor();
     const targetId = editId || post.id;
     forumPostPage = forumPageForPost(targetId);
@@ -11583,7 +11609,7 @@ function forumWireEvents() {
   els.forumPostGo.onclick = goForumPostPage;
   els.forumPostPageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") goForumPostPage(); });
   els.forumSaveBtn.onclick = () => forumSaveTopic();
-  els.forumCancelBtn.onclick = () => els.forumEditTopicId.value ? forumSwitchTab("view") : forumSwitchTab("list");
+  els.forumCancelBtn.onclick = () => forumCancelTopicEdit();
   els.forumBackBtn.onclick = () => { blogCapturePosition("forum"); forumReturnToList(); };
   els.forumShareBtn.onclick = () => {
     const topic = forumTopics.find((t) => t.id === forumCurTopicId);
