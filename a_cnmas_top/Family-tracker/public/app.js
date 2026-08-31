@@ -1048,7 +1048,7 @@ async function onSignedIn() {
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
-  await setMode(deepLink ? "blog" : mode, { skipLoad: !!deepLink });
+  await setMode(deepLink ? "blog" : mode, { skipLoad: !!deepLink, preserveDeepLink: !!deepLink });
   // Reminders are independent from the visible mode. Load them silently in the
   // background so opening 支出 never waits for or shows blog loading status.
   if (!deepLink) blogLoadCommentRemindersSilently();
@@ -4287,6 +4287,7 @@ async function sbtRemoveStock(code) {
 /* --------------------------- Mode switch --------------------------------- */
 async function setMode(next, options) {
   options = options || {};
+  if (!options.preserveDeepLink && next !== "blog") clearDeepLink();
   mode = next;
   const isInc = next === "income";
   const isStk = next === "stock";
@@ -9591,6 +9592,7 @@ function blogRenderTagChips(container, tags, clickable) {
 }
 function blogSetTagFilter(tag) {
   blogTagFilter = tag || ""; blogListPage = 0;
+  clearDeepLink();
   blogSwitchTab("list"); blogRenderList(); window.scrollTo({ top: 0, behavior: "auto" });
 }
 function blogRenderTagOptions() {
@@ -10456,7 +10458,7 @@ function blogResetForm() {
   els.blogImgPicker.classList.add("hidden");
   els.blogEditFormTitle.textContent = "写博文";
 }
-function blogNew() { blogCapturePosition(blogActiveSection()); blogResetForm(); blogSwitchTab("edit"); window.scrollTo({ top: 0, behavior: "auto" }); }
+function blogNew() { blogCapturePosition(blogActiveSection()); clearDeepLink(); blogResetForm(); blogSwitchTab("edit"); window.scrollTo({ top: 0, behavior: "auto" }); }
 async function blogEditThis() {
   const post = blogPosts.find((p) => p.id === blogViewId);
   if (!post) return;
@@ -10554,6 +10556,7 @@ async function blogDeleteThis() {
     await blogDeleteFile(token, blogCommentPath(post.id));
     blogViewId = null;
     blogRenderList();
+    clearDeepLink();
     blogSwitchTab("list");
     setStatus("已删除。", "ok", 2500);
   } catch (e) {
@@ -11312,6 +11315,7 @@ function scrollToRenderedItem(selector) {
 // ---- new topic ------------------------------------------------------------
 function forumNewTopic() {
   forumOpenRequestId++;
+  clearDeepLink();
   els.forumEditTitle.textContent = "新建主题";
   els.forumEditTopicId.value = "";
   els.forumSaveBtn.textContent = "发布主题";
@@ -11564,6 +11568,7 @@ async function forumDeleteTopic() {
     forumCurTopicId = null;
     forumCurPosts = [];
     forumCurEtag = null;
+    clearDeepLink();
     forumRenderList();
     forumSwitchTab("list");
     setStatus("已删除。", "ok", 2500);
