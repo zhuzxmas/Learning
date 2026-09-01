@@ -15,6 +15,7 @@ spending-tracker/
 │  ├─ index.html          # UI: login, add/edit form, records table
 │  ├─ app.js              # MSAL sign-in + Graph I/O + logic (SET CLIENT_ID + FOLDER_SHARE_URL)
 │  ├─ stock-realization.js # stock moving-average realized-profit engine
+│  ├─ valuation.js         # browser AV/EPV calculations and sensitivity analysis
 │  ├─ categories.js       # AUTO-GENERATED category tree (do not hand-edit)
 │  ├─ msal-browser.min.js # bundled MSAL v3 library (loaded locally, not from CDN)
 │  └─ style.css

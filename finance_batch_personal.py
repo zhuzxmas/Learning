@@ -46,6 +46,7 @@ for _stream in (sys.stdout, sys.stderr):
 import pandas as pd
 
 import z_Func
+import valuation_engine
 from onedrive_personal import OneDrivePersonal
 
 # ---- config / proxy bootstrap --------------------------------------------
@@ -332,8 +333,13 @@ def _split_hk_periods(df):
     (None, None) parts when a side has no columns."""
     if df is None or df.shape[1] == 0:
         return None, None
-    annual_cols = [c for c in df.columns if str(c).endswith('-12-31')]
-    season_cols = [c for c in df.columns if not str(c).endswith('-12-31')]
+    annual_cols = []
+    if '估值_年报标记' in df.index:
+        annual_cols = [c for c in df.columns
+                       if pd.to_numeric(df.loc['估值_年报标记', c], errors='coerce') == 1]
+    if not annual_cols:
+        annual_cols = [c for c in df.columns if str(c).endswith('-12-31')]
+    season_cols = [c for c in df.columns if c not in annual_cols]
 
     def _pick(cols):
         if not cols:
@@ -799,10 +805,13 @@ def evaluate_checks(stock_output_yearly, stock_0_dividends):
 # ---- output (JSON is the sole source of truth) -----------------------------
 def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
                  last_7_days, dividends_df, chip_distribution=None,
-                 price_source_error=False):
+                 price_source_error=False, valuation=None):
     stock_output_combined = _filter_display_years(stock_output_combined)
     combined_json = None
     if stock_output_combined is not None:
+        stock_output_combined = stock_output_combined.drop(
+            index=[label for label in stock_output_combined.index
+                   if str(label).startswith('估值_')], errors='ignore')
         combined_json = json.loads(
             stock_output_combined.to_json(orient='split', force_ascii=False))
     div_records = []
@@ -819,7 +828,100 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
         'dividends': div_records,
         'chip_distribution': chip_distribution,
         'price_source_error': bool(price_source_error),
+        'valuation': valuation,
     }
+
+
+VALUATION_ROWS = {
+    'cash': '估值_现金 亿元', 'securities': '估值_有价证券 亿元',
+    'receivables': '估值_应收款项 亿元', 'inventory': '估值_存货 亿元',
+    'fixed_assets': '估值_固定资产 亿元', 'intangibles': '估值_无形资产 亿元',
+    'goodwill': '估值_商誉 亿元', 'total_liabilities': '估值_总负债 亿元',
+    'interest_bearing_debt': '估值_有息负债 亿元',
+    'minority_interest': '估值_少数股东权益 亿元',
+    'pretax_profit': '估值_税前利润 亿元', 'income_tax': '估值_所得税费用 亿元',
+    'depreciation_amortization': '估值_折旧摊销 亿元',
+    'capital_expenditure': '估值_资本开支 亿元',
+    'total_assets': '总资产 亿元', 'revenue': '营业总收入 销售额 亿元',
+    'ebit': '估值_息税前利润 亿元',
+}
+
+
+def build_valuation(stock_output_yearly, quote=None, assumptions=None, stock_name=None):
+    """Build an auditable valuation object from newest-first annual reports."""
+    if stock_output_yearly is None or len(stock_output_yearly.columns) == 0:
+        return None
+    if not any(label in stock_output_yearly.index for label in VALUATION_ROWS.values()):
+        return None
+    quote = quote or {}
+    columns = sorted(stock_output_yearly.columns, key=lambda value: str(value), reverse=True)[:7]
+    periods = []
+    for column in columns:
+        row = {'date': str(column)[:10]}
+        for key, label in VALUATION_ROWS.items():
+            value = None
+            if label in stock_output_yearly.index:
+                value = pd.to_numeric(stock_output_yearly.loc[label, column], errors='coerce')
+            row[key] = None if pd.isna(value) else float(value) * 100000000
+        shares_million = None
+        if '普通股数量 百万' in stock_output_yearly.index:
+            shares_million = pd.to_numeric(
+                stock_output_yearly.loc['普通股数量 百万', column], errors='coerce')
+        row['shares'] = (None if pd.isna(shares_million)
+                         else float(shares_million) * 1000000)
+        periods.append(row)
+    if quote.get('total_shares') and periods:
+        periods[0]['shares'] = quote['total_shares']
+    org_type = None
+    if '估值_金融企业标记' in stock_output_yearly.index:
+        marker = pd.to_numeric(stock_output_yearly.loc['估值_金融企业标记', columns[0]], errors='coerce')
+        if not pd.isna(marker) and marker == 1:
+            org_type = '金融企业'
+    if any(word in str(stock_name or '') for word in ('银行', '保险', '证券')):
+        org_type = '金融企业'
+    result = valuation_engine.calculate(
+        periods, assumptions=assumptions, industry=quote.get('industry'), org_type=org_type,
+        current_price=quote.get('current_price'),
+        currency=quote.get('currency', 'CNY'))
+    result['raw_periods'] = periods
+    result['quote'] = quote
+    result['model'] = 'graham-greenwald-av-epv-v1'
+    return result
+
+
+def latest_price_quote(stock_price_df, currency):
+    if stock_price_df is None or len(stock_price_df) == 0:
+        return {'currency': currency}
+    row = stock_price_df.sort_values('日期').iloc[-1]
+    price = pd.to_numeric(row.get('收盘'), errors='coerce')
+    date = row.get('日期')
+    return {
+        'currency': currency,
+        'current_price': None if pd.isna(price) else float(price),
+        'as_of': (date.isoformat() if hasattr(date, 'isoformat') else str(date)[:10]),
+        'source': 'Tencent',
+    }
+
+
+def refresh_previous_valuation(old_output, quote):
+    """Reuse complete report valuation in light mode while refreshing price."""
+    previous = (old_output or {}).get('valuation')
+    if not isinstance(previous, dict):
+        return None
+    result = json.loads(json.dumps(previous))
+    if quote.get('current_price') is None:
+        return result
+    result['quote'] = quote
+    comparison = result.get('comparison')
+    price = quote.get('current_price')
+    if isinstance(comparison, dict) and price is not None:
+        comparison['current_price'] = price
+        for key, section in (('asset_margin_of_safety', result.get('asset_value')),
+                             ('epv_margin_of_safety', result.get('epv'))):
+            value = section and section.get('per_share')
+            comparison[key] = (round(1 - price / value, 6)
+                               if value is not None and value > 0 else None)
+    return result
 
 
 def load_existing_output(od, stock_cn):
@@ -1045,6 +1147,9 @@ def merge_with_existing(od, stock_cn, payload, old=None):
     if payload.get('chip_distribution') is None and old.get('chip_distribution') is not None:
         payload['chip_distribution'] = old['chip_distribution']
         stale.append('chip_distribution')
+    if payload.get('valuation') is None and old.get('valuation') is not None:
+        payload['valuation'] = old['valuation']
+        stale.append('valuation')
 
     if stale:
         payload['carried_over'] = stale
@@ -1381,10 +1486,14 @@ def main():
                 'cost_70_high': (chip_hk or {}).get('cost_70_high'),
                 'as_of': (chip_hk or {}).get('as_of'),
             })
+            quote = latest_price_quote(stock_price_df, 'HKD')
+            valuation = (refresh_previous_valuation(old_output, quote) if light_mode else
+                         build_valuation(stock_output_yearly, quote, stock_name=stock_name))
             payload = build_output(stock, stock_cn, stock_name, checks,
                                    stock_output_combined, last_7_days, dividends_df,
                                    chip_distribution=chip_hk,
-                                   price_source_error=price_source_error)
+                                   price_source_error=price_source_error,
+                                   valuation=valuation)
             payload = merge_with_existing(od, stock_cn, payload, old=old_output)
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
@@ -1490,11 +1599,15 @@ def main():
             'cost_70_high': (chip or {}).get('cost_70_high'),
             'as_of': (chip or {}).get('as_of'),
         })
+        quote = latest_price_quote(stock_price_df, 'CNY')
+        valuation = (refresh_previous_valuation(old_output, quote) if light_mode else
+                     build_valuation(stock_output_yearly, quote, stock_name=stock_name))
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df,
                                chip_distribution=chip,
-                               price_source_error=price_source_error)
+                               price_source_error=price_source_error,
+                               valuation=valuation)
         payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload, old=old_output)
         od.put_text('output/{}.json'.format(stock_cn),

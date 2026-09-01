@@ -388,6 +388,13 @@ const els = {
   sbtLast7: $("sbtLast7"),
   sbtCombinedTable: $("sbtCombinedTable"),
   sbtDividendTable: $("sbtDividendTable"),
+  sbtValuationCard: $("sbtValuationCard"), sbtValuationMeta: $("sbtValuationMeta"),
+  sbtValuationMessage: $("sbtValuationMessage"), sbtValuationSummary: $("sbtValuationSummary"),
+  sbtValuationDetails: $("sbtValuationDetails"), sbtValuationAudit: $("sbtValuationAudit"),
+  sbtValSensitivity: $("sbtValSensitivity"), sbtValReceivables: $("sbtValReceivables"),
+  sbtValInventory: $("sbtValInventory"), sbtValFixed: $("sbtValFixed"),
+  sbtValOther: $("sbtValOther"), sbtValCapRate: $("sbtValCapRate"),
+  sbtValTax: $("sbtValTax"), sbtValSaveBtn: $("sbtValSaveBtn"), sbtValResetBtn: $("sbtValResetBtn"),
   // --- 聊天 (chat) mode ---
   modeChatBtn: $("modeChatBtn"),
   aiApp: $("aiApp"),
@@ -3411,6 +3418,10 @@ function incSwitchTab(name) {
  let sbtChipRanking = null;     // cached parsed output/_chip_ranking.json
  let sbtRankSort = { col: "profit_ratio", dir: 1 };  // 1 asc, -1 desc; default 获利比例升序
  let sbtChipExpandCode = "";    // stock_cn of the currently expanded/highlighted row ("" = none)
+ const SBT_VALUATION_SETTINGS_FILE = "valuation-settings.json";
+ let sbtValuationSettings = { version: 1, defaults: {}, stocks: {} };
+ let sbtValuationEtag = null;
+ let sbtValuationSettingsError = "";
  
  // True only for the folder owner — gates all write actions (add/delete/trigger).
  function sbtCanEdit() {
@@ -3470,11 +3481,74 @@ function incSwitchTab(name) {
   try { return await res.json(); } catch { return null; }
 }
 
+async function sbtReadValuationSettings(token) {
+  await sbtResolveFolder(token);
+  const res = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, ":/content"), {
+    cache: "no-store", headers: { Authorization: "Bearer " + token },
+  });
+  if (res.status === 404) return { data: { version: 1, defaults: {}, stocks: {} }, etag: null };
+  if (!res.ok) throw new Error("读取估值参数失败：" + res.status);
+   let data = null; try { data = await res.json(); }
+   catch { throw new Error("估值参数文件不是有效 JSON。"); }
+  data = data && typeof data === "object" ? data : {};
+   if (!data.defaults || typeof data.defaults !== "object" || Array.isArray(data.defaults) ||
+       !data.stocks || typeof data.stocks !== "object" || Array.isArray(data.stocks)) {
+     throw new Error("估值参数文件结构无效。");
+   }
+  data.version = 1;
+  let etag = res.headers.get("ETag");
+  if (!etag) {
+    const meta = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, "?$select=eTag"), {
+      cache: "no-store", headers: { Authorization: "Bearer " + token },
+    });
+    if (meta.ok) { const item = await meta.json(); etag = item.eTag || null; }
+  }
+  if (!etag) throw new Error("无法读取估值参数文件版本，请稍后重试。");
+  return { data, etag };
+}
+
+async function sbtLoadValuationSettings(token) {
+  try {
+    const result = await sbtReadValuationSettings(token);
+    sbtValuationSettings = result.data; sbtValuationEtag = result.etag; sbtValuationSettingsError = "";
+  } catch (e) {
+    sbtValuationSettings = { version: 1, defaults: {}, stocks: {} };
+    sbtValuationEtag = null;
+    sbtValuationSettingsError = e.message || String(e);
+    console.warn("valuation settings:", e);
+  }
+}
+
+async function sbtWriteValuationPatch(code, value) {
+  const token = await getToken();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const next = JSON.parse(JSON.stringify(sbtValuationSettings));
+    next.version = 1; next.defaults = next.defaults || {}; next.stocks = next.stocks || {};
+    if (value == null) delete next.stocks[code]; else next.stocks[code] = value;
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (sbtValuationEtag) headers["If-Match"] = sbtValuationEtag;
+    else headers["If-None-Match"] = "*";
+    const res = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, ":/content"), {
+      method: "PUT", headers, body: JSON.stringify(next),
+    });
+    if (res.ok) {
+      const item = await res.json(); sbtValuationSettings = next; sbtValuationEtag = item.eTag || null; return;
+    }
+    if (res.status === 409 || res.status === 412) {
+      const fresh = await sbtReadValuationSettings(token);
+      sbtValuationSettings = fresh.data; sbtValuationEtag = fresh.etag; continue;
+    }
+    throw new Error("保存估值参数失败：" + res.status);
+  }
+  throw new Error("估值参数发生并发冲突，请重试。");
+}
+
  async function sbtLoad(force) {
    sbtApplyPerms();
    if (sbtLoaded && !force) { return; }
   setStatus("正在载入股票基本面数据…", "info");
   const token = await getToken();
+  await sbtLoadValuationSettings(token);
 
    // Summary (optional; the per-stock files are the source of truth).
    sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
@@ -3884,13 +3958,133 @@ async function sbtRenderChip(code) {
    return s.slice(0, 10);
  }
 
+ function sbtValuationAssumptions(code) {
+   return Object.assign({}, ValueInvesting.defaults,
+     sbtValuationSettings.defaults || {},
+     (sbtValuationSettings.stocks || {})[code] || {});
+ }
+
+ function sbtValuationInputAssumptions() {
+   const pct = (element, min, max) => {
+     const value = Number(element.value);
+     if (element.value.trim() === "" || !isFinite(value) || value < min || value > max) {
+       throw new Error(`估值参数必须在 ${min}% 到 ${max}% 之间。`);
+     }
+     return value / 100;
+   };
+   return {
+     receivables: pct(els.sbtValReceivables, 0, 150), inventory: pct(els.sbtValInventory, 0, 150),
+     fixed_assets: pct(els.sbtValFixed, 0, 150), other_assets: pct(els.sbtValOther, 0, 150),
+     capitalization_rate: pct(els.sbtValCapRate, 1, 50), fallback_tax_rate: pct(els.sbtValTax, 0, 60),
+   };
+ }
+
+ function sbtSetValuationInputs(settings) {
+   els.sbtValReceivables.value = (settings.receivables * 100).toFixed(0);
+   els.sbtValInventory.value = (settings.inventory * 100).toFixed(0);
+   els.sbtValFixed.value = (settings.fixed_assets * 100).toFixed(0);
+   els.sbtValOther.value = (settings.other_assets * 100).toFixed(0);
+   els.sbtValCapRate.value = (settings.capitalization_rate * 100).toFixed(1);
+   els.sbtValTax.value = (settings.fallback_tax_rate * 100).toFixed(0);
+ }
+
+ function sbtValMoney(value, currency) {
+   if (value == null || !isFinite(value)) return "—";
+   return new Intl.NumberFormat("zh-CN", { style: "currency", currency: currency || "CNY",
+     minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+ }
+
+ function sbtRenderValuationCalculation(code, valuation, assumptions) {
+   const result = ValueInvesting.calculate(valuation.raw_periods, assumptions);
+   const currency = valuation.currency || (valuation.quote && valuation.quote.currency) || "CNY";
+   const rawPrice = valuation.quote && valuation.quote.current_price;
+   const price = rawPrice === null || rawPrice === undefined || rawPrice === "" ? null : Number(rawPrice);
+   const av = result.asset_value && result.asset_value.per_share;
+   const epv = result.epv && result.epv.per_share;
+   const metric = (label, value, detail) => `<div class="sbt-val-metric"><span>${label}</span>` +
+     `<strong>${value}</strong>${detail ? `<small>${detail}</small>` : ""}</div>`;
+   const margin = (value) => price > 0 && value > 0 ? ((1 - price / value) * 100).toFixed(1) + "%" : "—";
+   els.sbtValuationSummary.innerHTML =
+     metric("每股资产价值", sbtValMoney(av, currency), "安全边际 " + margin(av)) +
+     metric("每股盈利能力价值", sbtValMoney(epv, currency), "安全边际 " + margin(epv)) +
+     metric("当前股价", sbtValMoney(price, currency), valuation.quote && valuation.quote.as_of ? sbtDateOnly(valuation.quote.as_of) : "") +
+     metric("EPV - AV", sbtValMoney(epv != null && av != null ? epv - av : null, currency),
+       epv != null && av != null ? (epv > av ? "可能存在竞争优势" : "资产盈利能力偏弱") : "");
+   const missing = result.missing || [];
+   const warning = sbtValuationSettingsError ? "共享参数读取失败，当前显示默认值且禁止保存：" + sbtValuationSettingsError
+     : (missing.length ? "数据不完整，暂不能计算全部估值：" + missing.join("、") : "");
+   els.sbtValuationMessage.classList.toggle("hidden", !warning);
+   els.sbtValuationMessage.textContent = warning;
+   const epvRow = result.epv || {};
+   const avRow = result.asset_value || {};
+   els.sbtValuationAudit.innerHTML = `<dl>` +
+     `<dt>财报期间</dt><dd>${escapeHtml(String(valuation.as_of || "—"))}</dd>` +
+     `<dt>正常化 EBIT 率</dt><dd>${epvRow.normalized_ebit_margin == null ? "—" : (epvRow.normalized_ebit_margin * 100).toFixed(2) + "%"}</dd>` +
+     `<dt>有效税率</dt><dd>${epvRow.effective_tax_rate == null ? "—" : (epvRow.effective_tax_rate * 100).toFixed(2) + "%"}</dd>` +
+     `<dt>正常化经营收益</dt><dd>${sbtValMoney(epvRow.normalized_operating_earnings, currency)}</dd>` +
+     `<dt>维持性资本开支</dt><dd>${sbtValMoney(epvRow.maintenance_capex, currency)}（等于正常化折旧摊销）</dd>` +
+     `<dt>调整后资产</dt><dd>${sbtValMoney(avRow.adjusted_assets, currency)}</dd>` +
+     `<dt>资本成本</dt><dd>${(assumptions.capitalization_rate * 100).toFixed(1)}%</dd></dl>`;
+   const assetScenarios = [
+     ["保守资产", { receivables: .75, inventory: .50, fixed_assets: .35, other_assets: .25 }],
+     ["当前资产", assumptions],
+     ["中性资产", { receivables: .90, inventory: .80, fixed_assets: .70, other_assets: .60 }],
+   ];
+   const rates = [...new Set([.08, assumptions.capitalization_rate, .10, .12])].sort((a, b) => a - b);
+   els.sbtValSensitivity.innerHTML = `<thead><tr><th>情景</th><th>每股价值</th><th>安全边际</th></tr></thead><tbody>` +
+     assetScenarios.map(([label, scenario]) => {
+       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, scenario));
+       const value = row.asset_value && row.asset_value.per_share;
+       return `<tr class="${label === "当前资产" ? "sbt-val-base" : ""}"><td>${label}</td><td>${sbtValMoney(value, currency)}</td><td>${margin(value)}</td></tr>`;
+     }).join("") + rates.map((rate) => {
+       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, { capitalization_rate: rate }));
+       const value = row.epv && row.epv.per_share;
+       return `<tr class="${Math.abs(rate - assumptions.capitalization_rate) < .0001 ? "sbt-val-base" : ""}"><td>EPV ${(rate * 100).toFixed(1)}%</td><td>${sbtValMoney(value, currency)}</td><td>${margin(value)}</td></tr>`;
+     }).join("") + `</tbody>`;
+   const quoteDate = valuation.quote && valuation.quote.as_of ? sbtDateOnly(valuation.quote.as_of) : "—";
+   els.sbtValuationMeta.textContent = `财报截至 ${valuation.as_of || "—"} · 股价截至 ${quoteDate} · ${valuation.periods_used || 0} 年数据`;
+ }
+
+ function sbtRenderValuation(code, data) {
+   const valuation = data && data.valuation;
+   els.sbtValuationCard.classList.toggle("hidden", !valuation);
+   if (!valuation) return;
+   if (valuation.applicable === false) {
+     els.sbtValuationSummary.innerHTML = ""; els.sbtValSensitivity.innerHTML = "";
+     els.sbtValuationMessage.classList.remove("hidden");
+     els.sbtValuationMessage.textContent = valuation.reason || "当前模型不适用于该公司。";
+     els.sbtValuationDetails.classList.add("hidden"); return;
+   }
+   els.sbtValuationDetails.classList.remove("hidden");
+   const assumptions = sbtValuationAssumptions(code);
+   sbtSetValuationInputs(assumptions);
+   [els.sbtValReceivables, els.sbtValInventory, els.sbtValFixed, els.sbtValOther,
+     els.sbtValCapRate, els.sbtValTax].forEach((input) => { input.disabled = !sbtCanEdit(); });
+   els.sbtValSaveBtn.disabled = !sbtCanEdit() || !!sbtValuationSettingsError;
+   els.sbtValResetBtn.disabled = !sbtCanEdit() || !!sbtValuationSettingsError;
+   sbtRenderValuationCalculation(code, valuation, assumptions);
+ }
+
+ async function sbtSaveValuationAssumptions(reset) {
+   const code = els.sbtSelect.value, data = sbtStocks[code];
+   if (!code || !data || !data.valuation || !sbtCanEdit()) return;
+   const value = reset ? null : Object.assign(sbtValuationInputAssumptions(), {
+     updated_at: new Date().toISOString(), updated_by: userEmail(),
+   });
+   await sbtWriteValuationPatch(code, value);
+   if (els.sbtSelect.value === code) sbtRenderValuation(code, data);
+   setStatus(reset ? "已恢复默认估值参数。" : "估值参数已保存。", "success", 2500);
+ }
+
  async function sbtRenderDetail(code) {
-  if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
-  const d = await sbtLoadStock(code);
+   if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
+   const d = await sbtLoadStock(code);
+   if (els.sbtSelect.value !== code) return;
   if (!d) { els.sbtDetailCard.classList.add("hidden"); return; }
   els.sbtDetailCard.classList.remove("hidden");
   els.sbtDetailTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`;
   els.sbtGenerated.textContent = d.generated ? "生成时间: " + d.generated : "";
+  sbtRenderValuation(code, d);
 
   // Now that the name is known, enrich the dropdown option label.
   if (d.stock_name) {
@@ -4050,6 +4244,16 @@ function sbtWireEvents() {
      sbtChipCollapse(true);   // keep highlight
    });
    els.sbtAddBtn.onclick = sbtAddStock;
+   [els.sbtValReceivables, els.sbtValInventory, els.sbtValFixed, els.sbtValOther,
+     els.sbtValCapRate, els.sbtValTax].forEach((input) => input.addEventListener("input", () => {
+       const code = els.sbtSelect.value, data = sbtStocks[code];
+     if (data && data.valuation) {
+       try { sbtRenderValuationCalculation(code, data.valuation, sbtValuationInputAssumptions()); }
+       catch (e) { els.sbtValuationMessage.classList.remove("hidden"); els.sbtValuationMessage.textContent = e.message || String(e); }
+     }
+     }));
+   els.sbtValSaveBtn.onclick = () => sbtSaveValuationAssumptions(false).catch((e) => setStatus(e.message || String(e), "error"));
+   els.sbtValResetBtn.onclick = () => sbtSaveValuationAssumptions(true).catch((e) => setStatus(e.message || String(e), "error"));
  }
  
  // Read-only vs. owner: hide the write-oriented 设置 tab for non-owners (add /

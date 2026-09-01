@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=59" />
+  <link rel="stylesheet" href="style.css?v=60" />
 </head>
 <body>
   <header class="topbar">
@@ -659,6 +659,25 @@
             <div id="sbtChecks"></div>
             <div id="sbtGenerated" class="muted"></div>
             <div id="sbtLast7" class="muted"></div>
+            <section id="sbtValuationCard" class="sbt-valuation hidden">
+              <div class="sbt-valuation-head"><h3>价值投资估值</h3><span id="sbtValuationMeta" class="muted"></span></div>
+              <p class="muted mini">财报与 AV/EPV 在周一完整任务或手动强制更新时重算；周二至周五更新股价与安全边际。参数修改后在浏览器即时重算。</p>
+              <div id="sbtValuationMessage" class="sbt-gap-banner hidden"></div>
+              <div id="sbtValuationSummary" class="sbt-valuation-summary"></div>
+              <details id="sbtValuationDetails"><summary>参数与计算明细</summary>
+                <div class="sbt-valuation-inputs">
+                  <label>应收系数 %<input id="sbtValReceivables" type="number" min="0" max="150" step="1"></label>
+                  <label>存货系数 %<input id="sbtValInventory" type="number" min="0" max="150" step="1"></label>
+                  <label>固定资产系数 %<input id="sbtValFixed" type="number" min="0" max="150" step="1"></label>
+                  <label>其他资产系数 %<input id="sbtValOther" type="number" min="0" max="150" step="1"></label>
+                  <label>资本成本 %<input id="sbtValCapRate" type="number" min="1" max="50" step="0.5"></label>
+                  <label>缺省税率 %<input id="sbtValTax" type="number" min="0" max="60" step="1"></label>
+                </div>
+                <div class="form-actions"><button id="sbtValSaveBtn" type="button" class="btn btn-primary">保存该股参数</button><button id="sbtValResetBtn" type="button" class="btn btn-ghost">恢复默认</button></div>
+                <div id="sbtValuationAudit" class="sbt-valuation-audit"></div>
+              </details>
+              <h3>敏感性分析</h3><div class="table-wrap"><table id="sbtValSensitivity"></table></div>
+            </section>
             <h3>财务指标</h3>
             <div class="table-wrap sbt-scroll"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
             <h3>分红记录</h3>
@@ -2075,6 +2094,7 @@
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
-  <script src="app.js?v=87"></script>
+  <script src="valuation.js?v=1"></script>
+  <script src="app.js?v=88"></script>
 </body>
 </html>

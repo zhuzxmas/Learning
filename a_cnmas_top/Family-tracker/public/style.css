@@ -1679,6 +1679,32 @@ button.blog-tag:hover { background: #dbeafe; }
   background: #fef7e0; color: #7a5c00; border: 1px solid #f9d675;
   font-size: 13px; line-height: 1.4;
 }
+.sbt-valuation { margin: 16px 0; padding: 14px; border: 1px solid #cdddbf; border-radius: 12px; background: #f8fbf5; }
+.sbt-valuation-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sbt-valuation-head h3 { margin: 0; color: #1b3a12; }
+.sbt-valuation-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+.sbt-val-metric { display: flex; flex-direction: column; gap: 3px; padding: 10px; border: 1px solid #dce8d4; border-radius: 9px; background: #fff; }
+.sbt-val-metric span, .sbt-val-metric small { color: #6b7280; font-size: 12px; }
+.sbt-val-metric strong { color: #18380f; font-size: 18px; }
+.sbt-valuation details { margin-top: 10px; }
+.sbt-valuation summary { cursor: pointer; color: #255e18; font-weight: 700; }
+.sbt-valuation-inputs { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 9px; margin-top: 12px; }
+.sbt-valuation-inputs label { display: flex; flex-direction: column; gap: 4px; color: #4b5563; font-size: 12px; }
+.sbt-valuation-inputs input { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 7px; }
+.sbt-valuation-audit dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; font-size: 13px; }
+.sbt-valuation-audit dt { color: #6b7280; }
+.sbt-valuation-audit dd { margin: 0; }
+#sbtValSensitivity { font-size: 13px; }
+#sbtValSensitivity th, #sbtValSensitivity td { text-align: right; padding: 6px 10px; }
+#sbtValSensitivity th:first-child, #sbtValSensitivity td:first-child { text-align: left; }
+#sbtValSensitivity tr.sbt-val-base { background: #e7f3df; font-weight: 700; }
+@media (max-width: 700px) {
+  .sbt-valuation-summary { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .sbt-valuation-inputs { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
+}
+@media (max-width: 420px) {
+  .sbt-valuation-summary, .sbt-valuation-inputs { grid-template-columns: minmax(0, 1fr); }
+}
 
 .sbt-settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sbt-settings-hint { font-size: 12px; margin: 6px 0 10px; }

@@ -66,6 +66,141 @@ def select_eps_with_fallback(income_df):
     return out
 
 
+def numeric_series(frame, columns, index=None):
+    """Return the first available numeric column, preserving missing values."""
+    use_index = frame.index if index is None else index
+    out = pd.Series(index=use_index, dtype='float64')
+    for column in columns:
+        if column in frame.columns:
+            out = out.combine_first(pd.to_numeric(frame[column], errors='coerce').reindex(use_index))
+    return out
+
+
+def sum_numeric_series(frame, columns, index=None):
+    """Sum available columns, but keep periods with no source fields as NaN."""
+    use_index = frame.index if index is None else index
+    available = [numeric_series(frame, [column], use_index)
+                 for column in columns if column in frame.columns]
+    if not available:
+        return pd.Series(index=use_index, dtype='float64')
+    return pd.concat(available, axis=1).sum(axis=1, min_count=1)
+
+
+def valuation_rows_a(income_df, cashflow_df, balance_df):
+    """Standardized A-share annual valuation inputs, all money in 亿元."""
+    idx = income_df.index
+    rows = {
+        '估值_现金 亿元': numeric_series(balance_df, ['MONETARYFUNDS'], idx),
+        '估值_有价证券 亿元': sum_numeric_series(balance_df, [
+            'TRADE_FINASSET', 'TRADE_FINASSET_NOTFVTPL', 'DEBT_INVESTMENT', 'OTHER_DEBT_INVEST',
+            'OTHER_EQUITY_INVEST',
+        ], idx),
+        '估值_应收款项 亿元': numeric_series(balance_df, ['NOTE_ACCOUNTS_RECE'], idx)
+        .combine_first(sum_numeric_series(balance_df, [
+            'ACCOUNTS_RECE', 'NOTE_RECEIVABLE'], idx))
+        + numeric_series(balance_df, ['FINANCE_RECE'], idx).fillna(0),
+        '估值_存货 亿元': numeric_series(balance_df, ['INVENTORY'], idx),
+        '估值_固定资产 亿元': numeric_series(balance_df, ['FIXED_ASSET'], idx),
+        '估值_无形资产 亿元': numeric_series(balance_df, ['INTANGIBLE_ASSET'], idx),
+        '估值_商誉 亿元': numeric_series(balance_df, ['GOODWILL'], idx),
+        '估值_总负债 亿元': numeric_series(balance_df, ['TOTAL_LIABILITIES'], idx),
+        '估值_有息负债 亿元': sum_numeric_series(balance_df, [
+            'SHORT_LOAN', 'LONG_LOAN', 'BOND_PAYABLE', 'SHORT_BOND_PAYABLE',
+            'NONCURRENT_LIAB_1YEAR', 'LEASE_LIAB',
+        ], idx),
+        '估值_少数股东权益 亿元': numeric_series(balance_df, [
+            'MINORITY_INTEREST', 'MINORITY_EQUITY',
+        ], idx),
+        '估值_税前利润 亿元': numeric_series(income_df, ['TOTAL_PROFIT'], idx),
+        '估值_息税前利润 亿元': (
+            numeric_series(income_df, ['OPERATE_PROFIT'], idx)
+            - sum_numeric_series(income_df, [
+                'INVEST_INCOME', 'FAIRVALUE_CHANGE_INCOME',
+                'ASSET_DISPOSAL_INCOME', 'OTHER_INCOME'], idx).fillna(0)
+            + numeric_series(income_df, ['FINANCE_EXPENSE'], idx).fillna(0)
+        ),
+        '估值_所得税费用 亿元': numeric_series(income_df, ['INCOME_TAX'], idx),
+        '估值_折旧摊销 亿元': sum_numeric_series(cashflow_df, [
+            'FA_IR_DEPR', 'IA_AMORTIZE', 'LPE_AMORTIZE'], idx),
+        '估值_资本开支 亿元': numeric_series(cashflow_df, ['CONSTRUCT_LONG_ASSET'], idx),
+    }
+    result = pd.DataFrame(rows, index=idx).T / 100000000
+    optional_sources = {
+        '估值_有价证券 亿元': ['TRADE_FINASSET', 'TRADE_FINASSET_NOTFVTPL', 'DEBT_INVESTMENT', 'OTHER_DEBT_INVEST', 'OTHER_EQUITY_INVEST'],
+        '估值_无形资产 亿元': ['INTANGIBLE_ASSET'],
+        '估值_商誉 亿元': ['GOODWILL'],
+        '估值_少数股东权益 亿元': ['MINORITY_INTEREST', 'MINORITY_EQUITY'],
+    }
+    for label, sources in optional_sources.items():
+        if any(source in balance_df.columns or source in income_df.columns for source in sources):
+            result.loc[label] = result.loc[label].fillna(0)
+    org_types = (income_df['ORG_TYPE'].astype(str)
+                 if 'ORG_TYPE' in income_df.columns else pd.Series('', index=idx))
+    result.loc['估值_金融企业标记'] = org_types.str.contains('银行|保险|证券|券商').astype(float).reindex(idx)
+    return result
+
+
+def hk_item_series(frame, names, index):
+    """Return a HK statement item by trying common Chinese aliases."""
+    if not {'STD_ITEM_NAME', 'AMOUNT'}.issubset(frame.columns):
+        return pd.Series(index=index, dtype='float64')
+    selected = frame[frame['STD_ITEM_NAME'].isin(names)]
+    if selected.empty:
+        return pd.Series(index=index, dtype='float64')
+    values = pd.to_numeric(selected['AMOUNT'], errors='coerce')
+    if 'REPORT_DATE' in selected.columns:
+        periods = selected['REPORT_DATE'].astype(str).str[:10]
+        values = values.groupby(periods).first()
+        values.index = values.index.astype(str)
+        wanted = pd.Index([str(item)[:10] for item in index])
+        values = values.reindex(wanted)
+        values.index = index
+        return values
+    return values.groupby(selected.index).first().reindex(index)
+
+
+def valuation_rows_hk(income_df, balance_df, cashflow_df):
+    """Standardized HK annual valuation inputs, all money in 亿元."""
+    idx = income_df.index
+    item = lambda names: hk_item_series(balance_df, names, idx)
+    cash_item = lambda names: hk_item_series(cashflow_df, names, idx)
+    rows = {
+        '估值_现金 亿元': item(['现金及等价物', '现金及现金等价物']),
+        '估值_有价证券 亿元': item(['交易性金融资产', '证券投资', '金融资产']),
+        '估值_应收款项 亿元': item(['应收账款', '应收账款及票据', '应收款项']),
+        '估值_存货 亿元': item(['存货']),
+        '估值_固定资产 亿元': item(['固定资产', '物业、厂房及设备', '物业、厂房及设备合计']),
+        '估值_无形资产 亿元': item(['无形资产']),
+        '估值_商誉 亿元': item(['商誉']),
+        '估值_总负债 亿元': item(['总负债', '负债合计']),
+        '估值_有息负债 亿元': sum_numeric_series(pd.DataFrame({
+            str(i): item(names) for i, names in enumerate([
+                ['短期借款', '短期贷款'], ['长期借款', '长期贷款'],
+                ['应付债券', '债券'], ['一年内到期的非流动负债'],
+            ])
+        }), ['0', '1', '2', '3'], idx),
+        '估值_少数股东权益 亿元': item(['少数股东权益', '非控股权益']),
+        '估值_税前利润 亿元': numeric_series(income_df, [
+            'PRETAX_PROFIT', 'PROFIT_BEFORE_TAX', 'TOTAL_PROFIT'], idx),
+        '估值_息税前利润 亿元': numeric_series(income_df, [
+            'EBIT', 'PROFIT_BEFORE_INTEREST_TAX', 'OPERATE_PROFIT'], idx),
+        '估值_所得税费用 亿元': numeric_series(income_df, [
+            'INCOME_TAX', 'TAX_EXPENSE'], idx),
+        '估值_折旧摊销 亿元': cash_item(['折旧及摊销', '折旧与摊销', '折旧']),
+        '估值_资本开支 亿元': cash_item(['购建固定资产', '购买物业、厂房及设备']),
+    }
+    result = pd.DataFrame(rows, index=idx).T / 100000000
+    if 'DATE_TYPE_CODE' in income_df.columns:
+        result.loc['估值_年报标记'] = income_df['DATE_TYPE_CODE'].astype(str).eq('001').astype(float).reindex(idx)
+    if 'STD_ITEM_NAME' in balance_df.columns:
+        financial_items = ('客户存款', '吸收存款', '保险合同负债', '保户储金',
+                           '发放贷款及垫款', '客户贷款', '拆入资金', '卖出回购金融资产')
+        is_financial = balance_df['STD_ITEM_NAME'].astype(str).str.contains(
+            '|'.join(financial_items), regex=True).any()
+        result.loc['估值_金融企业标记'] = float(is_financial)
+    return result
+
+
 def calculate_fcf_with_direct_fallback(cashflow_df, balance_df):
     """Calculate A-share FCF, using direct cash flow where indirect is missing.
 
@@ -464,8 +599,9 @@ def report_from_Eas_Mon(url, proxies, stock_cn):
             'MONETARYFUNDS']/df_balance_sheet['SHARE_CAPITAL']
         stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
 
+        valuation_frame = valuation_rows_a(df_income_stock, df_cash_flow, df_balance_sheet).T
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
-                                   stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
+                                   stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y, valuation_frame], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
 
         notice_date_df = pd.DataFrame(
@@ -729,8 +865,9 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
             stock_0_TotalLiabilitiesNetMinorityInterest_y
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
 
+        valuation_frame = valuation_rows_hk(df_income_stock, df_balance_stock, cash_flow_df).T
         stock_output_y = pd.concat([stock_0_TotalRevenue_y, stock_0_TotalAssets_y, stock_0_EBIT_y, stock_0_CurrentAssets_y, stock_0_CurrentLiabilities_y, stock_0_CurrentAssets_vs_Liabilities_y, stock_0_Free_Cash_Flow, stock_0_TotalNonCurrentLiabilitiesNetMinorityInterest_y, stock_0_CurrentAssets_minus_TotalNonCurrentLiabilities_y, stock_0_OrdinarySharesNumber_y,
-                                   stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y], axis=1)
+                                   stock_0_UNASSIGN_RPOFIT_Total_y, stock_0_UNASSIGN_RPOFIT_y, stock_0_profit_margin_y, stock_0_profit_margin_increase_y, stock_0_BookValue_per_Share_y, stock_price_less_than_BookValue_ratio_y, stock_price_less_than_PE_ratio_y, stock_0_liquidation_value_per_share_y, stock_0_Cash_and_Cash_Equivalentsi_per_share_y, valuation_frame], axis=1)
         stock_output_y = stock_output_y.T.astype('float64').round(2)
         # HK STD_REPORT_DATE columns come as '2025-12-31 00:00:00'; truncate to
         # the plain 'YYYY-MM-DD' report period used everywhere downstream.
@@ -913,6 +1050,8 @@ def request_easmon_kline_with_retry(url, headers, proxies=None, warmup_url=None,
                 print('EasMon kline request permanently failed after {} attempts; skipping.'.format(
                     max_retries))
     return None
+
+
 
 
 def get_stock_price_Raw_Data_EasMon(stock_cn, proxies, limit_number='210'):
