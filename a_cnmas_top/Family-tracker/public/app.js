@@ -3821,17 +3821,17 @@ async function sbtRenderChipRank() {
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
-      `<td class="num">${escapeHtml(String(num(r.asset_value_per_share)))}</td>` +
-      `<td class="num">${escapeHtml(String(num(r.epv_per_share)))}</td>` +
-      `<td class="num">${escapeHtml(String(num(r.epv_minus_asset_value)))}</td>` +
-      `<td class="num strong">${pct(r.asset_margin_of_safety)}</td>` +
-      `<td class="num strong">${pct(r.epv_margin_of_safety)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +
       `<td class="sbt-c">${yn(r.b_profit)}</td>` +
       `<td class="sbt-c">${yn(r.b_liab)}</td>` +
-      `<td class="sbt-c">${yn(r.b_div)}</td>`;
+      `<td class="sbt-c">${yn(r.b_div)}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.asset_value_per_share)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.epv_per_share)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.epv_minus_asset_value)))}</td>` +
+      `<td class="num strong">${pct(r.asset_margin_of_safety)}</td>` +
+      `<td class="num strong">${pct(r.epv_margin_of_safety)}</td>`;
     tr.onclick = () => sbtChipExpandRow(tr, code);
     els.sbtChipRankBody.appendChild(tr);
   }
