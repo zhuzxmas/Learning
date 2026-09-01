@@ -936,6 +936,21 @@ def refresh_previous_valuation(old_output, quote):
     return result
 
 
+def valuation_ranking_fields(valuation):
+    """Flatten the six headline valuation metrics into a ranking row."""
+    valuation = valuation if isinstance(valuation, dict) else {}
+    asset_value = valuation.get('asset_value') or {}
+    epv = valuation.get('epv') or {}
+    comparison = valuation.get('comparison') or {}
+    return {
+        'asset_value_per_share': asset_value.get('per_share'),
+        'epv_per_share': epv.get('per_share'),
+        'epv_minus_asset_value': comparison.get('epv_minus_asset_value'),
+        'asset_margin_of_safety': comparison.get('asset_margin_of_safety'),
+        'epv_margin_of_safety': comparison.get('epv_margin_of_safety'),
+    }
+
+
 def load_existing_output(od, stock_cn):
     """Load and parse output/{code}.json once, returning None on failure."""
     try:
@@ -1508,6 +1523,7 @@ def main():
                                    price_source_error=price_source_error,
                                    valuation=valuation)
             payload = merge_with_existing(od, stock_cn, payload, old=old_output)
+            chip_rows[-1].update(valuation_ranking_fields(payload.get('valuation')))
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
                         content_type='application/json; charset=utf-8')
@@ -1624,6 +1640,7 @@ def main():
                                valuation=valuation)
         payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload, old=old_output)
+        chip_rows[-1].update(valuation_ranking_fields(payload.get('valuation')))
         od.put_text('output/{}.json'.format(stock_cn),
                     json.dumps(payload, ensure_ascii=False, indent=2),
                     content_type='application/json; charset=utf-8')

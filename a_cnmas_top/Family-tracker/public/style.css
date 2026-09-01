@@ -1784,12 +1784,20 @@ button.blog-tag:hover { background: #dbeafe; }
 }
 
 /* 筹码排行 table (合并 排行 + 汇总 + 行内筹码图) */
-#sbtChipRankTable { width: auto; min-width: 760px; }
+#sbtChipRankTable { width: auto; min-width: 1180px; }
 #sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; white-space: nowrap; }
 #sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; }
 #sbtChipRankTable th.sbt-c, #sbtChipRankTable td.sbt-c { text-align: center; }
 #sbtChipRankTable th.sbt-sortable { cursor: pointer; user-select: none; }
 #sbtChipRankTable th.sbt-sortable:hover { background: #eef1f5; }
+#sbtChipRankTable thead th:first-child,
+#sbtChipRankTable tbody tr.sbt-rank-row > td:first-child {
+  position: sticky; left: 0; z-index: 4; background: #fff;
+  box-shadow: 1px 0 0 #e5e7eb;
+}
+#sbtChipRankTable thead th:first-child { z-index: 5; background: #fafafa; }
+#sbtChipRankTable tbody tr.sbt-rank-row:hover > td:first-child { background: #f2f4f7; }
+#sbtChipRankTable tbody tr.sbt-rank-active > td:first-child { background: #e3f0ff; }
 .sbt-rank-row { cursor: pointer; }
 .sbt-rank-row:hover { background: #f2f4f7; }
 .sbt-rank-row.sbt-rank-active { background: #e3f0ff; }

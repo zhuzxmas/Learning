@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=61" />
+  <link rel="stylesheet" href="style.css?v=62" />
 </head>
 <body>
   <header class="topbar">
@@ -710,7 +710,12 @@
                 <thead><tr>
                   <th class="sbt-sortable" data-sort="stock">股票</th>
                   <th class="num sbt-sortable" data-sort="profit_ratio">获利比例</th>
-                  <th class="num sbt-sortable" data-sort="latest_close" id="sbtChipRankPriceTh">收盘价</th>
+                  <th class="num sbt-sortable" data-sort="latest_close" id="sbtChipRankPriceTh">当前股价</th>
+                  <th class="num" data-label="每股 AV">每股 AV</th>
+                  <th class="num" data-label="每股 EPV">每股 EPV</th>
+                  <th class="num" data-label="EPV−AV">EPV−AV</th>
+                  <th class="num sbt-sortable" data-sort="asset_margin_of_safety">AV 安全边际</th>
+                  <th class="num sbt-sortable" data-sort="epv_margin_of_safety">EPV 安全边际</th>
                   <th class="num sbt-sortable" data-sort="avg_cost">平均成本</th>
                   <th class="num">90%成本区间</th>
                   <th class="num">70%成本区间</th>
@@ -2108,6 +2113,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=91"></script>
+  <script src="app.js?v=92"></script>
 </body>
 </html>

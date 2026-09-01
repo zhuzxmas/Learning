@@ -3785,7 +3785,7 @@ async function sbtRenderChipRank() {
   if (els.sbtChipRankPriceTh) {
     let repDate = "";
     for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
-    els.sbtChipRankPriceTh.textContent = repDate ? `${repDate}收盘价` : "收盘价";
+    els.sbtChipRankPriceTh.textContent = repDate ? `${repDate}当前股价` : "当前股价";
   }
   // header sort arrows
   if (els.sbtChipRankTable) {
@@ -3800,7 +3800,7 @@ async function sbtRenderChipRank() {
       const c = "latest_close";
       let repDate = "";
       for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
-      const base = (repDate ? `${repDate}收盘价` : "收盘价");
+      const base = (repDate ? `${repDate}当前股价` : "当前股价");
       els.sbtChipRankPriceTh.setAttribute("data-label", base);
       els.sbtChipRankPriceTh.textContent = base + (c === sbtRankSort.col ? (sbtRankSort.dir === 1 ? " ▲" : " ▼") : "");
     }
@@ -3808,7 +3808,7 @@ async function sbtRenderChipRank() {
   if (!els.sbtChipRankBody) return;
   els.sbtChipRankBody.innerHTML = "";
   const pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
-  const num = (v) => (v == null ? "—" : v);
+  const num = (v) => (v == null ? "—" : Number(v).toFixed(2));
   const rng = (lo, hi) => (lo == null || hi == null) ? "—" : `${lo} ~ ${hi}`;
   const yn = (v) => v ? "✔" : "✘";
   for (const r of list) {
@@ -3821,6 +3821,11 @@ async function sbtRenderChipRank() {
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.asset_value_per_share)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.epv_per_share)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.epv_minus_asset_value)))}</td>` +
+      `<td class="num strong">${pct(r.asset_margin_of_safety)}</td>` +
+      `<td class="num strong">${pct(r.epv_margin_of_safety)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +

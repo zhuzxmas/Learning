@@ -3,7 +3,7 @@ import unittest
 import pandas as pd
 
 import z_Func
-from finance_batch_personal import build_valuation, VALUATION_ROWS
+from finance_batch_personal import build_valuation, valuation_ranking_fields, VALUATION_ROWS
 from valuation_engine import calculate
 
 
@@ -86,6 +86,15 @@ class ValuationEngineTests(unittest.TestCase):
         self.assertEqual(result['snapshot']['date'], '2026-06-30')
         self.assertEqual(result['asset_value']['per_share'], 7.2)
         self.assertEqual(result['epv']['normalized_ebit'], 50)
+
+    def test_ranking_fields_flatten_valuation_summary(self):
+        valuation = calculate(self.periods(), current_price=2)
+        fields = valuation_ranking_fields(valuation)
+        self.assertEqual(fields['asset_value_per_share'], 6.2)
+        self.assertEqual(fields['epv_per_share'], 4.2)
+        self.assertEqual(fields['epv_minus_asset_value'], -2.0)
+        self.assertAlmostEqual(fields['asset_margin_of_safety'], 0.677419)
+        self.assertAlmostEqual(fields['epv_margin_of_safety'], 0.52381)
 
     def test_a_share_statement_mapping_and_batch_units(self):
         income = pd.read_csv('00.600875_income.csv', index_col=0).T
