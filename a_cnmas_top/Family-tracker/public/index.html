@@ -661,7 +661,7 @@
             <div id="sbtLast7" class="muted"></div>
             <section id="sbtValuationCard" class="sbt-valuation hidden">
               <div class="sbt-valuation-head"><h3>价值投资估值</h3><span id="sbtValuationMeta" class="muted"></span></div>
-              <p class="muted mini">财报与 AV/EPV 在周一完整任务或手动强制更新时重算；周二至周五更新股价与安全边际。参数修改后在浏览器即时重算。</p>
+              <p class="muted mini">每股资产价值 AV 优先使用最新半年报资产负债；每股盈利能力价值 EPV 的正常化利润使用最近 7 个完整年度，现金、债务和股本使用最新半年报快照。周二至周五只更新股价与安全边际。</p>
               <div id="sbtValuationMessage" class="sbt-gap-banner hidden"></div>
               <div id="sbtValuationSummary" class="sbt-valuation-summary"></div>
               <details id="sbtValuationDetails"><summary>参数与计算明细</summary>
@@ -2094,7 +2094,7 @@
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
-  <script src="valuation.js?v=1"></script>
-  <script src="app.js?v=88"></script>
+  <script src="valuation.js?v=2"></script>
+  <script src="app.js?v=89"></script>
 </body>
 </html>

@@ -4,8 +4,8 @@
   else root.ValueInvesting = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const defaults = {
-    cash: 1, securities: 1, receivables: .85, inventory: .70,
-    fixed_assets: .50, intangibles: 0, goodwill: 0, other_assets: .50,
+    cash: 1, securities: 1, receivables: 1, inventory: 1,
+    fixed_assets: 1, intangibles: 0, goodwill: 0, other_assets: 1,
     capitalization_rate: .10, fallback_tax_rate: .25,
   };
   const number = (value) => value === null || value === undefined || value === ""
@@ -18,11 +18,12 @@
   };
   const round2 = (value) => value == null ? null : Math.round(value * 100) / 100;
 
-  function calculate(periods, overrides) {
+  function calculate(periods, overrides, snapshot) {
     const assumptions = Object.assign({}, defaults, overrides || {});
     const rows = Array.isArray(periods) ? periods.slice(0, 7) : [];
     if (!rows.length) return { complete: false, missing: ["annual_periods"] };
-    const latest = rows[0];
+    const latest = snapshot && typeof snapshot === "object" ? snapshot : rows[0];
+    const latestAnnual = rows[0];
     const requiredAsset = ["shares", "total_assets", "total_liabilities", "cash",
       "securities", "receivables", "inventory", "fixed_assets", "intangibles",
       "goodwill", "minority_interest"];
@@ -62,7 +63,7 @@
     });
     const margin = median(margins), taxRate = median(taxes) ?? assumptions.fallback_tax_rate;
     const normalizedDa = median(depreciation), capRate = number(assumptions.capitalization_rate);
-    const debt = number(latest.interest_bearing_debt), revenue = number(latest.revenue);
+    const debt = number(latest.interest_bearing_debt), revenue = number(latestAnnual.revenue);
     const epvMissing = [];
     [["shares", number(latest.shares)], ["revenue", revenue], ["normalized_ebit_margin", margin],
       ["capitalization_rate", capRate], ["cash", number(latest.cash)],

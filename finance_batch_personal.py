@@ -847,7 +847,22 @@ VALUATION_ROWS = {
 }
 
 
-def build_valuation(stock_output_yearly, quote=None, assumptions=None, stock_name=None):
+def _valuation_period(frame, column):
+    row = {'date': str(column)[:10]}
+    for key, label in VALUATION_ROWS.items():
+        value = None
+        if label in frame.index:
+            value = pd.to_numeric(frame.loc[label, column], errors='coerce')
+        row[key] = None if pd.isna(value) else float(value) * 100000000
+    shares_million = None
+    if '普通股数量 百万' in frame.index:
+        shares_million = pd.to_numeric(frame.loc['普通股数量 百万', column], errors='coerce')
+    row['shares'] = None if pd.isna(shares_million) else float(shares_million) * 1000000
+    return row
+
+
+def build_valuation(stock_output_yearly, quote=None, assumptions=None, stock_name=None,
+                    stock_output_interim=None):
     """Build an auditable valuation object from newest-first annual reports."""
     if stock_output_yearly is None or len(stock_output_yearly.columns) == 0:
         return None
@@ -855,23 +870,18 @@ def build_valuation(stock_output_yearly, quote=None, assumptions=None, stock_nam
         return None
     quote = quote or {}
     columns = sorted(stock_output_yearly.columns, key=lambda value: str(value), reverse=True)[:7]
-    periods = []
-    for column in columns:
-        row = {'date': str(column)[:10]}
-        for key, label in VALUATION_ROWS.items():
-            value = None
-            if label in stock_output_yearly.index:
-                value = pd.to_numeric(stock_output_yearly.loc[label, column], errors='coerce')
-            row[key] = None if pd.isna(value) else float(value) * 100000000
-        shares_million = None
-        if '普通股数量 百万' in stock_output_yearly.index:
-            shares_million = pd.to_numeric(
-                stock_output_yearly.loc['普通股数量 百万', column], errors='coerce')
-        row['shares'] = (None if pd.isna(shares_million)
-                         else float(shares_million) * 1000000)
-        periods.append(row)
+    periods = [_valuation_period(stock_output_yearly, column) for column in columns]
+    snapshot = periods[0]
+    snapshot_type = 'annual'
+    if stock_output_interim is not None and stock_output_interim.shape[1] > 0:
+        interim_columns = [column for column in stock_output_interim.columns
+                           if str(column).endswith('-06-30') and str(column) > str(columns[0])]
+        if interim_columns:
+            interim_column = sorted(interim_columns, key=lambda value: str(value), reverse=True)[0]
+            snapshot = _valuation_period(stock_output_interim, interim_column)
+            snapshot_type = 'interim'
     if quote.get('total_shares') and periods:
-        periods[0]['shares'] = quote['total_shares']
+        snapshot['shares'] = quote['total_shares']
     org_type = None
     if '估值_金融企业标记' in stock_output_yearly.index:
         marker = pd.to_numeric(stock_output_yearly.loc['估值_金融企业标记', columns[0]], errors='coerce')
@@ -882,8 +892,10 @@ def build_valuation(stock_output_yearly, quote=None, assumptions=None, stock_nam
     result = valuation_engine.calculate(
         periods, assumptions=assumptions, industry=quote.get('industry'), org_type=org_type,
         current_price=quote.get('current_price'),
-        currency=quote.get('currency', 'CNY'))
+        currency=quote.get('currency', 'CNY'), snapshot=snapshot)
     result['raw_periods'] = periods
+    result['snapshot'] = snapshot
+    result['snapshot_type'] = snapshot_type
     result['quote'] = quote
     result['model'] = 'graham-greenwald-av-epv-v1'
     return result
@@ -1488,7 +1500,8 @@ def main():
             })
             quote = latest_price_quote(stock_price_df, 'HKD')
             valuation = (refresh_previous_valuation(old_output, quote) if light_mode else
-                         build_valuation(stock_output_yearly, quote, stock_name=stock_name))
+                         build_valuation(stock_output_yearly, quote, stock_name=stock_name,
+                                         stock_output_interim=stock_output_seasonly))
             payload = build_output(stock, stock_cn, stock_name, checks,
                                    stock_output_combined, last_7_days, dividends_df,
                                    chip_distribution=chip_hk,
@@ -1601,7 +1614,8 @@ def main():
         })
         quote = latest_price_quote(stock_price_df, 'CNY')
         valuation = (refresh_previous_valuation(old_output, quote) if light_mode else
-                     build_valuation(stock_output_yearly, quote, stock_name=stock_name))
+                     build_valuation(stock_output_yearly, quote, stock_name=stock_name,
+                                     stock_output_interim=stock_output_Seasonly))
 
         payload = build_output(stock, stock_cn, stock_name, checks,
                                stock_output_combined, last_7_days, dividends_df,

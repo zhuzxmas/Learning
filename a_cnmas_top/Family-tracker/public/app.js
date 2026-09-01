@@ -3995,7 +3995,8 @@ async function sbtRenderChip(code) {
  }
 
  function sbtRenderValuationCalculation(code, valuation, assumptions) {
-   const result = ValueInvesting.calculate(valuation.raw_periods, assumptions);
+   const result = ValueInvesting.calculate(valuation.raw_periods, assumptions, valuation.snapshot);
+   const effectiveSnapshot = valuation.snapshot || (valuation.raw_periods && valuation.raw_periods[0]) || {};
    const currency = valuation.currency || (valuation.quote && valuation.quote.currency) || "CNY";
    const rawPrice = valuation.quote && valuation.quote.current_price;
    const price = rawPrice === null || rawPrice === undefined || rawPrice === "" ? null : Number(rawPrice);
@@ -4005,44 +4006,52 @@ async function sbtRenderChip(code) {
      `<strong>${value}</strong>${detail ? `<small>${detail}</small>` : ""}</div>`;
    const margin = (value) => price > 0 && value > 0 ? ((1 - price / value) * 100).toFixed(1) + "%" : "—";
    els.sbtValuationSummary.innerHTML =
-     metric("每股资产价值", sbtValMoney(av, currency), "安全边际 " + margin(av)) +
-     metric("每股盈利能力价值", sbtValMoney(epv, currency), "安全边际 " + margin(epv)) +
+     metric("每股资产价值 AV", sbtValMoney(av, currency), "安全边际 " + margin(av)) +
+     metric("每股盈利能力价值 EPV", sbtValMoney(epv, currency), "安全边际 " + margin(epv)) +
      metric("当前股价", sbtValMoney(price, currency), valuation.quote && valuation.quote.as_of ? sbtDateOnly(valuation.quote.as_of) : "") +
      metric("EPV - AV", sbtValMoney(epv != null && av != null ? epv - av : null, currency),
        epv != null && av != null ? (epv > av ? "可能存在竞争优势" : "资产盈利能力偏弱") : "");
    const missing = result.missing || [];
+   const negativeAv = av != null && av < 0
+     ? "当前 AV 为负：调整后资产小于总负债与少数股东权益之和；可在明细中核对资产系数。" : "";
    const warning = sbtValuationSettingsError ? "共享参数读取失败，当前显示默认值且禁止保存：" + sbtValuationSettingsError
-     : (missing.length ? "数据不完整，暂不能计算全部估值：" + missing.join("、") : "");
+     : (missing.length ? "数据不完整，暂不能计算全部估值：" + missing.join("、") : negativeAv);
    els.sbtValuationMessage.classList.toggle("hidden", !warning);
    els.sbtValuationMessage.textContent = warning;
    const epvRow = result.epv || {};
    const avRow = result.asset_value || {};
    els.sbtValuationAudit.innerHTML = `<dl>` +
-     `<dt>财报期间</dt><dd>${escapeHtml(String(valuation.as_of || "—"))}</dd>` +
+     `<dt>资产快照</dt><dd>${escapeHtml(String(effectiveSnapshot.date || valuation.as_of || "—"))}（${valuation.snapshot_type === "interim" ? "半年报" : "年报"}）</dd>` +
+     `<dt>盈利基准年报</dt><dd>${escapeHtml(String(valuation.as_of || "—"))}</dd>` +
      `<dt>正常化 EBIT 率</dt><dd>${epvRow.normalized_ebit_margin == null ? "—" : (epvRow.normalized_ebit_margin * 100).toFixed(2) + "%"}</dd>` +
      `<dt>有效税率</dt><dd>${epvRow.effective_tax_rate == null ? "—" : (epvRow.effective_tax_rate * 100).toFixed(2) + "%"}</dd>` +
      `<dt>正常化经营收益</dt><dd>${sbtValMoney(epvRow.normalized_operating_earnings, currency)}</dd>` +
      `<dt>维持性资本开支</dt><dd>${sbtValMoney(epvRow.maintenance_capex, currency)}（等于正常化折旧摊销）</dd>` +
+     `<dt>账面总资产</dt><dd>${sbtValMoney(effectiveSnapshot.total_assets, currency)}</dd>` +
      `<dt>调整后资产</dt><dd>${sbtValMoney(avRow.adjusted_assets, currency)}</dd>` +
+     `<dt>总负债</dt><dd>${sbtValMoney(effectiveSnapshot.total_liabilities, currency)}</dd>` +
+     `<dt>少数股东权益</dt><dd>${sbtValMoney(effectiveSnapshot.minority_interest, currency)}</dd>` +
+     `<dt>股东资产价值 AV</dt><dd>${sbtValMoney(avRow.equity_value, currency)}</dd>` +
      `<dt>资本成本</dt><dd>${(assumptions.capitalization_rate * 100).toFixed(1)}%</dd></dl>`;
    const assetScenarios = [
-     ["保守资产", { receivables: .75, inventory: .50, fixed_assets: .35, other_assets: .25 }],
-     ["当前资产", assumptions],
-     ["中性资产", { receivables: .90, inventory: .80, fixed_assets: .70, other_assets: .60 }],
+     ["清算情景", { receivables: .75, inventory: .50, fixed_assets: .35, other_assets: .25 }],
+     ["当前 AV 参数", assumptions],
+     ["调整净资产情景", { receivables: 1, inventory: 1, fixed_assets: 1, other_assets: 1 }],
    ];
    const rates = [...new Set([.08, assumptions.capitalization_rate, .10, .12])].sort((a, b) => a - b);
    els.sbtValSensitivity.innerHTML = `<thead><tr><th>情景</th><th>每股价值</th><th>安全边际</th></tr></thead><tbody>` +
      assetScenarios.map(([label, scenario]) => {
-       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, scenario));
+       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, scenario), valuation.snapshot);
        const value = row.asset_value && row.asset_value.per_share;
-       return `<tr class="${label === "当前资产" ? "sbt-val-base" : ""}"><td>${label}</td><td>${sbtValMoney(value, currency)}</td><td>${margin(value)}</td></tr>`;
+       return `<tr class="${label === "当前 AV 参数" ? "sbt-val-base" : ""}"><td>${label}</td><td>${sbtValMoney(value, currency)}</td><td>${margin(value)}</td></tr>`;
      }).join("") + rates.map((rate) => {
-       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, { capitalization_rate: rate }));
+       const row = ValueInvesting.calculate(valuation.raw_periods, Object.assign({}, assumptions, { capitalization_rate: rate }), valuation.snapshot);
        const value = row.epv && row.epv.per_share;
        return `<tr class="${Math.abs(rate - assumptions.capitalization_rate) < .0001 ? "sbt-val-base" : ""}"><td>EPV ${(rate * 100).toFixed(1)}%</td><td>${sbtValMoney(value, currency)}</td><td>${margin(value)}</td></tr>`;
      }).join("") + `</tbody>`;
    const quoteDate = valuation.quote && valuation.quote.as_of ? sbtDateOnly(valuation.quote.as_of) : "—";
-   els.sbtValuationMeta.textContent = `财报截至 ${valuation.as_of || "—"} · 股价截至 ${quoteDate} · ${valuation.periods_used || 0} 年数据`;
+   const snapshotDate = (valuation.snapshot && valuation.snapshot.date) || valuation.as_of || "—";
+   els.sbtValuationMeta.textContent = `资产截至 ${snapshotDate}（${valuation.snapshot_type === "interim" ? "半年报" : "年报"}） · 股价截至 ${quoteDate} · 盈利使用 ${valuation.periods_used || 0} 年年报`;
  }
 
  function sbtRenderValuation(code, data) {

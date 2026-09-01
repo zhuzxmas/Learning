@@ -9,12 +9,12 @@ import statistics
 DEFAULT_ASSUMPTIONS = {
     "cash": 1.0,
     "securities": 1.0,
-    "receivables": 0.85,
-    "inventory": 0.70,
-    "fixed_assets": 0.50,
+    "receivables": 1.0,
+    "inventory": 1.0,
+    "fixed_assets": 1.0,
     "intangibles": 0.0,
     "goodwill": 0.0,
-    "other_assets": 0.50,
+    "other_assets": 1.0,
     "capitalization_rate": 0.10,
     "fallback_tax_rate": 0.25,
 }
@@ -45,7 +45,7 @@ def is_financial_company(industry=None, org_type=None):
 
 
 def calculate(periods, assumptions=None, industry=None, org_type=None,
-              current_price=None, currency="CNY"):
+              current_price=None, currency="CNY", snapshot=None):
     """Calculate AV and EPV from newest-first annual periods.
 
     Monetary inputs use full currency units. Missing required inputs produce an
@@ -63,7 +63,8 @@ def calculate(periods, assumptions=None, industry=None, org_type=None,
     rows = [dict(row) for row in periods if isinstance(row, dict)]
     if not rows:
         return {"applicable": True, "complete": False, "missing": ["annual_periods"]}
-    latest = rows[0]
+    latest = dict(snapshot) if isinstance(snapshot, dict) else rows[0]
+    latest_annual = rows[0]
     missing = []
 
     def required(name):
@@ -138,7 +139,7 @@ def calculate(periods, assumptions=None, industry=None, org_type=None,
     if tax_rate is None:
         tax_rate = settings["fallback_tax_rate"]
     normalized_da = _median(depreciation)
-    latest_revenue = _number(latest.get("revenue"))
+    latest_revenue = _number(latest_annual.get("revenue"))
     cap_rate = _number(settings.get("capitalization_rate"))
     epv_missing = []
     for name, value in (("shares", shares), ("revenue", latest_revenue),
@@ -192,7 +193,8 @@ def calculate(periods, assumptions=None, industry=None, org_type=None,
         "complete": asset_value is not None and epv is not None,
         "currency": currency,
         "periods_used": len(annual),
-        "as_of": latest.get("date"),
+        "as_of": latest_annual.get("date"),
+        "snapshot_as_of": latest.get("date"),
         "industry": industry,
         "org_type": org_type,
         "missing": sorted(set(missing + epv_missing)),

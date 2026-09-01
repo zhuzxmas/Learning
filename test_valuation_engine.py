@@ -3,8 +3,11 @@ import unittest
 import pandas as pd
 
 import z_Func
-from finance_batch_personal import build_valuation
+from finance_batch_personal import build_valuation, VALUATION_ROWS
 from valuation_engine import calculate
+
+
+VALUATION_TEST_ROWS = dict(VALUATION_ROWS, shares='普通股数量 百万')
 
 
 class ValuationEngineTests(unittest.TestCase):
@@ -22,15 +25,15 @@ class ValuationEngineTests(unittest.TestCase):
     def test_asset_value_and_epv(self):
         result = calculate(self.periods(), current_price=2)
         self.assertTrue(result["complete"])
-        self.assertEqual(result["asset_value"]["adjusted_assets"], 595)
-        self.assertEqual(result["asset_value"]["equity_value"], 285)
-        self.assertEqual(result["asset_value"]["per_share"], 2.85)
+        self.assertEqual(result["asset_value"]["adjusted_assets"], 930)
+        self.assertEqual(result["asset_value"]["equity_value"], 620)
+        self.assertEqual(result["asset_value"]["per_share"], 6.2)
         self.assertEqual(result["epv"]["effective_tax_rate"], 0.2)
         self.assertEqual(result["epv"]["per_share"], 4.2)
 
     def test_custom_assumptions(self):
         result = calculate(self.periods(), {"fixed_assets": 1, "capitalization_rate": .2})
-        self.assertEqual(result["asset_value"]["per_share"], 4.85)
+        self.assertEqual(result["asset_value"]["per_share"], 6.2)
         self.assertEqual(result["epv"]["operating_value"], 200)
 
     def test_missing_is_not_zero(self):
@@ -50,6 +53,39 @@ class ValuationEngineTests(unittest.TestCase):
             row["income_tax"] = 100
         result = calculate(rows)
         self.assertEqual(result["epv"]["effective_tax_rate"], .25)
+
+    def test_interim_snapshot_updates_assets_not_normalized_revenue(self):
+        snapshot = dict(self.periods()[0], date='2026-06-30', cash=200, total_assets=1100,
+                        interest_bearing_debt=100, revenue=250)
+        result = calculate(self.periods(), snapshot=snapshot)
+        self.assertEqual(result['asset_value']['per_share'], 7.2)
+        self.assertEqual(result['epv']['normalized_ebit'], 50)
+        self.assertEqual(result['epv']['per_share'], 5.4)
+
+    def test_batch_selects_latest_half_year_snapshot(self):
+        annual = self.periods()
+        annual_frame = pd.DataFrame({
+            row['date']: {
+                label: (row.get(key) / 1e8 if key != 'shares' and row.get(key) is not None
+                        else row.get(key) / 1e6 if key == 'shares' else None)
+                for key, label in VALUATION_TEST_ROWS.items()
+            } for row in annual
+        })
+        interim = dict(annual[0], date='2026-06-30', cash=200, total_assets=1100,
+                       interest_bearing_debt=100, revenue=250)
+        interim_frame = pd.DataFrame({
+            interim['date']: {
+                label: (interim.get(key) / 1e8 if key != 'shares' and interim.get(key) is not None
+                        else interim.get(key) / 1e6 if key == 'shares' else None)
+                for key, label in VALUATION_TEST_ROWS.items()
+            }
+        })
+        result = build_valuation(annual_frame, {'currency': 'CNY'},
+                                 stock_output_interim=interim_frame)
+        self.assertEqual(result['snapshot_type'], 'interim')
+        self.assertEqual(result['snapshot']['date'], '2026-06-30')
+        self.assertEqual(result['asset_value']['per_share'], 7.2)
+        self.assertEqual(result['epv']['normalized_ebit'], 50)
 
     def test_a_share_statement_mapping_and_batch_units(self):
         income = pd.read_csv('00.600875_income.csv', index_col=0).T
