@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=60" />
+  <link rel="stylesheet" href="style.css?v=61" />
 </head>
 <body>
   <header class="topbar">
@@ -662,6 +662,18 @@
             <section id="sbtValuationCard" class="sbt-valuation hidden">
               <div class="sbt-valuation-head"><h3>价值投资估值</h3><span id="sbtValuationMeta" class="muted"></span></div>
               <p class="muted mini">每股资产价值 AV 优先使用最新半年报资产负债；每股盈利能力价值 EPV 的正常化利润使用最近 7 个完整年度，现金、债务和股本使用最新半年报快照。周二至周五只更新股价与安全边际。</p>
+              <details class="sbt-valuation-help">
+                <summary>AV / EPV 是什么？</summary>
+                <p><strong>AV（Asset Value，资产价值）</strong>：企业现有资产按保守的可实现或重置价值调整后，扣除负债和少数股东权益，得到的股东价值。重点回答：“这家公司的资产本身值多少钱？”</p>
+                <p><strong>EPV（Earnings Power Value，盈利能力价值）</strong>：假设企业不再增长，用正常化经营利润除以资本成本，再调整现金、证券、有息债务和少数股东权益。重点回答：“依靠当前可持续盈利能力，这家公司值多少钱？”</p>
+                <p><strong>一般解读：</strong></p>
+                <ul>
+                  <li><strong>EPV &gt; AV</strong>：资产创造了超额收益，可能存在竞争优势。</li>
+                  <li><strong>EPV ≈ AV</strong>：盈利能力接近资产重置成本。</li>
+                  <li><strong>EPV &lt; AV</strong>：资产盈利效率偏弱。</li>
+                  <li><strong>股价低于 AV 或 EPV</strong>：存在估值折价，但不等于必然值得投资。</li>
+                </ul>
+              </details>
               <div id="sbtValuationMessage" class="sbt-gap-banner hidden"></div>
               <div id="sbtValuationSummary" class="sbt-valuation-summary"></div>
               <details id="sbtValuationDetails"><summary>参数与计算明细</summary>
@@ -2095,6 +2107,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=89"></script>
+  <script src="app.js?v=90"></script>
 </body>
 </html>

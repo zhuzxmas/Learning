@@ -1688,6 +1688,10 @@ button.blog-tag:hover { background: #dbeafe; }
 .sbt-val-metric strong { color: #18380f; font-size: 18px; }
 .sbt-valuation details { margin-top: 10px; }
 .sbt-valuation summary { cursor: pointer; color: #255e18; font-weight: 700; }
+.sbt-valuation-help { margin: 10px 0 12px; padding: 9px 11px; border: 1px solid #dce8d4; border-radius: 9px; background: #fff; }
+.sbt-valuation-help p { margin: 8px 0; line-height: 1.65; }
+.sbt-valuation-help ul { margin: 6px 0 2px; padding-left: 22px; line-height: 1.65; }
+.sbt-valuation-help li { margin: 3px 0; }
 .sbt-valuation-inputs { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 9px; margin-top: 12px; }
 .sbt-valuation-inputs label { display: flex; flex-direction: column; gap: 4px; color: #4b5563; font-size: 12px; }
 .sbt-valuation-inputs input { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 7px; }

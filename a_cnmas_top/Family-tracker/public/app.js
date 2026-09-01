@@ -4445,10 +4445,12 @@ async function sbtAddStock() {
 }
 
 async function sbtUpdateStock(code, force) {
+  const name = sbtNameFor(sbtCodeToCn(code) || code);
+  const label = name ? `${code} ${name}` : code;
   const detail = force
     ? "将绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码；耗时较长。"
     : "将更新股价与筹码；财报按 14/28 天探测规则、分红按 21 天缓存规则检查。";
-  if (!confirm(`触发${force ? "强制" : "普通"}更新 ${code}？\n\n${detail}`)) return;
+  if (!confirm(`触发${force ? "强制" : "普通"}更新 ${label}？\n\n${detail}`)) return;
   try {
     const token = await getToken();
     const res = await fetch(SBT_TRIGGER_URL, {
