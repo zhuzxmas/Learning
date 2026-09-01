@@ -753,8 +753,9 @@
               <p class="muted sbt-settings-hint">
                 添加后可选择：<br>
                 · <b>更新</b>：更新股价与筹码；财报按 14/28 天探测规则、分红按 21 天缓存规则检查（通常更快）。<br>
-                · <b>强制更新</b>：绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码（耗时更长）。<br>
-                删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），<code>history/</code> 文件保留。<br>
+                 · <b>强制更新</b>：绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码（耗时更长）。<br>
+                 · <b>全部股票全量更新</b>：前往 <a href="https://github.com/zhuzxmas/Learning/actions/workflows/finance-quarterly.yml" target="_blank" rel="noopener noreferrer">GitHub Actions 的 finance-quarterly action</a>，点击 <b>Run workflow</b> 手动运行。不要填写单只股票参数；手动触发会更新清单内所有股票的财报、分红、AV/EPV、股价和筹码。<br>
+                 删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），<code>history/</code> 文件保留。<br>
                 ⚠️ 若某次行情源（腾讯）暂时不可用，该股详情页顶部会提示，股价相关指标将显示为上次数据，财务基本面不受影响。
               </p>
               <div id="sbtCodeList"></div>
@@ -2107,6 +2108,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=90"></script>
+  <script src="app.js?v=91"></script>
 </body>
 </html>
