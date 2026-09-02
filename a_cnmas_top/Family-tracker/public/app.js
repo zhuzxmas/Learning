@@ -369,6 +369,8 @@ const els = {
   sbtChipCard: $("sbtChipCard"),
   sbtChipHidden: $("sbtChipHidden"),
   sbtChipTitle: $("sbtChipTitle"),
+  sbtChipActions: $("sbtChipActions"), sbtChipUpdateBtn: $("sbtChipUpdateBtn"),
+  sbtChipForceBtn: $("sbtChipForceBtn"), sbtChipDeleteBtn: $("sbtChipDeleteBtn"),
   sbtChipMeta: $("sbtChipMeta"),
   sbtChipMetrics: $("sbtChipMetrics"),
   sbtChipSvg: $("sbtChipSvg"),
@@ -3690,6 +3692,7 @@ function sbtChipCollapse(keepHighlight) {
     els.sbtChipHidden.appendChild(els.sbtChipCard);
   }
   if (els.sbtChipHidden) els.sbtChipHidden.classList.add("hidden");
+  if (els.sbtChipActions) els.sbtChipActions.classList.add("hidden");
   if (expandTr) expandTr.remove();
   if (!keepHighlight) {
     sbtChipExpandCode = "";
@@ -3850,7 +3853,7 @@ async function sbtRenderChip(code) {
   const stockLink = document.createElement("button");
   stockLink.type = "button";
   stockLink.className = "sbt-chip-title-link";
-  stockLink.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`.trim();
+  stockLink.textContent = d.stock_cn || code;
   stockLink.title = "查看该股票详情";
   stockLink.onclick = async (e) => {
     e.stopPropagation();
@@ -3866,7 +3869,10 @@ async function sbtRenderChip(code) {
     }
   };
   els.sbtChipTitle.appendChild(stockLink);
-  els.sbtChipTitle.appendChild(document.createTextNode(" 筹码分布"));
+  if (els.sbtChipActions) {
+    els.sbtChipActions.dataset.stockCode = code;
+    els.sbtChipActions.classList.toggle("hidden", !sbtCanEdit());
+  }
 
   const cyq = d.chip_distribution;
   const hasData = cyq && Array.isArray(cyq.prices) && Array.isArray(cyq.weights)
@@ -4258,6 +4264,9 @@ function sbtWireEvents() {
      sbtChipCollapse(true);   // keep highlight
    });
    els.sbtAddBtn.onclick = sbtAddStock;
+   els.sbtChipUpdateBtn.onclick = (e) => { e.stopPropagation(); sbtRunChipAction("update").catch((err) => setStatus(err.message || String(err), "error")); };
+   els.sbtChipForceBtn.onclick = (e) => { e.stopPropagation(); sbtRunChipAction("force").catch((err) => setStatus(err.message || String(err), "error")); };
+   els.sbtChipDeleteBtn.onclick = (e) => { e.stopPropagation(); sbtRunChipAction("delete").catch((err) => setStatus(err.message || String(err), "error")); };
    [els.sbtValReceivables, els.sbtValInventory, els.sbtValFixed, els.sbtValOther,
      els.sbtValCapRate, els.sbtValTax].forEach((input) => input.addEventListener("input", () => {
        const code = els.sbtSelect.value, data = sbtStocks[code];
@@ -4384,24 +4393,33 @@ function sbtRenderSettings() {
     const span = document.createElement("span");
     span.className = "sbt-code-label";
     span.textContent = nm ? `${code}  ${nm}` : code;
-    const upd = document.createElement("button");
-    upd.type = "button"; upd.className = "btn btn-mini"; upd.textContent = "更新";
-    upd.title = "更新股价与筹码；财报/分红按缓存规则检查";
-    upd.onclick = () => sbtUpdateStock(code, false);
-    const forceUpd = document.createElement("button");
-    forceUpd.type = "button";
-    forceUpd.className = "btn btn-mini btn-warn sbt-force-update";
-    forceUpd.innerHTML = '<span class="sbt-force-long">强制更新</span>' +
-      '<span class="sbt-force-short" aria-hidden="true">强更</span>';
-    forceUpd.title = "绕过缓存，完整重新抓取财报、分红、股价与筹码";
-    forceUpd.onclick = () => sbtUpdateStock(code, true);
-    const del = document.createElement("button");
-    del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
-    del.onclick = () => sbtRemoveStock(code);
-    // Price history is now auto-fetched (Tencent) — no manual kline download.
-    row.appendChild(span); row.appendChild(upd); row.appendChild(forceUpd); row.appendChild(del);
+    row.appendChild(span);
+    if (!Object.prototype.hasOwnProperty.call(sbtFiles, cn)) {
+      const firstUpdate = document.createElement("button");
+      firstUpdate.type = "button"; firstUpdate.className = "btn btn-mini";
+      firstUpdate.textContent = "首次更新";
+      firstUpdate.title = "生成该股票的首份详情与筹码数据";
+      firstUpdate.onclick = () => sbtUpdateStock(code, false);
+      row.appendChild(firstUpdate);
+    }
     c.appendChild(row);
   }
+}
+
+async function sbtRawCodeFor(canonicalCode) {
+  if (!sbtCodes.length) {
+    const token = await getToken();
+    sbtCodes = await sbtReadStockList(token);
+  }
+  return sbtCodes.find((code) => sbtCodeToCn(code) === canonicalCode) || canonicalCode;
+}
+
+async function sbtRunChipAction(action) {
+  const canonicalCode = els.sbtChipActions && els.sbtChipActions.dataset.stockCode;
+  if (!canonicalCode || !sbtCanEdit()) return;
+  const code = await sbtRawCodeFor(canonicalCode);
+  if (action === "delete") await sbtRemoveStock(code);
+  else await sbtUpdateStock(code, action === "force");
 }
 
 // Copy a target kline filename to the clipboard (mobile-friendly).

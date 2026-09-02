@@ -1804,9 +1804,11 @@ button.blog-tag:hover { background: #dbeafe; }
 #sbtChipRankTable tr.sbt-chip-expand > td { padding: 0; background: #fafbfc; }
 tr.sbt-chip-expand #sbtChipCard { margin: 0; border-radius: 0; box-shadow: none; padding: 10px 12px 12px 2px; background: transparent; }
 .sbt-chip-head {
-  display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap;
   margin-bottom: 6px;
 }
+.sbt-chip-head h2 { margin: 0; }
+.sbt-chip-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sbt-chip-title-link {
   appearance: none; border: 0; padding: 0; margin: 0;
   background: transparent; color: #1a73e8;

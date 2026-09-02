@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=62" />
+  <link rel="stylesheet" href="style.css?v=63" />
 </head>
 <body>
   <header class="topbar">
@@ -734,6 +734,11 @@
             <div class="card" id="sbtChipCard">
               <div class="sbt-chip-head">
                 <h2 id="sbtChipTitle">筹码分布</h2>
+                <div id="sbtChipActions" class="sbt-chip-actions hidden">
+                  <button type="button" class="btn btn-mini" id="sbtChipUpdateBtn">更新</button>
+                  <button type="button" class="btn btn-mini btn-warn" id="sbtChipForceBtn">强更</button>
+                  <button type="button" class="btn btn-mini btn-danger" id="sbtChipDeleteBtn">删除</button>
+                </div>
               </div>
               <div id="sbtChipMeta" class="muted"></div>
               <div id="sbtChipMetrics" class="sbt-chip-metrics"></div>
@@ -756,9 +761,10 @@
                 <button type="button" class="btn btn-primary btn-mini" id="sbtAddBtn">＋ 添加股票</button>
               </div>
               <p class="muted sbt-settings-hint">
-                添加后可选择：<br>
+                添加股票后，在筹码排行中展开该股票即可操作：<br>
+                 · 新添加且尚无数据的股票，可先在本页点击<b>首次更新</b>生成详情。<br>
                 · <b>更新</b>：更新股价与筹码；财报按 14/28 天探测规则、分红按 21 天缓存规则检查（通常更快）。<br>
-                 · <b>强制更新</b>：绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码（耗时更长）。<br>
+                 · <b>强更</b>：绕过财报与分红缓存，完整重新抓取财报、分红、股价与筹码（耗时更长）。<br>
                  · <b>全部股票全量更新</b>：前往 <a href="https://github.com/zhuzxmas/Learning/actions/workflows/finance-quarterly.yml" target="_blank" rel="noopener noreferrer">GitHub Actions 的 finance-quarterly action</a>，点击 <b>Run workflow</b> 手动运行。不要填写单只股票参数；手动触发会更新清单内所有股票的财报、分红、AV/EPV、股价和筹码。<br>
                  删除会同时移除该股展示数据（<code>Apps/StockBatchTracker/output/</code>），<code>history/</code> 文件保留。<br>
                 ⚠️ 若某次行情源（腾讯）暂时不可用，该股详情页顶部会提示，股价相关指标将显示为上次数据，财务基本面不受影响。
@@ -2113,6 +2119,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=93"></script>
+  <script src="app.js?v=94"></script>
 </body>
 </html>
