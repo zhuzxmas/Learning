@@ -3833,7 +3833,7 @@ async function sbtRenderChipRank() {
       `<td class="num">${escapeHtml(String(num(r.asset_value_per_share)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.epv_per_share)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.epv_minus_asset_value)))}</td>` +
-      `<td class="num strong">${pct(r.asset_margin_of_safety)}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="num strong">${pct(r.epv_margin_of_safety)}</td>`;
     tr.onclick = () => sbtChipExpandRow(tr, code);
     els.sbtChipRankBody.appendChild(tr);
