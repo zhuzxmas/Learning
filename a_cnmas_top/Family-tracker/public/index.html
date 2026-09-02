@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=63" />
+  <link rel="stylesheet" href="style.css?v=64" />
 </head>
 <body>
   <header class="topbar">
@@ -664,19 +664,45 @@
               <p class="muted mini">每股资产价值 AV 优先使用最新半年报资产负债；每股盈利能力价值 EPV 的正常化利润使用最近 7 个完整年度，现金、债务和股本使用最新半年报快照。周二至周五只更新股价与安全边际。</p>
               <details class="sbt-valuation-help">
                 <summary>AV / EPV 是什么？</summary>
-                <p><strong>AV（Asset Value，资产价值）</strong>：企业现有资产按保守的可实现或重置价值调整后，扣除负债和少数股东权益，得到的股东价值。重点回答：“这家公司的资产本身值多少钱？”</p>
-                <p><strong>EPV（Earnings Power Value，盈利能力价值）</strong>：假设企业不再增长，用正常化经营利润除以资本成本，再调整现金、证券、有息债务和少数股东权益。重点回答：“依靠当前可持续盈利能力，这家公司值多少钱？”</p>
-                <p><strong>一般解读：</strong></p>
-                <ul>
-                  <li><strong>EPV &gt; AV</strong>：资产创造了超额收益，可能存在竞争优势。</li>
-                  <li><strong>EPV ≈ AV</strong>：盈利能力接近资产重置成本。</li>
-                  <li><strong>EPV &lt; AV</strong>：资产盈利效率偏弱。</li>
-                  <li><strong>股价低于 AV 或 EPV</strong>：存在估值折价，但不等于必然值得投资。</li>
-                </ul>
+                <div class="sbt-valuation-explain-grid">
+                  <section>
+                    <p><strong>AV（Asset Value，资产价值）</strong>：企业现有资产按保守的可实现或重置价值调整后，扣除负债和少数股东权益，得到的股东价值。重点回答：“这家公司的资产本身值多少钱？”</p>
+                    <pre class="sbt-valuation-formula">调整后资产 =
+现金 × 现金系数 + 有价证券 × 证券系数
++ 应收款项 × 应收系数 + 存货 × 存货系数
++ 固定资产 × 固定资产系数
++ 无形资产 × 无形资产系数 + 商誉 × 商誉系数
++ 其他资产 × 其他资产系数
+
+股东资产价值 AV = 调整后资产 - 总负债 - 少数股东权益
+每股 AV = 股东资产价值 AV ÷ 总股本</pre>
+                    <p>当前默认有形及其他资产按 100%计入，无形资产和商誉按 0%计入；“清算情景”采用更低的保守系数。</p>
+                  </section>
+                  <section>
+                    <p><strong>EPV（Earnings Power Value，盈利能力价值）</strong>：假设企业不再增长，用正常化经营利润除以资本成本，再调整现金、证券、有息债务和少数股东权益。重点回答：“依靠当前可持续盈利能力，这家公司值多少钱？”</p>
+                    <pre class="sbt-valuation-formula">正常化 EBIT 率 = 最近 7 个完整年度 EBIT 率中位数
+正常化 EBIT = 最新完整年度营业收入 × 正常化 EBIT 率
+正常化经营收益 = 正常化 EBIT ×（1 - 有效税率）
+经营业务 EPV = 正常化经营收益 ÷ 资本成本
+股东 EPV = 经营业务 EPV + 现金及证券
+           - 有息负债 - 少数股东权益
+每股 EPV = 股东 EPV ÷ 总股本</pre>
+                    <p><strong>EPV 与市盈率倍数的区别：</strong>市盈率通常使用当期或预测归母净利润；EPV 使用多年正常化经营收益，不为未来增长付费，并单独调整现金、证券、债务和少数股东权益。资本成本 10%看起来类似 10 倍，但不等于市盈率 10 倍。</p>
+                  </section>
+                  <section class="sbt-valuation-interpretation">
+                    <p><strong>一般解读：</strong></p>
+                    <ul>
+                      <li><strong>EPV &gt; AV</strong>：资产创造了超额收益，可能存在竞争优势。</li>
+                      <li><strong>EPV ≈ AV</strong>：盈利能力接近资产重置成本。</li>
+                      <li><strong>EPV &lt; AV</strong>：资产盈利效率偏弱。</li>
+                      <li><strong>股价低于 AV 或 EPV</strong>：存在估值折价，但不等于必然值得投资。</li>
+                    </ul>
+                  </section>
+                </div>
               </details>
               <div id="sbtValuationMessage" class="sbt-gap-banner hidden"></div>
               <div id="sbtValuationSummary" class="sbt-valuation-summary"></div>
-              <details id="sbtValuationDetails"><summary>参数与计算明细</summary>
+              <details id="sbtValuationDetails" class="sbt-valuation-box"><summary>参数与计算明细</summary>
                 <div class="sbt-valuation-inputs">
                   <label>应收系数 %<input id="sbtValReceivables" type="number" min="0" max="150" step="1"></label>
                   <label>存货系数 %<input id="sbtValInventory" type="number" min="0" max="150" step="1"></label>
@@ -688,7 +714,7 @@
                 <div class="form-actions"><button id="sbtValSaveBtn" type="button" class="btn btn-primary">保存该股参数</button><button id="sbtValResetBtn" type="button" class="btn btn-ghost">恢复默认</button></div>
                 <div id="sbtValuationAudit" class="sbt-valuation-audit"></div>
               </details>
-              <h3>敏感性分析</h3><div class="table-wrap"><table id="sbtValSensitivity"></table></div>
+              <div class="table-wrap sbt-val-sensitivity-wrap"><table id="sbtValSensitivity"></table></div>
             </section>
             <h3>财务指标</h3>
             <div class="table-wrap sbt-scroll"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
@@ -705,7 +731,7 @@
               <span id="sbtChipRankMeta" class="muted"></span>
               <button type="button" class="btn btn-ghost btn-mini" id="sbtReloadBtn">刷新</button>
             </div>
-            <div class="table-wrap">
+            <div class="table-wrap sbt-rank-scroll">
               <table id="sbtChipRankTable">
                 <thead><tr>
                   <th class="sbt-sortable" data-sort="stock">股票</th>
@@ -2119,6 +2145,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=95"></script>
+  <script src="app.js?v=96"></script>
 </body>
 </html>
