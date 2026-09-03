@@ -140,43 +140,53 @@ def valuation_rows_a(income_df, cashflow_df, balance_df):
     return result
 
 
-def hk_item_series(frame, names, index):
+def hk_item_series(frame, names, index, use_report_date=False):
     """Return a HK statement item by trying common Chinese aliases."""
     if not {'STD_ITEM_NAME', 'AMOUNT'}.issubset(frame.columns):
         return pd.Series(index=index, dtype='float64')
-    selected = frame[frame['STD_ITEM_NAME'].isin(names)]
-    if selected.empty:
-        return pd.Series(index=index, dtype='float64')
-    values = pd.to_numeric(selected['AMOUNT'], errors='coerce')
-    if 'REPORT_DATE' in selected.columns:
-        periods = selected['REPORT_DATE'].astype(str).str[:10]
-        values = values.groupby(periods).first()
-        values.index = values.index.astype(str)
-        wanted = pd.Index([str(item)[:10] for item in index])
-        values = values.reindex(wanted)
-        values.index = index
-        return values
-    return values.groupby(selected.index).first().reindex(index)
+    output = pd.Series(index=index, dtype='float64')
+    for name in names:
+        selected = frame[frame['STD_ITEM_NAME'] == name]
+        if selected.empty:
+            continue
+        values = pd.to_numeric(selected['AMOUNT'], errors='coerce')
+        if use_report_date and 'REPORT_DATE' in selected.columns:
+            periods = selected['REPORT_DATE'].astype(str).str[:10]
+            values = values.groupby(periods).first()
+            values.index = values.index.astype(str)
+            wanted = pd.Index([str(item)[:10] for item in index])
+            values = values.reindex(wanted)
+            values.index = index
+        else:
+            values = values.groupby(selected.index).first().reindex(index)
+        output = output.combine_first(values)
+    return output
 
 
 def valuation_rows_hk(income_df, balance_df, cashflow_df):
     """Standardized HK annual valuation inputs, all money in 亿元."""
     idx = income_df.index
     item = lambda names: hk_item_series(balance_df, names, idx)
-    cash_item = lambda names: hk_item_series(cashflow_df, names, idx)
+    cash_item = lambda names: hk_item_series(cashflow_df, names, idx, use_report_date=True)
     rows = {
         '估值_现金 亿元': item(['现金及等价物', '现金及现金等价物']),
-        '估值_有价证券 亿元': item(['交易性金融资产', '证券投资', '金融资产']),
-        '估值_应收款项 亿元': item(['应收账款', '应收账款及票据', '应收款项']),
-        '估值_存货 亿元': item(['存货']),
-        '估值_固定资产 亿元': item(['固定资产', '物业、厂房及设备', '物业、厂房及设备合计']),
+        '估值_有价证券 亿元': item(['交易性金融资产', '证券投资', '短期投资', '金融资产']),
+        '估值_应收款项 亿元': item([
+            '应收账款', '应收账款及票据', '应收款项',
+            '预付款按金及其他应收款', '预付款项',
+        ]),
+        '估值_存货 亿元': item(['存货', '库存']),
+        '估值_固定资产 亿元': item([
+            '固定资产', '物业、厂房及设备', '物业厂房及设备', '物业、厂房及设备合计',
+        ]),
         '估值_无形资产 亿元': item(['无形资产']),
         '估值_商誉 亿元': item(['商誉']),
         '估值_总负债 亿元': item(['总负债', '负债合计']),
         '估值_有息负债 亿元': sum_numeric_series(pd.DataFrame({
             str(i): item(names) for i, names in enumerate([
                 ['短期借款', '短期贷款'], ['长期借款', '长期贷款'],
-                ['应付债券', '债券'], ['一年内到期的非流动负债'],
+                ['应付债券', '债券', '可转换票据及债券'],
+                ['一年内到期的非流动负债', '应付票据(非流动)'],
             ])
         }), ['0', '1', '2', '3'], idx),
         '估值_少数股东权益 亿元': item(['少数股东权益', '非控股权益']),
@@ -185,11 +195,22 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
         '估值_息税前利润 亿元': numeric_series(income_df, [
             'EBIT', 'PROFIT_BEFORE_INTEREST_TAX', 'OPERATE_PROFIT'], idx),
         '估值_所得税费用 亿元': numeric_series(income_df, [
-            'INCOME_TAX', 'TAX_EXPENSE'], idx),
-        '估值_折旧摊销 亿元': cash_item(['折旧及摊销', '折旧与摊销', '折旧']),
+            'INCOME_TAX', 'TAX_EXPENSE'], idx).combine_first(
+                numeric_series(income_df, [
+                    'PRETAX_PROFIT', 'PROFIT_BEFORE_TAX', 'TOTAL_PROFIT'], idx)
+                * numeric_series(income_df, ['TAX_EBT'], idx) / 100),
+        '估值_折旧摊销 亿元': cash_item([
+            '折旧及摊销', '折旧与摊销', '加:折旧及摊销', '折旧',
+        ]),
         '估值_资本开支 亿元': cash_item(['购建固定资产', '购买物业、厂房及设备']),
     }
     result = pd.DataFrame(rows, index=idx).T / 100000000
+    # Some service businesses do not report inventory because it is genuinely
+    # immaterial. Preserve missing for companies that do publish an inventory
+    # line, but treat a completely absent line as a reported zero.
+    if ('STD_ITEM_NAME' in balance_df.columns and
+            not balance_df['STD_ITEM_NAME'].astype(str).isin(['存货', '库存']).any()):
+        result.loc['估值_存货 亿元'] = 0.0
     if 'DATE_TYPE_CODE' in income_df.columns:
         result.loc['估值_年报标记'] = income_df['DATE_TYPE_CODE'].astype(str).eq('001').astype(float).reindex(idx)
     if 'STD_ITEM_NAME' in balance_df.columns:
@@ -711,6 +732,10 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         df_income_stock = df_income_stock.set_index('STD_REPORT_DATE')
         df_balance_stock = df_balance_stock.set_index('STD_REPORT_DATE')
+        df_income_stock.index = pd.Index(
+            [str(value)[:10] for value in df_income_stock.index], name='STD_REPORT_DATE')
+        df_balance_stock.index = pd.Index(
+            [str(value)[:10] for value in df_balance_stock.index], name='STD_REPORT_DATE')
 
         # quarter_mapping_income = {
         #     '一季度': '-03-31',
@@ -795,6 +820,18 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         # 营运资本（Working Capital）: 资产负债表：= 流动资产 - 流动负债；
         # 营运资本的变化（ΔWC）= 本期营运资本 - 上期营运资本
         cash_flow_df = fetch_cashflow_data_HK(proxies=proxies, stock_hk=stock_hk)
+        # The HK cash-flow feed uses the publication REPORT_DATE, while the main
+        # statement index uses the fiscal STD_REPORT_DATE. Normalize cash flow to
+        # the fiscal period before joining FCF, D&A and capex.
+        if ('REPORT_DATE' in cash_flow_df.columns and
+                'REPORT_DATE' in df_income_stock.columns):
+            publication_to_period = {
+                str(publication)[:10]: str(period)[:10]
+                for period, publication in df_income_stock['REPORT_DATE'].items()
+            }
+            cash_flow_df = cash_flow_df.copy()
+            cash_flow_df['REPORT_DATE'] = cash_flow_df['REPORT_DATE'].astype(str).str[:10].map(
+                publication_to_period).fillna(cash_flow_df['REPORT_DATE'].astype(str).str[:10])
         df_Cash_Flow = calc_fcf_direct(cash_flow_df).sort_values(by='REPORT_DATE', ascending=False).reset_index(drop=True)
         df_Cash_Flow= df_Cash_Flow.set_index('REPORT_DATE')
         stock_0_Free_Cash_Flow = df_Cash_Flow['自由现金流 亿元']
@@ -829,8 +866,9 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         ############### 每股现金资产 #################
         stock_0_Cash_and_Cash_Equivalentsi_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/1000000)
         stock_0_Cash_and_Cash_Equivalentsi_y.name = '现金及等价物 百万'
-        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT']/100000000)\
-            /stock_0_TotalLiabilitiesNetMinorityInterest_y
+        stock_0_Cash_and_Cash_Equivalentsi_per_share_y = \
+            (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "现金及等价物"]['AMOUNT'] / 1000000) \
+            / stock_0_OrdinarySharesNumber_y
         stock_0_Cash_and_Cash_Equivalentsi_per_share_y.name = '每股现金资产'
 
         # 总账面价值
@@ -859,10 +897,11 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
 
         ### UNASSIGN_RPOFIT ###
         # 每股未分配利润，为历年累加
-        stock_0_UNASSIGN_RPOFIT_Total_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "储备"]['AMOUNT']/100000000)
+        stock_0_UNASSIGN_RPOFIT_Total_y = hk_item_series(
+            df_balance_stock, ['储备', '保留溢利(累计亏损)'], df_income_stock.index) / 100000000
         stock_0_UNASSIGN_RPOFIT_Total_y.name = '未分配利润累积 亿元'
-        stock_0_UNASSIGN_RPOFIT_y = stock_0_UNASSIGN_RPOFIT_Total_y / \
-            stock_0_TotalLiabilitiesNetMinorityInterest_y
+        stock_0_UNASSIGN_RPOFIT_y = (stock_0_UNASSIGN_RPOFIT_Total_y * 100) / \
+            stock_0_OrdinarySharesNumber_y
         stock_0_UNASSIGN_RPOFIT_y.name = '每股未分配利润累积'
 
         valuation_frame = valuation_rows_hk(df_income_stock, df_balance_stock, cash_flow_df).T

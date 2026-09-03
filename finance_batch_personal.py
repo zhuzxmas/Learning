@@ -150,7 +150,7 @@ def load_stock_list(od):
             v = r[code_idx].strip().replace(' ', '')
             if v:
                 codes.append(v)
-    return codes
+    return list(dict.fromkeys(codes))
 
 
 def find_history_name(history_names, stock, marker):
@@ -951,6 +951,73 @@ def valuation_ranking_fields(valuation):
     }
 
 
+def ranking_row_from_output(data):
+    """Rebuild one aggregate ranking row from a per-stock output JSON."""
+    if not isinstance(data, dict) or not data.get('stock_cn'):
+        return None
+    chip = data.get('chip_distribution') or {}
+    row = {
+        'stock_cn': data.get('stock_cn'), 'stock_name': data.get('stock_name'),
+        'profit_ratio': chip.get('profit_ratio'), 'latest_close': chip.get('latest_close'),
+        'avg_cost': chip.get('avg_cost'), 'cost_90_low': chip.get('cost_90_low'),
+        'cost_90_high': chip.get('cost_90_high'), 'cost_70_low': chip.get('cost_70_low'),
+        'cost_70_high': chip.get('cost_70_high'), 'as_of': chip.get('as_of'),
+    }
+    row.update(valuation_ranking_fields(data.get('valuation')))
+    return row
+
+
+def canonical_stock_key(value):
+    """Normalize raw/list/summary/output stock codes for aggregate joins."""
+    text = str(value or '').strip().upper()
+    if text.startswith('H') and text[1:].isdigit():
+        return text[1:].zfill(5) + '.HK'
+    if text.endswith('.SS'):
+        return text[:-3].zfill(6) + '.SH'
+    if text.endswith('.SZ'):
+        return text[:-3].zfill(6) + '.SZ'
+    if text.endswith('.SH') or text.endswith('.HK'):
+        return text
+    if text.isdigit():
+        code = text.zfill(6)
+        return code + ('.SH' if code.startswith('6') else '.SZ')
+    return text
+
+
+def recover_aggregate_rows(od, known_codes, allowed_codes=None):
+    """Recover aggregate rows missing after a previously truncated partial run."""
+    rows = []
+    known_codes = {canonical_stock_key(code) for code in known_codes}
+    allowed_codes = ({canonical_stock_key(code) for code in allowed_codes}
+                     if allowed_codes is not None else None)
+    try:
+        for item in od.list_children('output'):
+            name = item.get('name', '')
+            if name.startswith('_') or not name.lower().endswith('.json'):
+                continue
+            code = canonical_stock_key(name[:-5])
+            if code in known_codes or (allowed_codes is not None and code not in allowed_codes):
+                continue
+            data = load_existing_output(od, code)
+            row = ranking_row_from_output(data)
+            if row:
+                rows.append((data, row))
+    except Exception as exc:  # noqa: BLE001
+        print('WARN: could not recover aggregate rows from output JSON files ({}).\n'.format(exc))
+    return rows
+
+
+def merge_canonical_rows(rows, key_getter, allowed_codes):
+    """Deduplicate aggregate rows by canonical code; later/fresh rows win."""
+    allowed = {canonical_stock_key(code) for code in allowed_codes}
+    merged = {}
+    for row in rows:
+        key = canonical_stock_key(key_getter(row))
+        if key in allowed:
+            merged[key] = row
+    return list(merged.values())
+
+
 def load_existing_output(od, stock_cn):
     """Load and parse output/{code}.json once, returning None on failure."""
     try:
@@ -1331,6 +1398,7 @@ def main():
 
     stock_code = load_stock_list(od)
     print('Loaded {} stock codes from stock_list.csv.\n'.format(len(stock_code)))
+    configured_stock_codes = stock_code[:]
 
     # Optional test filters:
     #   STOCK_ONLY=603259,000858  -> only these raw codes
@@ -1524,6 +1592,10 @@ def main():
                                    valuation=valuation)
             payload = merge_with_existing(od, stock_cn, payload, old=old_output)
             chip_rows[-1].update(valuation_ranking_fields(payload.get('valuation')))
+            if canonical_stock_key(code) not in {
+                    canonical_stock_key(item) for item in load_stock_list(od)}:
+                print('Stock {} was removed during this run; skipping output write.\n'.format(stock_cn))
+                continue
             od.put_text('output/{}.json'.format(stock_cn),
                         json.dumps(payload, ensure_ascii=False, indent=2),
                         content_type='application/json; charset=utf-8')
@@ -1641,6 +1713,10 @@ def main():
         payload['price_range_gaps'] = price_range_gaps
         payload = merge_with_existing(od, stock_cn, payload, old=old_output)
         chip_rows[-1].update(valuation_ranking_fields(payload.get('valuation')))
+        if canonical_stock_key(code) not in {
+                canonical_stock_key(item) for item in load_stock_list(od)}:
+            print('Stock {} was removed during this run; skipping output write.\n'.format(stock_cn))
+            continue
         od.put_text('output/{}.json'.format(stock_cn),
                     json.dumps(payload, ensure_ascii=False, indent=2),
                     content_type='application/json; charset=utf-8')
@@ -1649,14 +1725,23 @@ def main():
         time.sleep(random.uniform(1, 3) if light_mode else random.uniform(7, 13))
 
     # --- summary ---
+    # Membership may have changed while a long batch was running. Re-read the
+    # authoritative list before rebuilding aggregates so removed stocks vanish
+    # even if their calculations completed earlier in this run.
+    configured_stock_codes = load_stock_list(od)
     summary_cols = ['Stock Number', '利润表现好', '流动负债不高', '分红多']
 
     def _summary_key(row):
         # 'Stock Number' looks like '{iii}--{stock}-{name}', stock e.g. 600875.ss
         sn = str(row.get('Stock Number', '') if isinstance(row, dict) else row[0])
-        return sn.split('--', 1)[-1].split('-', 1)[0]
+        return canonical_stock_key(sn.split('--', 1)[-1].split('-', 1)[0])
 
     new_rows = [dict(zip(summary_cols, r)) for r in summary_rows]
+    # Read existing per-stock outputs once. Summary and ranking recover
+    # independently because either aggregate may be more complete than the other.
+    allowed_aggregate_codes = {canonical_stock_key(code) for code in configured_stock_codes}
+    aggregate_recovery_pairs = recover_aggregate_rows(
+        od, set(), configured_stock_codes)
 
     if partial_run:
         # Merge: keep existing rows for stocks we did NOT touch this run, then
@@ -1668,15 +1753,30 @@ def main():
             try:
                 touched = {_summary_key(r) for r in new_rows}
                 for r in json.loads(existing.decode('utf-8')):
-                    if _summary_key(r) not in touched:
+                    key = _summary_key(r)
+                    if key in allowed_aggregate_codes and key not in touched:
                         kept.append(r)
             except Exception as e:  # noqa: BLE001
                 print('WARN: could not merge existing _summary.json ({}); '
                       'writing only this run\'s rows.\n'.format(e))
-        merged = kept + new_rows
-        summary_df = pd.DataFrame(merged, columns=summary_cols)
+        base_summary = kept + new_rows
     else:
-        summary_df = pd.DataFrame(summary_rows, columns=summary_cols)
+        base_summary = new_rows
+
+    # Full runs can also skip a stock after a transient report error. Recover
+    # every output JSON not represented by a fresh row so aggregates never
+    # shrink merely because one run was incomplete.
+    known = {_summary_key(row) for row in base_summary}
+    recovered_summary = [{
+        'Stock Number': '0--{}-{}'.format(data.get('stock', data.get('stock_cn', '')), data.get('stock_name', '')),
+        '利润表现好': str(bool((data.get('checks') or {}).get('profit', {}).get('pass'))),
+        '流动负债不高': str(bool((data.get('checks') or {}).get('liabilities', {}).get('pass'))),
+        '分红多': str(bool((data.get('checks') or {}).get('dividends', {}).get('pass'))),
+    } for data, row in aggregate_recovery_pairs
+      if canonical_stock_key(row.get('stock_cn')) not in known]
+    merged_summary = merge_canonical_rows(
+        recovered_summary + base_summary, _summary_key, configured_stock_codes)
+    summary_df = pd.DataFrame(merged_summary, columns=summary_cols)
 
     if len(summary_df) > 0:
         summary_df = summary_df.sort_values(
@@ -1690,20 +1790,26 @@ def main():
     # Same partial-run merge as _summary.json: keep untouched stocks' rows and
     # replace only the ones this run computed (keyed by stock_cn).
     if partial_run:
-        touched = {r['stock_cn'] for r in chip_rows}
+        touched = {canonical_stock_key(r['stock_cn']) for r in chip_rows}
         existing_cr = od.get_bytes('output/_chip_ranking.json')
         kept_cr = []
         if existing_cr:
             try:
                 for r in json.loads(existing_cr.decode('utf-8')):
-                    if r.get('stock_cn') not in touched:
+                    key = canonical_stock_key(r.get('stock_cn'))
+                    if key in allowed_aggregate_codes and key not in touched:
                         kept_cr.append(r)
             except Exception as e:  # noqa: BLE001
                 print('WARN: could not merge existing _chip_ranking.json ({}); '
                       'writing only this run\'s rows.\n'.format(e))
-        chip_ranking = kept_cr + chip_rows
+        base_ranking = kept_cr + chip_rows
     else:
-        chip_ranking = chip_rows
+        base_ranking = chip_rows
+    known_codes = {canonical_stock_key(row.get('stock_cn')) for row in base_ranking}
+    recovered = [row for _, row in aggregate_recovery_pairs
+                 if canonical_stock_key(row.get('stock_cn')) not in known_codes]
+    chip_ranking = merge_canonical_rows(
+        recovered + base_ranking, lambda row: row.get('stock_cn'), configured_stock_codes)
     od.put_text('output/_chip_ranking.json',
                 json.dumps(chip_ranking, ensure_ascii=False),
                 content_type='application/json; charset=utf-8')

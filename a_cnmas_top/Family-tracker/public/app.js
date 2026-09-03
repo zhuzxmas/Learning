@@ -3551,6 +3551,7 @@ async function sbtWriteValuationPatch(code, value) {
   setStatus("正在载入股票基本面数据…", "info");
   const token = await getToken();
   await sbtLoadValuationSettings(token);
+  const configuredCodes = new Set((await sbtReadStockList(token)).map(sbtCodeToCn).filter(Boolean));
 
    // Summary (optional; the per-stock files are the source of truth).
    sbtSummary = (await sbtReadJson(token, "output/_summary.json")) || [];
@@ -3563,6 +3564,7 @@ async function sbtWriteValuationPatch(code, value) {
   for (const f of files) {
     if (/^_/.test(f.name)) continue;             // skip _summary.json etc.
     const cn = f.name.replace(/\.json$/i, "");
+    if (!configuredCodes.has(cn)) continue;
     sbtFiles[cn] = { name: f.name, lastModified: f.lastModifiedDateTime || "" };
   }
   if (force) sbtStocks = {};                      // drop in-memory cache on manual refresh
@@ -4325,7 +4327,7 @@ function sbtKlineUrl(raw) {
 }
 
 // Read stock_list.csv -> array of raw code strings (BOM/header tolerant).
- async function sbtReadStockList(token) {
+async function sbtReadStockList(token) {
    await sbtResolveFolder(token);
    const url = sbtChildUrl("stock_list.csv", ":/content");
   const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
@@ -4345,8 +4347,30 @@ function sbtKlineUrl(raw) {
   return codes;
 }
 
+async function sbtReadStockListState(token) {
+  await sbtResolveFolder(token);
+  const url = sbtChildUrl("stock_list.csv", ":/content");
+  const res = await fetch(url, { cache: "no-store", headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { codes: [], etag: null };
+  if (!res.ok) throw new Error("读取 stock_list.csv 失败：" + res.status);
+  let text = (await res.text()).replace(/^\ufeff/, "");
+  const codes = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    .map((line) => line.split(",")[0].replace(/^"|"$/g, "").trim())
+    .filter((value) => value && !/^title$/i.test(value))
+    .map((value) => value.replace(/\s/g, ""));
+  let etag = res.headers.get("ETag");
+  if (!etag) {
+    const meta = await fetch(sbtChildUrl("stock_list.csv", "?$select=eTag"), {
+      cache: "no-store", headers: { Authorization: "Bearer " + token },
+    });
+    if (meta.ok) { const item = await meta.json(); etag = item.eTag || null; }
+  }
+  if (!etag) throw new Error("无法读取股票清单版本，请稍后重试。");
+  return { codes, etag };
+}
+
 // Write the code array back as CSV (header + one code per line).
- async function sbtWriteStockList(token, codes) {
+async function sbtWriteStockList(token, codes) {
    await sbtResolveFolder(token);
    const url = sbtChildUrl("stock_list.csv", ":/content");
   const body = '"Title","Modified"\n' + codes.map((c) => `${c},`).join("\n") + "\n";
@@ -4356,6 +4380,23 @@ function sbtKlineUrl(raw) {
     body,
   });
   if (!res.ok) throw new Error("写入 stock_list.csv 失败：" + res.status + " " + (await res.text()));
+}
+
+async function sbtMutateStockList(token, mutate) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const state = await sbtReadStockListState(token);
+    const next = mutate(state.codes.slice());
+    const body = '"Title","Modified"\n' + next.map((code) => `${code},`).join("\n") + "\n";
+    const res = await fetch(sbtChildUrl("stock_list.csv", ":/content"), {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "text/csv", "If-Match": state.etag },
+      body,
+    });
+    if (res.ok) return next;
+    if (res.status === 409 || res.status === 412) continue;
+    throw new Error("写入 stock_list.csv 失败：" + res.status + " " + (await res.text()));
+  }
+  throw new Error("股票清单发生并发冲突，请重试。");
 }
 
 // Delete a file under the StockBatchTracker folder (ignore 404).
@@ -4457,8 +4498,9 @@ async function sbtAddStock() {
   if (sbtCodes.includes(code)) { setStatus("该股票已在清单中。", "warn"); return; }
   try {
     const token = await getToken();
-    const next = sbtCodes.concat([code]);
-    await sbtWriteStockList(token, next);
+    const next = await sbtMutateStockList(token, (remote) =>
+      remote.some((item) => sbtCodeToCn(item) === sbtCodeToCn(code))
+        ? remote : remote.concat([code]));
     sbtCodes = next;
     sbtRenderSettings();
     setStatus(`已加入清单：${code}。点该行「更新」即可触发个股批处理（股价自动获取）。`, "success", 8000);
@@ -4499,8 +4541,9 @@ async function sbtRemoveStock(code) {
   if (!confirm(`确定删除 ${code}？将从清单移除，并删除其展示数据。`)) return;
   try {
     const token = await getToken();
-    const next = sbtCodes.filter((c) => c !== code);
-    await sbtWriteStockList(token, next);
+    const canonical = sbtCodeToCn(code);
+    const next = await sbtMutateStockList(token, (remote) =>
+      remote.filter((item) => sbtCodeToCn(item) !== canonical));
     sbtCodes = next;
     const cn = sbtCodeToCn(code);
     if (cn) {

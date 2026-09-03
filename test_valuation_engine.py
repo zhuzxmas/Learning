@@ -3,7 +3,10 @@ import unittest
 import pandas as pd
 
 import z_Func
-from finance_batch_personal import build_valuation, valuation_ranking_fields, VALUATION_ROWS
+from finance_batch_personal import (build_valuation, canonical_stock_key,
+                                    load_stock_list, ranking_row_from_output,
+                                    recover_aggregate_rows, merge_canonical_rows,
+                                    valuation_ranking_fields, VALUATION_ROWS)
 from valuation_engine import calculate
 
 
@@ -95,6 +98,96 @@ class ValuationEngineTests(unittest.TestCase):
         self.assertEqual(fields['epv_minus_asset_value'], -2.0)
         self.assertAlmostEqual(fields['asset_margin_of_safety'], 0.677419)
         self.assertAlmostEqual(fields['epv_margin_of_safety'], 0.52381)
+
+    def test_aggregate_code_normalization(self):
+        self.assertEqual(canonical_stock_key('600875.ss'), '600875.SH')
+        self.assertEqual(canonical_stock_key('H09988'), '09988.HK')
+        row = ranking_row_from_output({
+            'stock_cn': '600104.SH', 'stock_name': '上汽集团',
+            'chip_distribution': {'latest_close': 10.49, 'profit_ratio': .2},
+            'valuation': calculate(self.periods(), current_price=2),
+        })
+        self.assertEqual(row['stock_cn'], '600104.SH')
+        self.assertEqual(row['asset_value_per_share'], 6.2)
+
+    def test_hk_alibaba_item_aliases(self):
+        periods = pd.Index(['2025-12-31'])
+        income = pd.DataFrame({
+            'OPERATE_INCOME': [1000e8], 'OPERATE_PROFIT': [50e8],
+            'PRETAX_PROFIT': [60e8], 'TAX_EBT': [20],
+            'DATE_TYPE_CODE': ['001'],
+        }, index=periods)
+        balance = pd.DataFrame([
+            ['2026-03-31', '现金及等价物', 100e8],
+            ['2026-03-31', '短期投资', 50e8],
+            ['2026-03-31', '预付款按金及其他应收款', 30e8],
+            ['2026-03-31', '物业厂房及设备', 40e8],
+            ['2026-03-31', '总负债', 80e8],
+            ['2026-03-31', '少数股东权益', 5e8],
+            ['2026-03-31', '可转换票据及债券', 7e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'], index=['2025-12-31'] * 7)
+        cashflow = pd.DataFrame([
+            ['2025-12-31', '加:折旧及摊销', 8e8],
+            ['2025-12-31', '购建固定资产', 9e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'])
+        rows = z_Func.valuation_rows_hk(income, balance, cashflow)
+        self.assertEqual(rows.loc['估值_应收款项 亿元', '2025-12-31'], 30)
+        self.assertEqual(rows.loc['估值_有价证券 亿元', '2025-12-31'], 50)
+        self.assertEqual(rows.loc['估值_存货 亿元', '2025-12-31'], 0)
+        self.assertEqual(rows.loc['估值_固定资产 亿元', '2025-12-31'], 40)
+        self.assertEqual(rows.loc['估值_所得税费用 亿元', '2025-12-31'], 12)
+        self.assertEqual(rows.loc['估值_折旧摊销 亿元', '2025-12-31'], 8)
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-12-31'], 7)
+
+    def test_stock_list_remains_authoritative(self):
+        class FakeDrive:
+            def get_text(self, path):
+                if path == 'stock_list.csv':
+                    return '"Title","Modified"\nH09988,\n'
+                return None
+
+        drive = FakeDrive()
+        codes = load_stock_list(drive)
+        self.assertEqual(codes, ['H09988'])
+
+    def test_aggregate_recovers_from_per_stock_outputs(self):
+        outputs = {
+            '600104.SH': {
+                'stock_cn': '600104.SH', 'stock_name': '上汽集团',
+                'chip_distribution': {'latest_close': 10.49, 'profit_ratio': .2},
+                'valuation': calculate(self.periods(), current_price=2),
+            },
+            '09988.HK': {
+                'stock_cn': '09988.HK', 'stock_name': '阿里巴巴-W',
+                'chip_distribution': {'latest_close': 107.5, 'profit_ratio': .3},
+                'valuation': calculate(self.periods(), current_price=2),
+            },
+        }
+
+        class FakeDrive:
+            def list_children(self, path):
+                return [{'name': code + '.json'} for code in outputs]
+
+            def get_text(self, path):
+                code = path.removeprefix('output/').removesuffix('.json')
+                return __import__('json').dumps(outputs[code])
+
+        recovered = recover_aggregate_rows(FakeDrive(), {'600104.SH'})
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0][1]['stock_cn'], '09988.HK')
+        self.assertEqual(recovered[0][1]['asset_value_per_share'], 6.2)
+        allowed = recover_aggregate_rows(FakeDrive(), set(), {'600104.SH'})
+        self.assertEqual([row['stock_cn'] for _, row in allowed], ['600104.SH'])
+
+    def test_canonical_aggregate_merge_filters_and_fresh_wins(self):
+        rows = [
+            {'stock_cn': '600875.SS', 'value': 'old'},
+            {'stock_cn': '09988.HK', 'value': 'deleted'},
+            {'stock_cn': '600875.SH', 'value': 'fresh'},
+        ]
+        merged = merge_canonical_rows(
+            rows, lambda row: row['stock_cn'], ['600875'])
+        self.assertEqual(merged, [{'stock_cn': '600875.SH', 'value': 'fresh'}])
 
     def test_a_share_statement_mapping_and_batch_units(self):
         income = pd.read_csv('00.600875_income.csv', index_col=0).T
