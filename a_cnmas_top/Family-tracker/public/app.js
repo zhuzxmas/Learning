@@ -885,6 +885,7 @@ blogSaveBtn: $("blogSaveBtn"),
   travelPlaceClearBtn: $("travelPlaceClearBtn"), travelPlaceStatus: $("travelPlaceStatus"),
   travelPlaceResults: $("travelPlaceResults"),
   travelCoordPanel: $("travelCoordPanel"),
+  travelCoordPlaceRow: $("travelCoordPlaceRow"), travelCoordPlace: $("travelCoordPlace"),
   travelCoordLng: $("travelCoordLng"),
   travelCoordLat: $("travelCoordLat"),
   travelCopyLngBtn: $("travelCopyLngBtn"),
@@ -11994,6 +11995,9 @@ let travelPlaceResults = [];
 let travelSelectedPlace = null;
 let travelSearchMarkerLayer = null;
 let travelPlaceRequestId = 0;
+let travelPlaceSearchInFlight = 0;
+let travelPlaceQuotaExceeded = false;
+const travelPlaceCache = new Map();
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelCleanCustomPeople(values) {
@@ -12230,7 +12234,7 @@ function travelShowSearchMarker(lat, lng) {
       isStopPropagation: true,
       styles: {
         search: new TMap.MarkerStyle({
-          width: 25, height: 35, anchor: { x: 12, y: 35 }, src: TRAVEL_MARKER_SRC,
+          width: 32, height: 44, anchor: { x: 16, y: 44 }, src: TRAVEL_SEARCH_MARKER_SRC,
         }),
       },
       geometries: geometry,
@@ -12244,6 +12248,7 @@ function travelShowSearchMarker(lat, lng) {
 
 function travelClearPlaceSearch(clearInput) {
   travelPlaceRequestId++;
+  travelPlaceSearchInFlight = 0;
   travelPlaceResults = [];
   travelSelectedPlace = null;
   els.travelPlaceResults.innerHTML = "";
@@ -12252,6 +12257,8 @@ function travelClearPlaceSearch(clearInput) {
   els.travelPlaceClearBtn.classList.add("hidden");
   if (clearInput) els.travelPlaceSearch.value = "";
   travelClearSearchMarker();
+  els.travelCoordPlaceRow.classList.add("hidden");
+  els.travelCoordPlace.textContent = "—";
   els.travelPlaceSearchBtn.disabled = false;
 }
 
@@ -12290,39 +12297,71 @@ function travelSelectPlace(index) {
     .filter(Boolean).join(" · ");
   els.travelPlaceClearBtn.classList.remove("hidden");
   travelShowCoords(coords.lat, coords.lng);
-  travelShowSearchMarker(coords.lat, coords.lng);
-  travelMapObj.setCenter(new TMap.LatLng(coords.lat, coords.lng));
-  travelMapObj.setZoom(16);
+  els.travelCoordPlace.textContent = travelSelectedPlace.title || "—";
+  els.travelCoordPlaceRow.classList.toggle("hidden", !travelSelectedPlace.title);
+  travelMapObj.resize();
+  const center = new TMap.LatLng(coords.lat, coords.lng);
+  if (travelMapObj.easeTo) travelMapObj.easeTo({ center, zoom: 16 }, { duration: 500 });
+  else { travelMapObj.setCenter(center); travelMapObj.setZoom(16); }
+  try { travelShowSearchMarker(coords.lat, coords.lng); }
+  catch (e) { console.warn("travel search marker:", e); }
 }
 
 async function travelSearchPlaces() {
   const keyword = (els.travelPlaceSearch.value || "").trim();
   if (!keyword) { setStatus("请输入要搜索的地图位置。", "warn", 2000); return; }
-  await travelEnsureMap();
-  if (!travelSuggestionService) {
-    els.travelPlaceStatus.textContent = "地点搜索服务尚未加载，请检查腾讯地图 Key 权限。";
+  if (travelPlaceQuotaExceeded) {
+    els.travelPlaceStatus.textContent = "腾讯地图地点搜索今日额度已用完，请明日再试；地图点击取坐标仍可使用。";
+    return;
+  }
+  if (travelPlaceSearchInFlight) {
+    els.travelPlaceStatus.textContent = "地点搜索正在进行，请稍候。";
+    return;
+  }
+  const cacheKey = keyword.toLocaleLowerCase("zh-CN");
+  if (travelPlaceCache.has(cacheKey)) {
+    travelPlaceResults = travelPlaceCache.get(cacheKey);
+    travelRenderPlaceResults(travelPlaceResults);
+    els.travelPlaceStatus.textContent = travelPlaceResults.length
+      ? `找到 ${travelPlaceResults.length} 个地图位置，请选择（缓存）。` : "没有找到匹配的地图位置（缓存）。";
+    els.travelPlaceClearBtn.classList.remove("hidden");
     return;
   }
   const requestId = ++travelPlaceRequestId;
+  travelPlaceSearchInFlight = requestId;
   els.travelPlaceSearchBtn.disabled = true;
   els.travelPlaceStatus.textContent = "正在搜索地图位置…";
   try {
+    await travelEnsureMap();
+    if (!travelSuggestionService) {
+      throw new Error("地点搜索服务尚未加载，请检查腾讯地图 Key 权限。");
+    }
     const response = await travelSuggestionService.getSuggestions({
       keyword,
       location: travelMapObj && travelMapObj.getCenter ? travelMapObj.getCenter() : undefined,
     });
     if (requestId !== travelPlaceRequestId) return;
     travelPlaceResults = (response && Array.isArray(response.data) ? response.data : []).slice(0, 8);
+    travelPlaceCache.set(cacheKey, travelPlaceResults);
     travelRenderPlaceResults(travelPlaceResults);
     els.travelPlaceStatus.textContent = travelPlaceResults.length
       ? `找到 ${travelPlaceResults.length} 个地图位置，请选择。` : "没有找到匹配的地图位置。";
     els.travelPlaceClearBtn.classList.remove("hidden");
   } catch (e) {
+    const status = Number(e && (e.status || e.code));
+    if (status === 121 || /调用量|额度|quota/i.test(String(e && (e.message || e)))) {
+      travelPlaceQuotaExceeded = true;
+    }
     if (requestId !== travelPlaceRequestId) return;
     travelPlaceResults = [];
     travelRenderPlaceResults([]);
-    els.travelPlaceStatus.textContent = "搜索地图位置失败：" + (e.message || e);
+    if (travelPlaceQuotaExceeded) {
+      els.travelPlaceStatus.textContent = "腾讯地图地点搜索今日额度已用完，请明日再试；地图点击取坐标仍可使用。";
+    } else {
+      els.travelPlaceStatus.textContent = "搜索地图位置失败：" + (e.message || e);
+    }
   } finally {
+    if (travelPlaceSearchInFlight === requestId) travelPlaceSearchInFlight = 0;
     if (requestId === travelPlaceRequestId) els.travelPlaceSearchBtn.disabled = false;
   }
 }
@@ -12354,6 +12393,10 @@ function travelLL(ll) {
 }
 
 const TRAVEL_MARKER_SRC = "https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png";
+const TRAVEL_SEARCH_MARKER_SRC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">' +
+  '<path fill="#d92d20" stroke="#fff" stroke-width="2" d="M16 1C8.3 1 2 7.3 2 15c0 10.4 14 27 14 27s14-16.6 14-27C30 7.3 23.7 1 16 1z"/>' +
+  '<circle cx="16" cy="15" r="5" fill="#fff"/></svg>');
 function travelValidCoords(r) {
   const lat = Number(r && r.latitude), lng = Number(r && r.longitude);
   return isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
@@ -12425,12 +12468,18 @@ function travelShowCoords(lat, lng) {
   if (lat == null || lng == null) {
     travelPickedCoords = null;
     els.travelCoordPanel.classList.add("hidden");
+    els.travelCoordPlaceRow.classList.add("hidden");
+    els.travelCoordPlace.textContent = "—";
     return;
   }
   travelPickedCoords = { lat: Number(lat), lng: Number(lng) };
   els.travelCoordPanel.classList.remove("hidden");
   els.travelCoordLat.textContent = travelPickedCoords.lat.toFixed(6);
   els.travelCoordLng.textContent = travelPickedCoords.lng.toFixed(6);
+  if (!travelSelectedPlace) {
+    els.travelCoordPlaceRow.classList.add("hidden");
+    els.travelCoordPlace.textContent = "—";
+  }
 }
 async function travelCopyCoord(which) {
   if (!travelPickedCoords) { setStatus("请先点击地图取坐标。", "warn", 2000); return; }
@@ -12659,8 +12708,7 @@ function travelWireEvents() {
   els.travelPlaceSearchBtn.onclick = () => travelSearchPlaces();
   els.travelPlaceClearBtn.onclick = () => travelClearPlaceSearch(true);
   els.travelPlaceSearch.addEventListener("input", () => {
-    if (travelSelectedPlace || travelPlaceResults.length) travelClearPlaceSearch(false);
-    else travelPlaceRequestId++;
+    travelClearPlaceSearch(false);
   });
   els.travelPlaceSearch.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); travelSearchPlaces(); }

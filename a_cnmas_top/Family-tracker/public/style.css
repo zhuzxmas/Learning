@@ -1461,6 +1461,9 @@ button.blog-tag:hover { background: #dbeafe; }
   align-items: end;
 }
 .travel-coord-title { grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #1b3a12; }
+.travel-coord-place { grid-column: 1 / -1; }
+.travel-coord-place span { width: 32px; flex: 0 0 32px; }
+.travel-coord-place strong { min-width: 0; color: #1b3a12; font-size: 14px; overflow-wrap: anywhere; }
 .travel-coord-row {
   display: flex;
   align-items: center;

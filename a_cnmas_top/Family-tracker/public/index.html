@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=65" />
+  <link rel="stylesheet" href="style.css?v=66" />
 </head>
 <body>
   <header class="topbar">
@@ -817,6 +817,7 @@
             <span class="muted" id="travelMapCount"></span>
             <button type="button" class="btn btn-ghost" id="travelRefreshBtn">刷新地图</button>
           </div>
+          <p class="muted mini travel-map-guide">点击地图任意位置，会在地图下方显示经纬度，方便填入新的旅行记录。</p>
           <div class="travel-place-search">
             <label for="travelPlaceSearch">搜索地图位置</label>
             <div class="travel-place-search-row">
@@ -833,6 +834,10 @@
           </div>
           <div id="travelCoordPanel" class="travel-coord-panel hidden">
             <div class="travel-coord-title">地图坐标</div>
+            <div id="travelCoordPlaceRow" class="travel-coord-row travel-coord-place hidden">
+              <span>地点</span>
+              <strong id="travelCoordPlace">—</strong>
+            </div>
             <div class="travel-coord-row">
               <span>经度</span>
               <code id="travelCoordLng">—</code>
@@ -2155,6 +2160,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=2"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=100"></script>
+  <script src="app.js?v=102"></script>
 </body>
 </html>
