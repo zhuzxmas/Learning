@@ -12274,7 +12274,14 @@ function travelRenderPlaceResults(rows) {
     const address = document.createElement("span");
     address.textContent = [place.city, place.address].filter(Boolean).join(" · ");
     button.appendChild(title); button.appendChild(address);
-    button.onclick = () => travelSelectPlace(index);
+    const stop = (event) => event.stopPropagation();
+    button.addEventListener("pointerdown", stop);
+    button.addEventListener("touchstart", stop, { passive: true });
+    button.addEventListener("mousedown", stop);
+    button.onclick = (event) => {
+      event.preventDefault(); event.stopPropagation();
+      travelSelectPlace(index);
+    };
     els.travelPlaceResults.appendChild(button);
   });
   els.travelPlaceResults.classList.toggle("hidden", rows.length === 0);
@@ -12291,20 +12298,30 @@ function travelSelectPlace(index) {
     city: place.city || "",
     lat: coords.lat, lng: coords.lng,
   };
+  travelMarkerClickAt = Date.now();
   els.travelPlaceSearch.value = travelSelectedPlace.title;
   els.travelPlaceResults.classList.add("hidden");
-  els.travelPlaceStatus.textContent = [travelSelectedPlace.title, travelSelectedPlace.address]
-    .filter(Boolean).join(" · ");
+  els.travelPlaceStatus.textContent = "正在定位到：" + travelSelectedPlace.title;
   els.travelPlaceClearBtn.classList.remove("hidden");
   travelShowCoords(coords.lat, coords.lng);
   els.travelCoordPlace.textContent = travelSelectedPlace.title || "—";
   els.travelCoordPlaceRow.classList.toggle("hidden", !travelSelectedPlace.title);
   travelMapObj.resize();
   const center = new TMap.LatLng(coords.lat, coords.lng);
+  let markerShown = false;
+  const showMarker = () => {
+    if (markerShown || travelSelectedPlace == null ||
+        travelSelectedPlace.lat !== coords.lat || travelSelectedPlace.lng !== coords.lng) return;
+    markerShown = true;
+    try { travelShowSearchMarker(coords.lat, coords.lng); }
+    catch (e) { console.warn("travel search marker:", e); }
+    els.travelPlaceStatus.textContent = "已定位到：" + [travelSelectedPlace.title, travelSelectedPlace.address]
+      .filter(Boolean).join(" · ");
+  };
+  if (travelMapObj.once) travelMapObj.once("idle", showMarker);
   if (travelMapObj.easeTo) travelMapObj.easeTo({ center, zoom: 16 }, { duration: 500 });
   else { travelMapObj.setCenter(center); travelMapObj.setZoom(16); }
-  try { travelShowSearchMarker(coords.lat, coords.lng); }
-  catch (e) { console.warn("travel search marker:", e); }
+  setTimeout(showMarker, 900);
 }
 
 async function travelSearchPlaces() {
@@ -12707,6 +12724,10 @@ function travelWireEvents() {
   els.travelRefreshBtn.onclick = () => { travelLoad(true); travelEnsureMap(); };
   els.travelPlaceSearchBtn.onclick = () => travelSearchPlaces();
   els.travelPlaceClearBtn.onclick = () => travelClearPlaceSearch(true);
+  ["pointerdown", "mousedown", "click", "touchstart"].forEach((eventName) => {
+    els.travelPlaceResults.addEventListener(eventName, (event) => event.stopPropagation(),
+      eventName === "touchstart" ? { passive: true } : false);
+  });
   els.travelPlaceSearch.addEventListener("input", () => {
     travelClearPlaceSearch(false);
   });
