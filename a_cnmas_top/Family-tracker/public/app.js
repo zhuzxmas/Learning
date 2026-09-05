@@ -11999,6 +11999,8 @@ let travelPlaceRequestId = 0;
 let travelPlaceSearchInFlight = 0;
 let travelPlaceQuotaExceeded = false;
 const travelPlaceCache = new Map();
+const TRAVEL_INITIAL_CENTER = { lat: 31.2, lng: 121.5 };
+const TRAVEL_INITIAL_ZOOM = 5;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelCleanCustomPeople(values) {
@@ -12200,8 +12202,8 @@ async function travelInitMap() {
   }
   els.travelMapEmpty.classList.add("hidden");
   travelMapObj = new TMap.Map(els.travelMap, {
-    center: new TMap.LatLng(31.2, 121.5),
-    zoom: 5,
+    center: new TMap.LatLng(TRAVEL_INITIAL_CENTER.lat, TRAVEL_INITIAL_CENTER.lng),
+    zoom: TRAVEL_INITIAL_ZOOM,
     viewMode: "2D",
   });
   travelSuggestionService = new TMap.service.Suggestion({ pageSize: 8 });
@@ -12262,6 +12264,21 @@ function travelClearPlaceSearch(clearInput) {
   els.travelCoordPlaceRow.classList.add("hidden");
   els.travelCoordPlace.textContent = "—";
   els.travelPlaceSearchBtn.disabled = false;
+}
+
+function travelResetPlaceSearch() {
+  travelClearPlaceSearch(true);
+  travelShowCoords(null);
+  if (travelInfoWindow) { travelInfoWindow.close(); travelInfoWindow = null; }
+  els.travelPersonFilter.value = "__all__";
+  travelRenderMarkers();
+  if (!travelMapObj || typeof TMap === "undefined") return;
+  const center = new TMap.LatLng(TRAVEL_INITIAL_CENTER.lat, TRAVEL_INITIAL_CENTER.lng);
+  travelMapObj.resize();
+  travelMapObj.setCenter(center);
+  travelMapObj.setZoom(TRAVEL_INITIAL_ZOOM);
+  if (travelMapObj.panTo) travelMapObj.panTo(center, { duration: 350 });
+  if (travelMapObj.zoomTo) travelMapObj.zoomTo(TRAVEL_INITIAL_ZOOM, { duration: 350 });
 }
 
 function travelRenderPlaceResults(rows) {
@@ -12732,7 +12749,7 @@ function travelWireEvents() {
   els.travelPersonFilter.addEventListener("change", () => travelRenderMarkers());
   els.travelRefreshBtn.onclick = () => { travelLoad(true); travelEnsureMap(); };
   els.travelPlaceSearchBtn.onclick = () => travelSearchPlaces();
-  els.travelPlaceClearBtn.onclick = () => travelClearPlaceSearch(true);
+  els.travelPlaceClearBtn.onclick = () => travelResetPlaceSearch();
   ["pointerdown", "mousedown", "click", "touchstart"].forEach((eventName) => {
     els.travelPlaceResults.addEventListener(eventName, (event) => {
       travelIgnoreMapClickUntil = Date.now() + 1500;
