@@ -451,7 +451,7 @@
       <div class="card">
         <h2 id="stkFormTitle">添加交易</h2>
         <p class="muted mini">保存后自动覆盖 App/IncomeTracker/stock-records.csv</p>
-        <p class="muted mini"><b>股息/红利：</b>交易股数填 0，再手动填写实际到账的总金额；无费用填 0。</p>
+        <p class="muted mini"><b>股息/红利：</b>交易股数填 0，填写成交金额和费用；总金额（实际到账）自动计算。</p>
         <form id="stkForm" class="record-form">
           <input type="hidden" id="stkEditId" />
           <div class="field">
@@ -498,7 +498,7 @@
                 <input type="number" id="stkStamp" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
               <div class="field"><label for="stkTransfer">过户费</label>
                 <input type="number" id="stkTransfer" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
-              <div class="field"><label for="stkTotal">总金额</label>
+              <div class="field"><label for="stkTotal">总金额（实际到账）</label>
                 <input type="number" id="stkTotal" step="0.01" readonly tabindex="-1" placeholder="0" /></div>
             </div>
             <p class="muted mini" id="stkDerivedNote">成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。</p>
@@ -2143,8 +2143,8 @@
   <!-- Libraries -->
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
-  <script src="stock-realization.js?v=1"></script>
+  <script src="stock-realization.js?v=2"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=97"></script>
+  <script src="app.js?v=98"></script>
 </body>
 </html>

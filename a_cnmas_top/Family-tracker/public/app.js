@@ -4599,6 +4599,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   els.aiApp.classList.toggle("hidden", next !== "ai");
   els.travelApp.classList.toggle("hidden", next !== "travel");
   els.modeMoreMenu.classList.add("hidden");
+  requestAnimationFrame(blogUpdateTopButton);
   if (!account) return;
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
@@ -4794,7 +4795,7 @@ function stkDeriveClosedCycles(records) {
     let buyShares = 0, buyAmount = 0, buyCost = 0;
     for (const r of trades) {
       const sh = Number(r.shares) || 0;
-      const total = Number(r.total) || 0;
+      const total = stkRecordTotal(r);
       hasV2Sale = hasV2Sale || (sh > 0 && Number(r.realizationVersion) >= 2);
       if (sh === 0) {
         if (Number(r.realizationVersion) >= 2) continue;
@@ -4845,6 +4846,12 @@ function stkDeriveClosedCycles(records) {
 
 function stkDeriveRealizedEvents(records) {
   return StockRealization.derive(records);
+}
+
+function stkRecordTotal(record) {
+  return Number(record && record.shares) === 0
+    ? StockRealization.cashEventTotal(record)
+    : (Number(record && record.total) || 0);
 }
 
 function stkForumAccountLabel(accountName) {
@@ -5397,9 +5404,10 @@ function stkIsDividend() {
   return raw !== "" && stkNum(els.stkShares) === 0;
 }
 
-// Toggle the 5 derived fields between read-only (auto-computed) and editable
+// Toggle cash-event inputs between read-only and editable. Total is always
+// calculated from amount minus absolute fees.
 // (manual, dividend mode), and update the section title/note accordingly.
-const STK_DERIVED_FIELDS = ["stkAmount", "stkCommission", "stkStamp", "stkTransfer", "stkTotal"];
+const STK_DERIVED_FIELDS = ["stkAmount", "stkCommission", "stkStamp", "stkTransfer"];
 function stkSetDerivedEditable(editable) {
   for (const k of STK_DERIVED_FIELDS) {
     const el = els[k];
@@ -5407,9 +5415,12 @@ function stkSetDerivedEditable(editable) {
     if (editable) el.removeAttribute("tabindex"); else el.setAttribute("tabindex", "-1");
     el.classList.toggle("editable", editable);
   }
+  els.stkTotal.readOnly = true;
+  els.stkTotal.setAttribute("tabindex", "-1");
+  els.stkTotal.classList.remove("editable");
   if (editable) {
     els.stkDerivedTitle.textContent = "手动填写（股息/红利）";
-    els.stkDerivedNote.textContent = "股数为 0 视作股息/红利/现金调整，请手动填写以下金额。";
+    els.stkDerivedNote.textContent = "填写成交金额和费用，总金额（实际到账）自动计算。";
   } else {
     els.stkDerivedTitle.textContent = "自动计算（只读）";
     els.stkDerivedNote.textContent = "成交金额/佣金/印花税/过户费/总金额 按交易规则自动算出，无需填写。";
@@ -5418,8 +5429,14 @@ function stkSetDerivedEditable(editable) {
 
 // Live-preview the derived (read-only) fields from the current inputs.
 function stkRecalc() {
-  // Dividend mode: fields are user-editable; never overwrite/clear them.
-  if (stkIsDividend()) { stkSetDerivedEditable(true); return; }
+  if (stkIsDividend()) {
+    stkSetDerivedEditable(true);
+    els.stkTotal.value = StockRealization.cashEventTotal({
+      amount: stkNum(els.stkAmount), commission: stkNum(els.stkCommission),
+      stampTax: stkNum(els.stkStamp), transferFee: stkNum(els.stkTransfer), total: 0,
+    });
+    return;
+  }
   stkSetDerivedEditable(false);
   const code = els.stkCode.value || "";
   const price = stkNum(els.stkPrice);
@@ -5480,7 +5497,10 @@ async function stkOnSubmit(e) {
         commission: round2(stkNum(els.stkCommission)),
         stampTax: round2(stkNum(els.stkStamp)),
         transferFee: round2(stkNum(els.stkTransfer)),
-        total: round2(stkNum(els.stkTotal)),
+        total: StockRealization.cashEventTotal({
+          amount: stkNum(els.stkAmount), commission: stkNum(els.stkCommission),
+          stampTax: stkNum(els.stkStamp), transferFee: stkNum(els.stkTransfer), total: 0,
+        }),
       }
     : stkComputeDerived(code, price, shares, fx);
   const oldRec = isEdit ? stockRecords.find((r) => r.id === els.stkEditId.value) : null;
@@ -5572,7 +5592,7 @@ function stkStartEdit(id) {
   els.stkCommission.value = r.commission;
   els.stkStamp.value = r.stampTax;
   els.stkTransfer.value = r.transferFee;
-  els.stkTotal.value = r.total;
+  els.stkTotal.value = stkRecordTotal(r);
   stkUpdateFxVisibility();
   stkRecalc();
   els.stkFormTitle.textContent = "编辑交易";
@@ -5586,7 +5606,7 @@ async function stkDelete(id) {
   if (!stockLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
   const r = stockRecords.find((x) => x.id === id);
   if (!r) return;
-  if (!confirm(`确定删除这条交易记录吗？\n${r.date} ${r.code} ${r.account} ${fmtAmount(r.total)}`)) return;
+  if (!confirm(`确定删除这条交易记录吗？\n${r.date} ${r.code} ${r.account} ${fmtAmount(stkRecordTotal(r))}`)) return;
   const snap = stockRecords.slice();
   stockRecords = stockRecords.filter((x) => x.id !== id);
   const oversell = stkFindOversell(stockRecords, r.code, r.account);
@@ -5790,7 +5810,7 @@ function stkRender() {
       <td>${escapeHtml(r.account)}</td>
       <td class="num">${fmtAmount(r.price)}</td>
       <td class="${sharesCls}">${fmtInt(r.shares)}</td>
-      <td class="num strong">${fmtAmount(r.total)}</td>
+      <td class="num strong">${fmtAmount(stkRecordTotal(r))}</td>
       <td class="num">${fmtAmount(r.amount)}</td>
       <td class="num">${fmtAmount(r.commission)}</td>
       <td class="num">${fmtAmount(r.stampTax)}</td>
@@ -5808,7 +5828,7 @@ function stkRender() {
   }
 
   const total = stockRecords.length;
-  const sum = view.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const sum = view.reduce((s, r) => s + stkRecordTotal(r), 0);
   if (anyFilter) els.stkRecordCount.textContent = `${view.length} 条，总金额合计 ${fmtAmount(sum)}`;
   else if (stkShowAll) els.stkRecordCount.textContent = `显示全部 ${total} 条`;
   else els.stkRecordCount.textContent = limited ? `显示最近 ${view.length} 条（共 ${total} 条）` : `共 ${total} 条`;
@@ -6110,7 +6130,8 @@ function stkWireEvents() {
   els.feeResetBtn.onclick = stkResetFees;
 
   els.stkCode.addEventListener("change", () => { stkUpdateFxVisibility(); stkRecalc(); });
-  ["stkPrice", "stkShares", "stkFx"].forEach((k) => els[k].addEventListener("input", stkRecalc));
+  ["stkPrice", "stkShares", "stkFx", "stkAmount", "stkCommission", "stkStamp", "stkTransfer"]
+    .forEach((k) => els[k].addEventListener("input", stkRecalc));
 
   els.stkSearchInput.addEventListener("input", () => {
     clearTimeout(stkSearchTimer);
@@ -6983,7 +7004,7 @@ function stkBuildCsv() {
   for (const r of rows) {
     lines.push([
       r.date, r.code, r.account, r.price, r.shares, r.fx,
-      r.amount, r.commission, r.stampTax, r.transferFee, r.total,
+      r.amount, r.commission, r.stampTax, r.transferFee, stkRecordTotal(r),
       r.realizationVersion || 1, r.createdBy, r.modified,
     ].map(stkCsvCell).join(","));
   }
@@ -10689,6 +10710,12 @@ function blogSwitchTab(tab) {
 }
 
 function blogUpdateTopButton() {
+  if (mode !== "blog" || els.blogApp.classList.contains("hidden")) {
+    els.blogFloatingActions.classList.add("hidden");
+    els.blogCommentBtn.classList.add("hidden");
+    els.blogTopBtn.classList.add("hidden");
+    return;
+  }
   const reading = !els.blogTabView.classList.contains("hidden");
   const listing = !els.blogTabList.classList.contains("hidden");
   const forumViewing = !els.blogTabForum.classList.contains("hidden") &&
@@ -11182,6 +11209,11 @@ function blogWireEvents() {
     if (forumViewing) setTimeout(() => els.forumReplyInput.focus({ preventScroll: true }), 350);
   };
   window.addEventListener("scroll", blogUpdateTopButton, { passive: true });
+  window.addEventListener("pageshow", () => requestAnimationFrame(blogUpdateTopButton));
+  window.addEventListener("focus", () => requestAnimationFrame(blogUpdateTopButton));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) requestAnimationFrame(blogUpdateTopButton);
+  });
   els.blogSearch.addEventListener("input", () => { blogListPage = 0; blogSearchText = els.blogSearch.value; blogRenderList(); });
   els.blogClearFilterBtn.onclick = () => { blogListPage = 0; els.blogSearch.value = ""; blogSearchText = ""; blogRenderList(); };
   const goBlogPage = () => {
@@ -11955,8 +11987,12 @@ let travelPickedCoords = null; // {lat, lng} from the latest map click
 let travelMarkerClickAt = 0;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
+function travelCleanCustomPeople(values) {
+  return (Array.isArray(values) ? values : []).map(travelNormalizeName)
+    .filter((name, index, all) => name && !TRAVEL_FAMILY.includes(name) && all.indexOf(name) === index);
+}
 function travelPeoplePool() {
-  return TRAVEL_FAMILY.concat(travelCustomPeople).filter((n) => n && n.trim());
+  return TRAVEL_FAMILY.concat(travelCleanCustomPeople(travelCustomPeople));
 }
 
 // Names in the CSV look like "Nathan Zhu CN" — strip a trailing 2-letter
@@ -11996,13 +12032,12 @@ async function travelRead(token) {
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   const records = (data && Array.isArray(data.records)) ? data.records : [];
-  const customPeople = (data && Array.isArray(data.customPeople))
-    ? data.customPeople.map(travelNormalizeName).filter((n) => n && !TRAVEL_FAMILY.includes(n))
-    : [];
+  const customPeople = travelCleanCustomPeople(data && data.customPeople);
   return { records, customPeople, etag: res.headers.get("ETag") };
 }
 async function travelWrite(token) {
   for (let attempt = 0; attempt < 4; attempt++) {
+    travelCustomPeople = travelCleanCustomPeople(travelCustomPeople);
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (travelEtag) headers["If-Match"] = travelEtag;
     const res = await fetch(travelContentUrl(TRAVEL_RECORDS_FILE), {
@@ -12014,8 +12049,8 @@ async function travelWrite(token) {
       const byId = {}; fresh.records.forEach((r) => { byId[r.id] = r; });
       travelRecords.forEach((r) => { byId[r.id] = r; });
       travelRecords = Object.values(byId).sort(travelCmp);
-      travelCustomPeople = travelPeoplePool().concat(fresh.customPeople || [])
-        .filter((n, i, a) => n && a.indexOf(n) === i);
+      travelCustomPeople = travelCleanCustomPeople(
+        travelCustomPeople.concat(fresh.customPeople || []));
       travelEtag = fresh.etag;
       continue;
     }
@@ -12032,7 +12067,7 @@ async function travelLoad(force) {
   await travelResolveFolder(token);
   const data = await travelRead(token);
   travelRecords = data.records.slice().sort(travelCmp);
-  travelCustomPeople = (data.customPeople || []).slice();
+  travelCustomPeople = travelCleanCustomPeople(data.customPeople);
   travelEtag = data.etag;
   travelLoaded = true;
   travelRenderPersonFilter();
@@ -12358,7 +12393,7 @@ async function travelAddCustomFromInput() {
   if (!fresh.length) { setStatus("这些人员已在列表中。", "warn", 1800); els.travelPeopleExtra.value = ""; return; }
   const checked = travelCheckedSet();
   fresh.forEach((n) => checked.add(n));
-  travelCustomPeople = travelPeoplePool().concat(fresh).filter((n, i, a) => a.indexOf(n) === i);
+  travelCustomPeople = travelCleanCustomPeople(travelCustomPeople.concat(fresh));
   els.travelPeopleExtra.value = "";
   travelRenderPeopleBox(checked);
   try {
@@ -12430,7 +12465,7 @@ async function travelSave() {
   const people = checked.concat(extra).filter((n, i, a) => a.indexOf(n) === i);
   const newCustom = people.filter((n) => !travelPeoplePool().includes(n));
   if (newCustom.length) {
-    travelCustomPeople = travelPeoplePool().concat(newCustom).filter((n, i, a) => a.indexOf(n) === i);
+    travelCustomPeople = travelCleanCustomPeople(travelCustomPeople.concat(newCustom));
   }
   els.travelSaveBtn.disabled = true;
   try {

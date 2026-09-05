@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { derive } = require("../public/stock-realization.js");
+const { cashEventTotal, derive } = require("../public/stock-realization.js");
 
 function trade(id, shares, total, extra) {
   return Object.assign({
@@ -7,6 +7,23 @@ function trade(id, shares, total, extra) {
     date: "2026-01-01", tradeOrder: Number(id.replace(/\D/g, "")) || 0,
     incomeSyncEligible: true,
   }, extra || {});
+}
+
+{
+  assert.equal(cashEventTotal({ amount: 120, stampTax: 12, total: 0 }), 108);
+  assert.equal(cashEventTotal({ amount: 120, stampTax: -12, total: 0 }), 108);
+  assert.equal(cashEventTotal({ amount: 120, stampTax: 12, total: 95 }), 95);
+}
+
+{
+  const events = derive([
+    trade("b1", -100, -1005),
+    Object.assign(trade("d1", 0, 0, { date: "2026-01-02", realizationVersion: 2 }), {
+      amount: 120, stampTax: 12,
+    }),
+  ]);
+  assert.equal(events[0].kind, "dividend");
+  assert.equal(events[0].pnl, 108);
 }
 
 {

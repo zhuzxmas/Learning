@@ -5,6 +5,16 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   function round2(value) { return Math.round((Number(value) || 0) * 100) / 100; }
 
+  function cashEventTotal(record) {
+    const stored = Number(record && record.total) || 0;
+    if (Math.abs(stored) >= 0.005) return round2(stored);
+    const amount = Number(record && record.amount) || 0;
+    const fees = Math.abs(Number(record && record.commission) || 0)
+      + Math.abs(Number(record && record.stampTax) || 0)
+      + Math.abs(Number(record && record.transferFee) || 0);
+    return round2(amount - fees);
+  }
+
   function sortTrades(records) {
     return records.map((record, index) => ({ record, index })).sort((a, b) => {
       const byDate = String(a.record.date || "").localeCompare(String(b.record.date || ""));
@@ -29,7 +39,7 @@
       let heldShares = 0, heldCost = 0, positionStartDate = "";
       for (const record of sortTrades(rows)) {
         const shares = Number(record.shares) || 0;
-        const total = Number(record.total) || 0;
+        const total = shares === 0 ? cashEventTotal(record) : (Number(record.total) || 0);
         const isV2 = Number(record.realizationVersion) >= 2;
         if (shares < 0) {
           if (heldShares < 0.5) positionStartDate = String(record.date || "");
@@ -75,5 +85,5 @@
       String(a.transactionId).localeCompare(String(b.transactionId)));
   }
 
-  return { derive, sortTrades };
+  return { cashEventTotal, derive, sortTrades };
 });
