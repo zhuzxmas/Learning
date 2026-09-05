@@ -138,7 +138,7 @@ const TRAVEL_RECORDS_FILE = "travel.json";
 // Tencent Map (GL JS API) key — a public client-side key, protected by the
 // domain whitelist (a.cnmas.top) set in the Tencent LBS console (lbs.qq.com).
 const TENCENT_MAP_KEY = "X4DBZ-ZKUCQ-UCE5T-4ARHR-2DF67-BZBKL";
-const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geometry&key=";
+const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geometry,service&key=";
 
 /* --------------------------- BLOG CONFIG -------------------------------- */
 // The blog/life-journal lives in its OWN dedicated OneDrive shared folder.
@@ -881,6 +881,9 @@ blogSaveBtn: $("blogSaveBtn"),
   travelMap: $("travelMap"),
   travelMapEmpty: $("travelMapEmpty"),
   travelRefreshBtn: $("travelRefreshBtn"),
+  travelPlaceSearch: $("travelPlaceSearch"), travelPlaceSearchBtn: $("travelPlaceSearchBtn"),
+  travelPlaceClearBtn: $("travelPlaceClearBtn"), travelPlaceStatus: $("travelPlaceStatus"),
+  travelPlaceResults: $("travelPlaceResults"),
   travelCoordPanel: $("travelCoordPanel"),
   travelCoordLng: $("travelCoordLng"),
   travelCoordLat: $("travelCoordLat"),
@@ -11983,8 +11986,14 @@ let travelMapObj = null;       // TMap.Map instance
 let travelMarkerLayer = null;  // TMap.MultiMarker layer
 let travelInfoWindow = null;   // currently open info window
 let travelMapInited = false;   // map + script ready
+let travelMapInitPromise = null;
 let travelPickedCoords = null; // {lat, lng} from the latest map click
 let travelMarkerClickAt = 0;
+let travelSuggestionService = null;
+let travelPlaceResults = [];
+let travelSelectedPlace = null;
+let travelSearchMarkerLayer = null;
+let travelPlaceRequestId = 0;
 
 const TRAVEL_FAMILY = ["Nathan Zhu", "Celine Rao", "Cloud Zhu"];
 function travelCleanCustomPeople(values) {
@@ -12165,6 +12174,13 @@ function travelLoadMapScript() {
 
 async function travelEnsureMap() {
   if (travelMapInited) return;
+  if (travelMapInitPromise) return travelMapInitPromise;
+  travelMapInitPromise = travelInitMap();
+  try { await travelMapInitPromise; }
+  finally { travelMapInitPromise = null; }
+}
+
+async function travelInitMap() {
   if (!TENCENT_MAP_KEY || TENCENT_MAP_KEY.startsWith("PASTE-")) {
     els.travelMapEmpty.classList.remove("hidden");
     els.travelMapEmpty.textContent = "请先在 app.js 配置 TENCENT_MAP_KEY（腾讯地图开发者 key）。";
@@ -12183,11 +12199,13 @@ async function travelEnsureMap() {
     zoom: 5,
     viewMode: "2D",
   });
+  travelSuggestionService = new TMap.service.Suggestion({ pageSize: 8 });
   travelMapObj.removeControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION);
   travelMapObj.on("click", (e) => {
     if (Date.now() - travelMarkerClickAt < 500) return;
     const ll = travelLL(e.latLng);
     if (travelInfoWindow) travelInfoWindow.close();
+    travelClearPlaceSearch(true);
     travelShowCoords(ll.lat, ll.lng);
   });
   window.addEventListener("resize", () => { if (travelMapObj) travelMapObj.resize(); });
@@ -12195,6 +12213,118 @@ async function travelEnsureMap() {
   travelMapObj.resize();
   travelShowCoords(null);
   travelRenderMarkers();
+}
+
+function travelClearSearchMarker() {
+  if (!travelSearchMarkerLayer) return;
+  const ids = travelSearchMarkerLayer.getGeometries().map((geometry) => geometry.id);
+  if (ids.length) travelSearchMarkerLayer.remove(ids);
+}
+
+function travelShowSearchMarker(lat, lng) {
+  if (!travelMapObj || typeof TMap === "undefined") return;
+  const geometry = [{ id: "travel-search", styleId: "search", position: new TMap.LatLng(lat, lng) }];
+  if (!travelSearchMarkerLayer) {
+    travelSearchMarkerLayer = new TMap.MultiMarker({
+      map: travelMapObj,
+      isStopPropagation: true,
+      styles: {
+        search: new TMap.MarkerStyle({
+          width: 25, height: 35, anchor: { x: 12, y: 35 }, src: TRAVEL_MARKER_SRC,
+        }),
+      },
+      geometries: geometry,
+    });
+    if (travelSearchMarkerLayer.setStopPropagation) travelSearchMarkerLayer.setStopPropagation(true);
+  } else {
+    travelClearSearchMarker();
+    travelSearchMarkerLayer.add(geometry);
+  }
+}
+
+function travelClearPlaceSearch(clearInput) {
+  travelPlaceRequestId++;
+  travelPlaceResults = [];
+  travelSelectedPlace = null;
+  els.travelPlaceResults.innerHTML = "";
+  els.travelPlaceResults.classList.add("hidden");
+  els.travelPlaceStatus.textContent = "";
+  els.travelPlaceClearBtn.classList.add("hidden");
+  if (clearInput) els.travelPlaceSearch.value = "";
+  travelClearSearchMarker();
+  els.travelPlaceSearchBtn.disabled = false;
+}
+
+function travelRenderPlaceResults(rows) {
+  els.travelPlaceResults.innerHTML = "";
+  rows.forEach((place, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "travel-place-result";
+    button.setAttribute("role", "option");
+    const title = document.createElement("strong");
+    title.textContent = place.title || place.name || "未命名地点";
+    const address = document.createElement("span");
+    address.textContent = [place.city, place.address].filter(Boolean).join(" · ");
+    button.appendChild(title); button.appendChild(address);
+    button.onclick = () => travelSelectPlace(index);
+    els.travelPlaceResults.appendChild(button);
+  });
+  els.travelPlaceResults.classList.toggle("hidden", rows.length === 0);
+}
+
+function travelSelectPlace(index) {
+  const place = travelPlaceResults[index];
+  if (!place || !place.location) return;
+  const coords = travelLL(place.location);
+  if (!isFinite(coords.lat) || !isFinite(coords.lng)) return;
+  travelSelectedPlace = {
+    title: place.title || place.name || "",
+    address: place.address || "",
+    city: place.city || "",
+    lat: coords.lat, lng: coords.lng,
+  };
+  els.travelPlaceSearch.value = travelSelectedPlace.title;
+  els.travelPlaceResults.classList.add("hidden");
+  els.travelPlaceStatus.textContent = [travelSelectedPlace.title, travelSelectedPlace.address]
+    .filter(Boolean).join(" · ");
+  els.travelPlaceClearBtn.classList.remove("hidden");
+  travelShowCoords(coords.lat, coords.lng);
+  travelShowSearchMarker(coords.lat, coords.lng);
+  travelMapObj.setCenter(new TMap.LatLng(coords.lat, coords.lng));
+  travelMapObj.setZoom(16);
+}
+
+async function travelSearchPlaces() {
+  const keyword = (els.travelPlaceSearch.value || "").trim();
+  if (!keyword) { setStatus("请输入要搜索的地图位置。", "warn", 2000); return; }
+  await travelEnsureMap();
+  if (!travelSuggestionService) {
+    els.travelPlaceStatus.textContent = "地点搜索服务尚未加载，请检查腾讯地图 Key 权限。";
+    return;
+  }
+  const requestId = ++travelPlaceRequestId;
+  els.travelPlaceSearchBtn.disabled = true;
+  els.travelPlaceStatus.textContent = "正在搜索地图位置…";
+  try {
+    const response = await travelSuggestionService.getSuggestions({
+      keyword,
+      location: travelMapObj && travelMapObj.getCenter ? travelMapObj.getCenter() : undefined,
+    });
+    if (requestId !== travelPlaceRequestId) return;
+    travelPlaceResults = (response && Array.isArray(response.data) ? response.data : []).slice(0, 8);
+    travelRenderPlaceResults(travelPlaceResults);
+    els.travelPlaceStatus.textContent = travelPlaceResults.length
+      ? `找到 ${travelPlaceResults.length} 个地图位置，请选择。` : "没有找到匹配的地图位置。";
+    els.travelPlaceClearBtn.classList.remove("hidden");
+  } catch (e) {
+    if (requestId !== travelPlaceRequestId) return;
+    travelPlaceResults = [];
+    travelRenderPlaceResults([]);
+    els.travelPlaceStatus.textContent = "搜索地图位置失败：" + (e.message || e);
+  } finally {
+    if (requestId === travelPlaceRequestId) els.travelPlaceSearchBtn.disabled = false;
+  }
 }
 
 function travelInfoHtml(r) {
@@ -12326,7 +12456,8 @@ async function travelCopyCoord(which) {
 }
 function travelCoordFill() {
   const picked = travelPickedCoords;
-  travelNew(picked);
+  const place = travelSelectedPlace;
+  travelNew(picked, place);
   if (picked) {
     setStatus("经纬度已填入表单，可补充地点/日期后保存。", "ok", 2500);
   } else {
@@ -12419,11 +12550,11 @@ async function travelRemoveCustom(name) {
     setStatus("已删除，但同步到云端失败：" + (e.message || e), "error");
   }
 }
-function travelNew(coords) {
+function travelNew(coords, place) {
   travelSwitchTab("edit");
   els.travelEditTitle.textContent = "新建记录";
   els.travelEditId.value = "";
-  els.travelTitleInput.value = "";
+  els.travelTitleInput.value = (place && place.title) || "";
   els.travelDateInput.value = todayStr();
   els.travelLatInput.value = "";
   els.travelLngInput.value = "";
@@ -12525,6 +12656,16 @@ function travelWireEvents() {
   els.travelTabListBtn.onclick = () => { travelLoad(); travelSwitchTab("list"); };
   els.travelPersonFilter.addEventListener("change", () => travelRenderMarkers());
   els.travelRefreshBtn.onclick = () => { travelLoad(true); travelEnsureMap(); };
+  els.travelPlaceSearchBtn.onclick = () => travelSearchPlaces();
+  els.travelPlaceClearBtn.onclick = () => travelClearPlaceSearch(true);
+  els.travelPlaceSearch.addEventListener("input", () => {
+    if (travelSelectedPlace || travelPlaceResults.length) travelClearPlaceSearch(false);
+    else travelPlaceRequestId++;
+  });
+  els.travelPlaceSearch.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); travelSearchPlaces(); }
+    else if (e.key === "Escape") travelClearPlaceSearch(false);
+  });
   els.travelSearch.addEventListener("input", () => travelRenderList());
   els.travelNewBtn.onclick = () => travelNew();
   els.travelSaveBtn.onclick = () => travelSave();

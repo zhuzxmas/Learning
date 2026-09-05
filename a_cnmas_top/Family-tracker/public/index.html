@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=64" />
+  <link rel="stylesheet" href="style.css?v=65" />
 </head>
 <body>
   <header class="topbar">
@@ -816,6 +816,16 @@
             <select id="travelPersonFilter"></select>
             <span class="muted" id="travelMapCount"></span>
             <button type="button" class="btn btn-ghost" id="travelRefreshBtn">刷新地图</button>
+          </div>
+          <div class="travel-place-search">
+            <label for="travelPlaceSearch">搜索地图位置</label>
+            <div class="travel-place-search-row">
+              <input type="search" id="travelPlaceSearch" placeholder="输入地点，如：南京玄武湖" autocomplete="off" />
+              <button type="button" class="btn btn-primary" id="travelPlaceSearchBtn">搜索</button>
+              <button type="button" class="btn btn-ghost hidden" id="travelPlaceClearBtn">清除</button>
+            </div>
+            <p id="travelPlaceStatus" class="muted mini"></p>
+            <div id="travelPlaceResults" class="travel-place-results hidden" role="listbox" aria-label="地图位置搜索结果"></div>
           </div>
           <div class="travel-map-wrap">
             <div id="travelMap"></div>
@@ -2145,6 +2155,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=2"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=98"></script>
+  <script src="app.js?v=100"></script>
 </body>
 </html>
