@@ -11990,6 +11990,7 @@ let travelMapInited = false;   // map + script ready
 let travelMapInitPromise = null;
 let travelPickedCoords = null; // {lat, lng} from the latest map click
 let travelMarkerClickAt = 0;
+let travelIgnoreMapClickUntil = 0;
 let travelSuggestionService = null;
 let travelPlaceResults = [];
 let travelSelectedPlace = null;
@@ -12206,6 +12207,7 @@ async function travelInitMap() {
   travelSuggestionService = new TMap.service.Suggestion({ pageSize: 8 });
   travelMapObj.removeControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION);
   travelMapObj.on("click", (e) => {
+    if (Date.now() < travelIgnoreMapClickUntil) return;
     if (Date.now() - travelMarkerClickAt < 500) return;
     const ll = travelLL(e.latLng);
     if (travelInfoWindow) travelInfoWindow.close();
@@ -12274,7 +12276,10 @@ function travelRenderPlaceResults(rows) {
     const address = document.createElement("span");
     address.textContent = [place.city, place.address].filter(Boolean).join(" · ");
     button.appendChild(title); button.appendChild(address);
-    const stop = (event) => event.stopPropagation();
+    const stop = (event) => {
+      travelIgnoreMapClickUntil = Date.now() + 1500;
+      event.stopPropagation();
+    };
     button.addEventListener("pointerdown", stop);
     button.addEventListener("touchstart", stop, { passive: true });
     button.addEventListener("mousedown", stop);
@@ -12298,6 +12303,7 @@ function travelSelectPlace(index) {
     city: place.city || "",
     lat: coords.lat, lng: coords.lng,
   };
+  travelIgnoreMapClickUntil = Date.now() + 1500;
   travelMarkerClickAt = Date.now();
   els.travelPlaceSearch.value = travelSelectedPlace.title;
   els.travelPlaceResults.classList.add("hidden");
@@ -12306,6 +12312,7 @@ function travelSelectPlace(index) {
   travelShowCoords(coords.lat, coords.lng);
   els.travelCoordPlace.textContent = travelSelectedPlace.title || "—";
   els.travelCoordPlaceRow.classList.toggle("hidden", !travelSelectedPlace.title);
+  els.travelMap.scrollIntoView({ block: "center", behavior: "smooth" });
   travelMapObj.resize();
   const center = new TMap.LatLng(coords.lat, coords.lng);
   let markerShown = false;
@@ -12319,8 +12326,10 @@ function travelSelectPlace(index) {
       .filter(Boolean).join(" · ");
   };
   if (travelMapObj.once) travelMapObj.once("idle", showMarker);
-  if (travelMapObj.easeTo) travelMapObj.easeTo({ center, zoom: 16 }, { duration: 500 });
-  else { travelMapObj.setCenter(center); travelMapObj.setZoom(16); }
+  travelMapObj.setCenter(center);
+  travelMapObj.setZoom(16);
+  if (travelMapObj.panTo) travelMapObj.panTo(center, { duration: 350 });
+  if (travelMapObj.zoomTo) travelMapObj.zoomTo(16, { duration: 350 });
   setTimeout(showMarker, 900);
 }
 
@@ -12725,7 +12734,10 @@ function travelWireEvents() {
   els.travelPlaceSearchBtn.onclick = () => travelSearchPlaces();
   els.travelPlaceClearBtn.onclick = () => travelClearPlaceSearch(true);
   ["pointerdown", "mousedown", "click", "touchstart"].forEach((eventName) => {
-    els.travelPlaceResults.addEventListener(eventName, (event) => event.stopPropagation(),
+    els.travelPlaceResults.addEventListener(eventName, (event) => {
+      travelIgnoreMapClickUntil = Date.now() + 1500;
+      event.stopPropagation();
+    },
       eventName === "touchstart" ? { passive: true } : false);
   });
   els.travelPlaceSearch.addEventListener("input", () => {
