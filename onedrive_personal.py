@@ -25,6 +25,7 @@ Optional:
 """
 
 import io
+import base64
 import os
 import pickle
 import sys
@@ -171,6 +172,29 @@ class OneDrivePersonal:
     def get_text(self, path, encoding="utf-8"):
         b = self.get_bytes(path)
         return None if b is None else b.decode(encoding, errors="replace")
+
+    def get_shared_text(self, share_url, path, encoding="utf-8"):
+        """Read a file below a shared folder URL without modifying that folder."""
+        encoded = base64.urlsafe_b64encode(share_url.encode("utf-8")).decode("ascii").rstrip("=")
+        sid = "u!" + encoded
+        item_res = self._request(
+            "GET", "%s/shares/%s/driveItem?$select=id,parentReference" % (GRAPH, sid))
+        if not item_res.ok:
+            raise RuntimeError("shared folder resolve failed: %s %s" %
+                               (item_res.status_code, item_res.text))
+        item = item_res.json()
+        drive_id = (item.get("parentReference") or {}).get("driveId")
+        if not drive_id or not item.get("id"):
+            raise RuntimeError("shared folder response is missing drive identifiers")
+        url = "%s/drives/%s/items/%s:/%s:/content" % (
+            GRAPH, drive_id, item["id"], path.strip("/"))
+        file_res = self._request("GET", url)
+        if file_res.status_code == 404:
+            return None
+        if not file_res.ok:
+            raise RuntimeError("shared download failed (%s): %s %s" %
+                               (path, file_res.status_code, file_res.text))
+        return file_res.content.decode(encoding, errors="replace")
 
     def put_bytes(self, path, data, content_type="application/octet-stream"):
         r = self._request("PUT", self._item_url(path, "/content"),

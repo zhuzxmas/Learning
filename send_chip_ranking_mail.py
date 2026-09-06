@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Email the 筹码排行 (chip-distribution ranking) table after the finance batch.
 
-Reads the pre-aggregated ``output/_chip_ranking.json`` and ``output/_summary.json``
-from the stock batch's personal OneDrive, joins the three 汇总 flags, sorts by
-获利比例 ascending (nulls last), renders the same table the web page shows, and
+Reads the ranking, valuation settings, configured output files and family stock
+ledger, then renders the same default 17-column table the web page shows and
 emails it via Microsoft Graph ``/users/{from}/sendMail`` (app-only token from
 funcLG.func_login_secret, i.e. CLIENT_ID/CLIENT_SECRET/TENANT_ID).
 
@@ -19,7 +18,11 @@ warns on error (the workflow uses continue-on-error).
 """
 
 import datetime
+import csv
+import html as html_lib
+import io
 import json
+import math
 import os
 import sys
 
@@ -29,12 +32,25 @@ import funcLG
 import onedrive_personal as op
 
 
+DEFAULT_STOCK_FOLDER_SHARE_URL = (
+    "https://1drv.ms/f/c/7f804b34b24d36bb/"
+    "IgDkv42DfbuDTJfM1C3hWX1FAXlv1jCiXLSpnrL-BqpZhQU?email=celine_mas%40outlook.com&e=F7TDX1")
+
+
 def _fmt_pct(v):
-    return "—" if v is None else "{:.1f}%".format(v * 100)
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    return "—" if not math.isfinite(n) else "{:.1f}%".format(n * 100)
 
 
 def _fmt_num(v):
-    return "—" if v is None else str(v)
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    return "—" if not math.isfinite(n) else "{:.2f}".format(n)
 
 
 def _fmt_rng(lo, hi):
@@ -45,10 +61,78 @@ def _yn(v):
     return "✔" if v else "✘"
 
 
+def _opportunity(v):
+    return "是" if v is True else "否" if v is False else "—"
+
+
+def _canonical_code(value):
+    import re
+    text = str(value or "").strip().upper()
+    match = re.search(r"(?:^|[^0-9])(\d{5})\.HK(?:$|[^A-Z0-9])", text)
+    if match:
+        return match.group(1) + ".HK"
+    match = re.search(r"H\s*0*(\d{1,5})", text)
+    if match:
+        return match.group(1).zfill(5) + ".HK"
+    match = re.search(r"(?:^|\D)(\d{6})(?:\D|$)", text)
+    if not match:
+        return None
+    code = match.group(1)
+    return code + (".SH" if code.startswith("6") else ".SZ")
+
+
+def _configured_code(value):
+    text = str(value or "").replace(" ", "").strip()
+    if text[:1].upper() == "H" and text[1:].isdigit():
+        return text[1:].zfill(5) + ".HK"
+    digits = "".join(character for character in text if character.isdigit()).zfill(6)
+    if len(digits) != 6:
+        return None
+    return digits + (".SH" if digits.startswith("6") else ".SZ")
+
+
+def _held_codes(records):
+    totals = {}
+    for record in records or []:
+        code = _canonical_code((record or {}).get("code"))
+        try:
+            shares = float((record or {}).get("shares"))
+        except (TypeError, ValueError):
+            continue
+        if code and math.isfinite(shares):
+            totals[code] = totals.get(code, 0.0) + shares
+    return {code for code, shares in totals.items() if shares < -0.5}
+
+
+def _configured_codes(raw_csv):
+    rows = [row for row in csv.reader(io.StringIO((raw_csv or "").lstrip("\ufeff")))
+            if any(cell.strip() for cell in row)]
+    if not rows:
+        return set()
+    header = [cell.strip().lower() for cell in rows[0]]
+    index, data = 0, rows
+    for candidate in ("title", "code", "stock", "stock_code", "stock number", "stock_number"):
+        if candidate in header:
+            index, data = header.index(candidate), rows[1:]
+            break
+    return {_configured_code(row[index]) for row in data
+            if index < len(row) and _configured_code(row[index])}
+
+
+def _profit_sort_value(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return (1, 0.0)
+    return (0, number) if math.isfinite(number) else (1, 0.0)
+
+
 def _summary_flags(summary):
     """numeric-code -> {b_profit,b_liab,b_div} from _summary.json."""
     out = {}
     for r in (summary or []):
+        if not isinstance(r, dict):
+            continue
         sn = str((r or {}).get("Stock Number", ""))
         rest = "--".join(sn.split("--")[1:])          # drop "{seq}--"
         stock = rest.split("-")[0] if rest else ""     # 600519.ss / 01548.HK
@@ -64,62 +148,103 @@ def _summary_flags(summary):
     return out
 
 
-def build_html(ranking, summary):
+def _normalize_settings(value):
+    if (not isinstance(value, dict) or
+            not isinstance(value.get("defaults"), dict) or
+            not isinstance(value.get("stocks"), dict)):
+        return {"version": 2, "defaults": {}, "stocks": {}}
+    return value
+
+
+def build_rows(ranking, summary, settings, configured, output_codes, holdings):
     flags = _summary_flags(summary)
+    stock_settings = _normalize_settings(settings)["stocks"]
     rows = []
-    rep_date = ""
     for r in (ranking or []):
+        if not isinstance(r, dict):
+            continue
         code = str(r.get("stock_cn") or "")
-        if not code:
+        if not code or code not in configured or code not in output_codes:
             continue
         numeric = code.split(".")[0].strip()
         f = flags.get(numeric, {})
-        if r.get("as_of") and str(r["as_of"]) > rep_date:
-            rep_date = str(r["as_of"])
-        rows.append({
-            "code": code,
-            "name": r.get("stock_name") or "",
-            "profit_ratio": r.get("profit_ratio"),
-            "latest_close": r.get("latest_close"),
-            "avg_cost": r.get("avg_cost"),
-            "cost_90_low": r.get("cost_90_low"), "cost_90_high": r.get("cost_90_high"),
-            "cost_70_low": r.get("cost_70_low"), "cost_70_high": r.get("cost_70_high"),
+        manual = stock_settings.get(code) or {}
+        if not isinstance(manual, dict):
+            manual = {}
+        row = dict(r)
+        row.update({
+            "stock_cn": code,
+            "is_held": code in holdings,
             "b_profit": bool(f.get("b_profit")), "b_liab": bool(f.get("b_liab")),
             "b_div": bool(f.get("b_div")),
+            "potential_opportunity": (None if manual.get("potential_opportunity") is None
+                                      else bool(manual.get("potential_opportunity"))),
+            "target_price": manual.get("target_price"),
+            "opportunity_reason": manual.get("opportunity_reason") or "",
         })
+        rows.append(row)
+    opportunity_rank = lambda value: 0 if value is True else 1 if value is False else 2  # noqa: E731
+    rows.sort(key=lambda row: (
+        0 if row["is_held"] else 1,
+        opportunity_rank(row["potential_opportunity"]),
+        _profit_sort_value(row.get("profit_ratio")),
+        row["stock_cn"],
+    ))
+    return rows
 
-    # 获利比例 ascending, nulls last.
-    rows.sort(key=lambda x: (x["profit_ratio"] is None,
-                             x["profit_ratio"] if x["profit_ratio"] is not None else 0.0))
 
-    price_hdr = ("{}收盘价".format(rep_date) if rep_date else "收盘价")
-    th = ("<th>股票</th><th>获利比例</th><th>{}</th><th>平均成本</th>"
+def build_html(ranking, summary, settings, configured, output_codes, holdings,
+               holdings_available=True):
+    rows = build_rows(ranking, summary, settings, configured, output_codes, holdings)
+    rep_date = max((str(row.get("as_of")) for row in rows if row.get("as_of")), default="")
+
+    price_hdr = ("{}当前股价".format(rep_date) if rep_date else "当前股价")
+    th = ("<th>股票</th><th>潜在机会</th><th>目标价格</th><th>原因</th>"
+          "<th>获利比例</th><th>{}</th><th>平均成本</th>"
           "<th>90%成本区间</th><th>70%成本区间</th>"
-          "<th>利润好</th><th>负债低</th><th>分红多</th>").format(price_hdr)
+          "<th>利润好</th><th>负债低</th><th>分红多</th>"
+          "<th>每股 AV</th><th>每股 EPV</th><th>EPV−AV</th>"
+          "<th>当前股价</th><th>EPV 安全边际</th>").format(html_lib.escape(price_hdr))
     body_rows = []
     for x in rows:
-        label = ("{} {}".format(x["code"], x["name"]) if x["name"] else x["code"])
+        code = x["stock_cn"]
+        name = x.get("stock_name") or ""
+        label = ("{}{} {}".format("*" if x["is_held"] else "", code, name)
+                 if name else ("*" if x["is_held"] else "") + code)
         body_rows.append(
             "<tr>"
-            "<td>{}</td>".format(label)
-            + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x["profit_ratio"]))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x["latest_close"]))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x["avg_cost"]))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_rng(x["cost_90_low"], x["cost_90_high"]))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_rng(x["cost_70_low"], x["cost_70_high"]))
+            "<td>{}</td>".format(html_lib.escape(label))
+            + "<td style='text-align:center'>{}</td>".format(_opportunity(x["potential_opportunity"]))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("target_price")))
+            + "<td class='reason' title='{}'>{}</td>".format(
+                html_lib.escape(str(x["opportunity_reason"]), quote=True),
+                html_lib.escape(str(x["opportunity_reason"] or "—")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x.get("profit_ratio")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("latest_close")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("avg_cost")))
+            + "<td style='text-align:right'>{}</td>".format(html_lib.escape(_fmt_rng(x.get("cost_90_low"), x.get("cost_90_high"))))
+            + "<td style='text-align:right'>{}</td>".format(html_lib.escape(_fmt_rng(x.get("cost_70_low"), x.get("cost_70_high"))))
             + "<td style='text-align:center'>{}</td>".format(_yn(x["b_profit"]))
             + "<td style='text-align:center'>{}</td>".format(_yn(x["b_liab"]))
             + "<td style='text-align:center'>{}</td>".format(_yn(x["b_div"]))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("asset_value_per_share")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("epv_per_share")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("epv_minus_asset_value")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("latest_close")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x.get("epv_margin_of_safety")))
             + "</tr>")
     style = ("table{border-collapse:collapse;font-family:sans-serif;font-size:13px}"
-             "th,td{border:1px solid #ddd;padding:6px 10px;white-space:nowrap}"
-             "th{background:#f2f4f7;text-align:left}")
+              "th,td{border:1px solid #ddd;padding:6px 10px;white-space:nowrap}"
+              "th{background:#f2f4f7;text-align:left}"
+              ".reason{max-width:220px;overflow:hidden;text-overflow:ellipsis}")
+    warning = ("<p style='color:#9a5b00'>持仓状态读取失败，本次未应用持仓优先排序和 * 标记。</p>"
+               if not holdings_available else "")
     html = ("<html><head><meta charset='utf-8'><style>{}</style></head><body>"
-            "<h3>选股 · 筹码排行（获利比例升序）</h3>"
-            "<p style='color:#666'>数据日期：{}　共 {} 只</p>"
-            "<table><thead><tr>{}</tr></thead><tbody>{}</tbody></table>"
-            "</body></html>").format(
-        style, rep_date or "—", len(rows), th, "".join(body_rows))
+             "<h3>选股 · 筹码排行（网页默认排序）</h3>{}"
+             "<p style='color:#666'>数据日期：{}　共 {} 只</p>"
+             "<table><thead><tr>{}</tr></thead><tbody>{}</tbody></table>"
+             "</body></html>").format(
+        style, warning, html_lib.escape(rep_date or "—"), len(rows), th, "".join(body_rows))
     return html, rep_date, len(rows)
 
 
@@ -170,13 +295,44 @@ def main():
     ranking = json.loads(od.get_text("output/_chip_ranking.json") or "[]")
     try:
         summary = json.loads(od.get_text("output/_summary.json") or "[]")
-    except Exception:  # noqa: BLE001
+        if not isinstance(summary, list):
+            summary = []
+    except Exception as exc:  # noqa: BLE001
+        print("WARN: summary unavailable; using empty flags: {}".format(exc))
         summary = []
+    try:
+        settings = _normalize_settings(json.loads(
+            od.get_text("valuation-settings.json") or "{}"))
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print("WARN: valuation settings invalid; using empty settings: {}".format(exc))
+        settings = _normalize_settings(None)
+    configured = _configured_codes(od.get_text("stock_list.csv") or "")
+    output_codes = {
+        str(item.get("name", ""))[:-5]
+        for item in od.list_children("output")
+        if str(item.get("name", "")).lower().endswith(".json")
+        and not str(item.get("name", "")).startswith("_")
+    }
+    output_codes.discard("")
     if not ranking:
         print("No _chip_ranking.json data; skipping mail.")
         return 0
 
-    html, rep_date, n = build_html(ranking, summary)
+    holdings_available = True
+    holdings = set()
+    try:
+        share_url = os.environ.get(
+            "STOCK_FOLDER_SHARE_URL", DEFAULT_STOCK_FOLDER_SHARE_URL).strip()
+        ledger = json.loads(od.get_shared_text(share_url, "stock-records.json") or "{}")
+        holdings = _held_codes((ledger or {}).get("records") or [])
+    except Exception as exc:  # noqa: BLE001
+        holdings_available = False
+        print("WARN: holdings unavailable; sending degraded ranking: {}: {}".format(
+            type(exc).__name__, exc))
+
+    html, rep_date, n = build_html(
+        ranking, summary, settings, configured, output_codes, holdings,
+        holdings_available=holdings_available)
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     subject = "选股 · 筹码排行 {}（{} 只）".format(rep_date or today, n)
     ok = send_mail(html, subject, sender, recipient, proxies)
