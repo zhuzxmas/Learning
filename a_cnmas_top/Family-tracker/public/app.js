@@ -4137,6 +4137,13 @@ async function sbtRenderChip(code) {
     return Object.assign({}, (sbtValuationSettings.stocks || {})[code] || {});
   }
 
+  function sbtAutoGrowOpportunityReason() {
+    const textarea = els.sbtOpportunityReason;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = Math.max(72, textarea.scrollHeight) + "px";
+  }
+
   function sbtRenderOpportunity(code, data) {
     const value = sbtOpportunityFor(code);
     const currency = data && data.valuation && (data.valuation.currency ||
@@ -4146,6 +4153,7 @@ async function sbtRenderChip(code) {
     els.sbtOpportunityTarget.value = value.target_price == null ? "" : value.target_price;
     els.sbtOpportunityCurrency.textContent = currency || (code.endsWith(".HK") ? "HKD" : "CNY");
     els.sbtOpportunityReason.value = value.opportunity_reason || "";
+    sbtAutoGrowOpportunityReason();
     els.sbtOpportunityUpdated.textContent = value.opportunity_updated_at
       ? "更新于 " + sbtDateOnly(value.opportunity_updated_at) : "";
     [els.sbtOpportunitySelect, els.sbtOpportunityTarget, els.sbtOpportunityReason]
@@ -4361,9 +4369,13 @@ function sbtWireEvents() {
      }));
    els.sbtValSaveBtn.onclick = () => sbtSaveValuationAssumptions(false).catch((e) => setStatus(e.message || String(e), "error"));
    els.sbtValResetBtn.onclick = () => sbtSaveValuationAssumptions(true).catch((e) => setStatus(e.message || String(e), "error"));
-   els.sbtOpportunitySaveBtn.onclick = () => sbtSaveOpportunity()
-     .catch((e) => setStatus(e.message || String(e), "error"));
- }
+    els.sbtOpportunitySaveBtn.onclick = () => sbtSaveOpportunity()
+      .catch((e) => setStatus(e.message || String(e), "error"));
+    els.sbtOpportunityReason.addEventListener("input", sbtAutoGrowOpportunityReason);
+    els.sbtOpportunityCard.addEventListener("toggle", () => {
+      if (els.sbtOpportunityCard.open) requestAnimationFrame(sbtAutoGrowOpportunityReason);
+    });
+  }
  
  // Read-only vs. owner: hide the write-oriented 设置 tab for non-owners (add /
  // update-trigger / delete all live there; their /me/drive has no folder anyway).
