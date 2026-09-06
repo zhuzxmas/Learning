@@ -3,10 +3,11 @@ import unittest
 import pandas as pd
 
 import z_Func
-from finance_batch_personal import (build_valuation, canonical_stock_key,
-                                    load_stock_list, ranking_row_from_output,
+from finance_batch_personal import (build_output, build_valuation, canonical_stock_key,
+                                     load_stock_list, ranking_row_from_output,
                                     recover_aggregate_rows, merge_canonical_rows,
-                                    valuation_ranking_fields, VALUATION_ROWS)
+                                    merge_report_frames,
+                                     valuation_ranking_fields, VALUATION_ROWS)
 from valuation_engine import calculate
 
 
@@ -138,6 +139,75 @@ class ValuationEngineTests(unittest.TestCase):
         self.assertEqual(rows.loc['估值_所得税费用 亿元', '2025-12-31'], 12)
         self.assertEqual(rows.loc['估值_折旧摊销 亿元', '2025-12-31'], 8)
         self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-12-31'], 7)
+
+    def test_hk_02249_securities_and_epv(self):
+        periods = pd.Index(['2025-12-31'])
+        income = pd.DataFrame({
+            'OPERATE_INCOME': [100e8], 'OPERATE_PROFIT': [10e8],
+            'PRETAX_PROFIT': [9e8], 'TAX_EBT': [20],
+            'DATE_TYPE_CODE': ['001'],
+        }, index=periods)
+        balance = pd.DataFrame([
+            ['2025-12-31', '现金及等价物', 20e8],
+            ['2025-12-31', '指定以公允价值记账之金融资产', 5e8],
+            ['2025-12-31', '指定以公允价值记账之金融资产(流动)', 15e8],
+            ['2025-12-31', '应收款项', 10e8],
+            ['2025-12-31', '固定资产', 30e8],
+            ['2025-12-31', '无形资产', 2e8],
+            ['2025-12-31', '总负债', 40e8],
+            ['2025-12-31', '长期借款', 8e8],
+            ['2025-12-31', '少数股东权益', 1e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'],
+           index=['2025-12-31'] * 9)
+        cashflow = pd.DataFrame([
+            ['2025-12-31', '折旧及摊销', 3e8],
+            ['2025-12-31', '购买物业、厂房及设备', 4e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'])
+        rows = z_Func.valuation_rows_hk(income, balance, cashflow)
+        self.assertEqual(rows.loc['估值_有价证券 亿元', '2025-12-31'], 20)
+        self.assertEqual(rows.loc['估值_商誉 亿元', '2025-12-31'], 0)
+
+        frame = rows.copy()
+        frame.loc['总资产 亿元'] = 100
+        frame.loc['营业总收入 销售额 亿元'] = 100
+        frame.loc['普通股数量 百万'] = 1000
+        valuation = build_valuation(frame, {'currency': 'HKD'})
+        self.assertIsNotNone(valuation['epv'])
+        self.assertNotIn('securities', valuation['missing'])
+
+    def test_hk_total_issued_shares_precede_hk_shares(self):
+        frame = pd.DataFrame({
+            'ISSUED_COMMON_SHARES': [2234645597, None],
+            'HK_COMMON_SHARES': [227053900, 300000000],
+        })
+        shares = z_Func.hk_common_shares(frame)
+        self.assertEqual(shares.iloc[0], 2234645597)
+        self.assertEqual(shares.iloc[1], 300000000)
+
+    def test_hk_missing_goodwill_is_zero_for_that_period(self):
+        periods = pd.Index(['2025-12-31', '2024-12-31'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['001', '001']}, index=periods)
+        balance = pd.DataFrame([
+            ['2024-12-31', '商誉', 3e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'], index=['2024-12-31'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_商誉 亿元', '2025-12-31'], 0)
+        self.assertEqual(rows.loc['估值_商誉 亿元', '2024-12-31'], 3)
+
+    def test_report_cache_merge_adds_new_valuation_rows(self):
+        cached = pd.DataFrame({'2025-12-31': [100]}, index=['总资产 亿元'])
+        fresh = pd.DataFrame({'2025-12-31': [110, 20]},
+                             index=['总资产 亿元', '估值_现金 亿元'])
+        merged = merge_report_frames(cached, fresh)
+        self.assertEqual(merged.loc['总资产 亿元', '2025-12-31'], 110)
+        self.assertEqual(merged.loc['估值_现金 亿元', '2025-12-31'], 20)
+
+    def test_output_drops_fully_empty_financial_rows(self):
+        combined = pd.DataFrame({'2025-12-31': [1, None, '  ']},
+                                index=['收入', '商誉 百万', '空白行'])
+        payload = build_output('02249.HK', 'H02249', '国免控股', {}, combined,
+                               None, None)
+        self.assertEqual(payload['combined']['index'], ['收入'])
 
     def test_stock_list_remains_authoritative(self):
         class FakeDrive:

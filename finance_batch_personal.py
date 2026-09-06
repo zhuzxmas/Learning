@@ -351,6 +351,11 @@ def _split_hk_periods(df):
     return _pick(annual_cols), _pick(season_cols)
 
 
+def merge_report_frames(cached, fresh):
+    """Merge report caches by row and column, with fresh non-null values winning."""
+    return fresh.combine_first(cached)
+
+
 def _hk_display_interim(yearly_df, seasonly_df):
     """展示层过滤：中期/季度侧只保留最新年报之后的那一期 06-30 半年报。
     丢弃 03-31/09-30 及更早的 06-30。无符合项返回 None。pkl 缓存不受影响。"""
@@ -475,11 +480,7 @@ def process_reports_hk(od, history_names, stock, proxies, skip_fetch=False,
             print('HK fetch returned no data for {}; using cached.\n'.format(stock))
             return _finish(cached)
         stock_name = fresh_name or stock_name
-        df_merged = cached.copy()
-        df_merged.update(fresh_df)
-        new_cols = fresh_df.columns.difference(df_merged.columns)
-        if len(new_cols) > 0:
-            df_merged = pd.concat([df_merged, fresh_df[new_cols]], axis=1)
+        df_merged = merge_report_frames(cached, fresh_df)
         sorted_cols = pd.to_datetime(df_merged.columns).sort_values(ascending=False)
         df_final = df_merged[sorted_cols.strftime('%Y-%m-%d')]
         _save_history(od, stock, stock_name, '-Y-', df_final)
@@ -812,6 +813,10 @@ def build_output(stock, stock_cn, stock_name, checks, stock_output_combined,
         stock_output_combined = stock_output_combined.drop(
             index=[label for label in stock_output_combined.index
                    if str(label).startswith('估值_')], errors='ignore')
+        empty_cells = stock_output_combined.map(
+            lambda value: pd.isna(value) or
+            (isinstance(value, str) and not value.strip()))
+        stock_output_combined = stock_output_combined.loc[~empty_cells.all(axis=1)]
         combined_json = json.loads(
             stock_output_combined.to_json(orient='split', force_ascii=False))
     div_records = []

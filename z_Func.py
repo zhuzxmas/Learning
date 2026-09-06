@@ -76,6 +76,11 @@ def numeric_series(frame, columns, index=None):
     return out
 
 
+def hk_common_shares(frame):
+    """Use total issued shares for per-share HK metrics, with HK shares as fallback."""
+    return numeric_series(frame, ['ISSUED_COMMON_SHARES', 'HK_COMMON_SHARES'])
+
+
 def sum_numeric_series(frame, columns, index=None):
     """Sum available columns, but keep periods with no source fields as NaN."""
     use_index = frame.index if index is None else index
@@ -168,9 +173,14 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
     idx = income_df.index
     item = lambda names: hk_item_series(balance_df, names, idx)
     cash_item = lambda names: hk_item_series(cashflow_df, names, idx, use_report_date=True)
+    securities = item(['交易性金融资产', '证券投资', '短期投资', '金融资产'])
+    designated_securities = pd.concat([
+        item(['指定以公允价值记账之金融资产']),
+        item(['指定以公允价值记账之金融资产(流动)']),
+    ], axis=1).sum(axis=1, min_count=1)
     rows = {
         '估值_现金 亿元': item(['现金及等价物', '现金及现金等价物']),
-        '估值_有价证券 亿元': item(['交易性金融资产', '证券投资', '短期投资', '金融资产']),
+        '估值_有价证券 亿元': securities.combine_first(designated_securities),
         '估值_应收款项 亿元': item([
             '应收账款', '应收账款及票据', '应收款项',
             '预付款按金及其他应收款', '预付款项',
@@ -211,6 +221,12 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
     if ('STD_ITEM_NAME' in balance_df.columns and
             not balance_df['STD_ITEM_NAME'].astype(str).isin(['存货', '库存']).any()):
         result.loc['估值_存货 亿元'] = 0.0
+    if 'STD_ITEM_NAME' in balance_df.columns:
+        goodwill_periods = set(balance_df.loc[
+            balance_df['STD_ITEM_NAME'].astype(str).eq('商誉')].index.astype(str))
+        absent_goodwill = [period for period in idx if str(period) not in goodwill_periods]
+        if absent_goodwill:
+            result.loc['估值_商誉 亿元', absent_goodwill] = 0.0
     if 'DATE_TYPE_CODE' in income_df.columns:
         result.loc['估值_年报标记'] = income_df['DATE_TYPE_CODE'].astype(str).eq('001').astype(float).reindex(idx)
     if 'STD_ITEM_NAME' in balance_df.columns:
@@ -853,7 +869,7 @@ def report_from_Eas_Mon_HK(url, proxies, stock_hk):
         stock_0_TotalLiabilitiesNetMinorityInterest_y = (df_balance_stock[df_balance_stock['STD_ITEM_NAME'] == "总负债"]['AMOUNT']/100000000)
         stock_0_TotalLiabilitiesNetMinorityInterest_y.name = '总负债 亿元'
         # 普通股数量
-        stock_0_OrdinarySharesNumber_y = df_income_stock['HK_COMMON_SHARES']/1000000
+        stock_0_OrdinarySharesNumber_y = hk_common_shares(df_income_stock) / 1000000
         stock_0_OrdinarySharesNumber_y.name = '普通股数量 百万'
 
         # 现金调整账面价值: 现金调整BookValue = (股东权益 − 无形资产 − 商誉 + 净现金) ÷ 股数

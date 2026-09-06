@@ -4250,7 +4250,11 @@ async function sbtRenderChip(code) {
       const isQuarterCol = (j) => /-(03-31|06-30|09-30)$/.test(String(cb.columns[j]));
       cbHead.innerHTML = "<tr><th>指标</th>" +
         visibleCols.map((j) => `<th class="${isQuarterCol(j) ? "sbt-quarter-col" : ""}">${escapeHtml(String(cb.columns[j]))}</th>`).join("") + "</tr>";
-     cbBody.innerHTML = cb.index.map((label, i) => {
+      const visibleRows = cb.index
+        .map((label, i) => ({ label, i }))
+        .filter((row) => visibleCols.some((j) =>
+          !isEmptyCell((cb.data[row.i] || [])[j])));
+      cbBody.innerHTML = visibleRows.map(({ label, i }) => {
        // 每股派发股息 carries long plan text like "10派3.00元(含税,扣税后2.70元)";
        // drop the tax parenthetical for display and let the cell wrap (.sbt-plan)
        // so it doesn't force the whole column wide.
