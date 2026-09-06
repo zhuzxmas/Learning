@@ -1,4 +1,5 @@
 import unittest
+import warnings
 
 import pandas as pd
 
@@ -139,6 +140,25 @@ class ValuationEngineTests(unittest.TestCase):
         self.assertEqual(rows.loc['估值_所得税费用 亿元', '2025-12-31'], 12)
         self.assertEqual(rows.loc['估值_折旧摊销 亿元', '2025-12-31'], 8)
         self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-12-31'], 7)
+
+    def test_numeric_fallbacks_preserve_priority_without_future_warning(self):
+        frame = pd.DataFrame({
+            'primary': [1, None, None],
+            'fallback': [9, 2, None],
+        }, index=['a', 'b', 'c'])
+        hk_frame = pd.DataFrame([
+            ['首选', 1], ['备用', 9], ['备用', 2],
+        ], columns=['STD_ITEM_NAME', 'AMOUNT'], index=['a', 'a', 'b'])
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', FutureWarning)
+            numeric = z_Func.numeric_series(frame, ['primary', 'fallback'])
+            hk = z_Func.hk_item_series(hk_frame, ['首选', '备用'], frame.index)
+        self.assertEqual(numeric.loc['a'], 1)
+        self.assertEqual(numeric.loc['b'], 2)
+        self.assertTrue(pd.isna(numeric.loc['c']))
+        self.assertEqual(hk.loc['a'], 1)
+        self.assertEqual(hk.loc['b'], 2)
+        self.assertTrue(pd.isna(hk.loc['c']))
 
     def test_hk_02249_securities_and_epv(self):
         periods = pd.Index(['2025-12-31'])

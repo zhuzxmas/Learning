@@ -72,7 +72,8 @@ def numeric_series(frame, columns, index=None):
     out = pd.Series(index=use_index, dtype='float64')
     for column in columns:
         if column in frame.columns:
-            out = out.combine_first(pd.to_numeric(frame[column], errors='coerce').reindex(use_index))
+            values = pd.to_numeric(frame[column], errors='coerce').reindex(use_index).astype('float64')
+            out = out.fillna(values)
     return out
 
 
@@ -164,7 +165,7 @@ def hk_item_series(frame, names, index, use_report_date=False):
             values.index = index
         else:
             values = values.groupby(selected.index).first().reindex(index)
-        output = output.combine_first(values)
+        output = output.fillna(values.astype('float64'))
     return output
 
 
