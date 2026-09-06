@@ -397,6 +397,10 @@ const els = {
   sbtValInventory: $("sbtValInventory"), sbtValFixed: $("sbtValFixed"),
   sbtValOther: $("sbtValOther"), sbtValCapRate: $("sbtValCapRate"),
   sbtValTax: $("sbtValTax"), sbtValSaveBtn: $("sbtValSaveBtn"), sbtValResetBtn: $("sbtValResetBtn"),
+  sbtOpportunityCard: $("sbtOpportunityCard"), sbtOpportunityUpdated: $("sbtOpportunityUpdated"),
+  sbtOpportunitySelect: $("sbtOpportunitySelect"), sbtOpportunityTarget: $("sbtOpportunityTarget"),
+  sbtOpportunityCurrency: $("sbtOpportunityCurrency"), sbtOpportunityReason: $("sbtOpportunityReason"),
+  sbtOpportunitySaveBtn: $("sbtOpportunitySaveBtn"),
   // --- 聊天 (chat) mode ---
   modeChatBtn: $("modeChatBtn"),
   aiApp: $("aiApp"),
@@ -3425,7 +3429,7 @@ function incSwitchTab(name) {
  let sbtRankSort = { col: "profit_ratio", dir: 1 };  // 1 asc, -1 desc; default 获利比例升序
  let sbtChipExpandCode = "";    // stock_cn of the currently expanded/highlighted row ("" = none)
  const SBT_VALUATION_SETTINGS_FILE = "valuation-settings.json";
- let sbtValuationSettings = { version: 1, defaults: {}, stocks: {} };
+ let sbtValuationSettings = { version: 2, defaults: {}, stocks: {} };
  let sbtValuationEtag = null;
  let sbtValuationSettingsError = "";
  
@@ -3492,7 +3496,7 @@ async function sbtReadValuationSettings(token) {
   const res = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, ":/content"), {
     cache: "no-store", headers: { Authorization: "Bearer " + token },
   });
-  if (res.status === 404) return { data: { version: 1, defaults: {}, stocks: {} }, etag: null };
+  if (res.status === 404) return { data: { version: 2, defaults: {}, stocks: {} }, etag: null };
   if (!res.ok) throw new Error("读取估值参数失败：" + res.status);
    let data = null; try { data = await res.json(); }
    catch { throw new Error("估值参数文件不是有效 JSON。"); }
@@ -3501,7 +3505,7 @@ async function sbtReadValuationSettings(token) {
        !data.stocks || typeof data.stocks !== "object" || Array.isArray(data.stocks)) {
      throw new Error("估值参数文件结构无效。");
    }
-  data.version = 1;
+  data.version = 2;
   let etag = res.headers.get("ETag");
   if (!etag) {
     const meta = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, "?$select=eTag"), {
@@ -3518,19 +3522,23 @@ async function sbtLoadValuationSettings(token) {
     const result = await sbtReadValuationSettings(token);
     sbtValuationSettings = result.data; sbtValuationEtag = result.etag; sbtValuationSettingsError = "";
   } catch (e) {
-    sbtValuationSettings = { version: 1, defaults: {}, stocks: {} };
+    sbtValuationSettings = { version: 2, defaults: {}, stocks: {} };
     sbtValuationEtag = null;
     sbtValuationSettingsError = e.message || String(e);
     console.warn("valuation settings:", e);
   }
 }
 
-async function sbtWriteValuationPatch(code, value) {
+async function sbtMutateStockSettings(code, mutate) {
   const token = await getToken();
   for (let attempt = 0; attempt < 4; attempt++) {
     const next = JSON.parse(JSON.stringify(sbtValuationSettings));
-    next.version = 1; next.defaults = next.defaults || {}; next.stocks = next.stocks || {};
-    if (value == null) delete next.stocks[code]; else next.stocks[code] = value;
+    next.version = 2; next.defaults = next.defaults || {}; next.stocks = next.stocks || {};
+    const current = next.stocks[code] && typeof next.stocks[code] === "object"
+      ? Object.assign({}, next.stocks[code]) : {};
+    const updated = mutate(current);
+    if (updated && Object.keys(updated).length) next.stocks[code] = updated;
+    else delete next.stocks[code];
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (sbtValuationEtag) headers["If-Match"] = sbtValuationEtag;
     else headers["If-None-Match"] = "*";
@@ -3544,9 +3552,9 @@ async function sbtWriteValuationPatch(code, value) {
       const fresh = await sbtReadValuationSettings(token);
       sbtValuationSettings = fresh.data; sbtValuationEtag = fresh.etag; continue;
     }
-    throw new Error("保存估值参数失败：" + res.status);
+    throw new Error("保存股票设置失败：" + res.status);
   }
-  throw new Error("估值参数发生并发冲突，请重试。");
+  throw new Error("股票设置发生并发冲突，请重试。");
 }
 
  async function sbtLoad(force) {
@@ -3751,6 +3759,16 @@ function sbtSortRanking(list) {
       const bk = `${b.stock_cn || ""} ${b.stock_name || ""}`;
       return dir * ak.localeCompare(bk, "zh");
     });
+  } else if (col === "potential_opportunity") {
+    arr.sort((a, b) => {
+      const av = a[col] == null ? null : (a[col] ? 1 : 0);
+      const bv = b[col] == null ? null : (b[col] ? 1 : 0);
+      if (av == null && bv == null) return String(a.stock_cn || "").localeCompare(String(b.stock_cn || ""));
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const result = dir === 1 ? bv - av : av - bv;
+      return result || String(a.stock_cn || "").localeCompare(String(b.stock_cn || ""));
+    });
   } else if (col === "b_profit" || col === "b_liab" || col === "b_div") {
     arr.sort((a, b) => {
       const av = a[col] ? 1 : 0, bv = b[col] ? 1 : 0;
@@ -3781,8 +3799,12 @@ async function sbtRenderChipRank() {
     .map((r) => {
       const numeric = String(r.stock_cn || "").split(".")[0].trim();
       const f = flags[numeric] || {};
+      const manual = (sbtValuationSettings.stocks || {})[r.stock_cn] || {};
       return Object.assign({}, r, {
         b_profit: !!f.b_profit, b_liab: !!f.b_liab, b_div: !!f.b_div,
+        potential_opportunity: manual.potential_opportunity == null ? null : !!manual.potential_opportunity,
+        target_price: manual.target_price == null ? null : Number(manual.target_price),
+        opportunity_reason: manual.opportunity_reason || "",
       });
     });
   sbtChipCollapse(false);           // reset any open chart before re-render
@@ -3820,6 +3842,7 @@ async function sbtRenderChipRank() {
   const num = (v) => (v == null ? "—" : Number(v).toFixed(2));
   const rng = (lo, hi) => (lo == null || hi == null) ? "—" : `${lo} ~ ${hi}`;
   const yn = (v) => v ? "✔" : "✘";
+  const opportunity = (v) => v === true ? "是" : v === false ? "否" : "—";
   for (const r of list) {
     const code = r.stock_cn || "";
     const nm = r.stock_name || sbtNameFor(code) || "";
@@ -3828,6 +3851,9 @@ async function sbtRenderChipRank() {
     tr.dataset.stockCode = code;
     tr.innerHTML =
       `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
+      `<td class="sbt-c strong">${opportunity(r.potential_opportunity)}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.target_price)))}</td>` +
+      `<td class="sbt-opportunity-reason-cell" title="${escapeHtml(r.opportunity_reason || "")}">${escapeHtml(r.opportunity_reason || "—")}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
@@ -4091,16 +4117,67 @@ async function sbtRenderChip(code) {
    sbtRenderValuationCalculation(code, valuation, assumptions);
  }
 
- async function sbtSaveValuationAssumptions(reset) {
+  async function sbtSaveValuationAssumptions(reset) {
    const code = els.sbtSelect.value, data = sbtStocks[code];
    if (!code || !data || !data.valuation || !sbtCanEdit()) return;
-   const value = reset ? null : Object.assign(sbtValuationInputAssumptions(), {
-     updated_at: new Date().toISOString(), updated_by: userEmail(),
-   });
-   await sbtWriteValuationPatch(code, value);
+    const valuationKeys = ["receivables", "inventory", "fixed_assets", "other_assets",
+      "capitalization_rate", "fallback_tax_rate"];
+    const value = reset ? null : sbtValuationInputAssumptions();
+    await sbtMutateStockSettings(code, (current) => {
+      valuationKeys.forEach((key) => delete current[key]);
+      if (value) Object.assign(current, value);
+      current.updated_at = new Date().toISOString(); current.updated_by = userEmail();
+      return current;
+    });
    if (els.sbtSelect.value === code) sbtRenderValuation(code, data);
-   setStatus(reset ? "已恢复默认估值参数。" : "估值参数已保存。", "success", 2500);
- }
+    setStatus(reset ? "已恢复默认估值参数。" : "估值参数已保存。", "success", 2500);
+  }
+
+  function sbtOpportunityFor(code) {
+    return Object.assign({}, (sbtValuationSettings.stocks || {})[code] || {});
+  }
+
+  function sbtRenderOpportunity(code, data) {
+    const value = sbtOpportunityFor(code);
+    const currency = data && data.valuation && (data.valuation.currency ||
+      (data.valuation.quote && data.valuation.quote.currency));
+    els.sbtOpportunitySelect.value = value.potential_opportunity === true ? "true"
+      : value.potential_opportunity === false ? "false" : "";
+    els.sbtOpportunityTarget.value = value.target_price == null ? "" : value.target_price;
+    els.sbtOpportunityCurrency.textContent = currency || (code.endsWith(".HK") ? "HKD" : "CNY");
+    els.sbtOpportunityReason.value = value.opportunity_reason || "";
+    els.sbtOpportunityUpdated.textContent = value.opportunity_updated_at
+      ? "更新于 " + sbtDateOnly(value.opportunity_updated_at) : "";
+    [els.sbtOpportunitySelect, els.sbtOpportunityTarget, els.sbtOpportunityReason]
+      .forEach((element) => { element.disabled = !sbtCanEdit(); });
+    els.sbtOpportunitySaveBtn.disabled = !sbtCanEdit() || !!sbtValuationSettingsError;
+  }
+
+  async function sbtSaveOpportunity() {
+    const code = els.sbtSelect.value;
+    if (!code || !sbtCanEdit()) return;
+    const status = els.sbtOpportunitySelect.value;
+    const targetText = els.sbtOpportunityTarget.value.trim();
+    const target = targetText === "" ? null : Number(targetText);
+    const reason = els.sbtOpportunityReason.value.trim();
+    if (target != null && (!isFinite(target) || target < 0)) {
+      setStatus("目标价格必须是非负数字或留空。", "warn", 3000); return;
+    }
+    if (reason.length > 500) {
+      setStatus("原因不能超过 500 字。", "warn", 3000); return;
+    }
+    const patch = {
+      potential_opportunity: status === "true" ? true : status === "false" ? false : null,
+      target_price: target,
+      opportunity_reason: reason,
+      opportunity_updated_at: new Date().toISOString(),
+      opportunity_updated_by: userEmail(),
+    };
+    await sbtMutateStockSettings(code, (current) => Object.assign(current, patch));
+    if (els.sbtSelect.value === code) sbtRenderOpportunity(code, sbtStocks[code]);
+    await sbtRenderChipRank();
+    setStatus("投资判断已保存。", "success", 2500);
+  }
 
  async function sbtRenderDetail(code) {
    if (!code) { els.sbtDetailCard.classList.add("hidden"); return; }
@@ -4109,8 +4186,9 @@ async function sbtRenderChip(code) {
   if (!d) { els.sbtDetailCard.classList.add("hidden"); return; }
   els.sbtDetailCard.classList.remove("hidden");
   els.sbtDetailTitle.textContent = `${d.stock_cn || code} ${d.stock_name || ""}`;
-  els.sbtGenerated.textContent = d.generated ? "生成时间: " + d.generated : "";
-  sbtRenderValuation(code, d);
+   els.sbtGenerated.textContent = d.generated ? "生成时间: " + d.generated : "";
+   sbtRenderValuation(code, d);
+   sbtRenderOpportunity(code, d);
 
   // Now that the name is known, enrich the dropdown option label.
   if (d.stock_name) {
@@ -4283,6 +4361,8 @@ function sbtWireEvents() {
      }));
    els.sbtValSaveBtn.onclick = () => sbtSaveValuationAssumptions(false).catch((e) => setStatus(e.message || String(e), "error"));
    els.sbtValResetBtn.onclick = () => sbtSaveValuationAssumptions(true).catch((e) => setStatus(e.message || String(e), "error"));
+   els.sbtOpportunitySaveBtn.onclick = () => sbtSaveOpportunity()
+     .catch((e) => setStatus(e.message || String(e), "error"));
  }
  
  // Read-only vs. owner: hide the write-oriented 设置 tab for non-owners (add /

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=67" />
+  <link rel="stylesheet" href="style.css?v=68" />
 </head>
 <body>
   <header class="topbar">
@@ -718,6 +718,21 @@
             </section>
             <h3>财务指标</h3>
             <div class="table-wrap sbt-scroll"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
+            <section id="sbtOpportunityCard" class="sbt-opportunity">
+              <div class="sbt-opportunity-head"><h3>投资判断</h3><span id="sbtOpportunityUpdated" class="muted"></span></div>
+              <div class="sbt-opportunity-fields">
+                <label>潜在机会
+                  <select id="sbtOpportunitySelect"><option value="">未评估</option><option value="true">是</option><option value="false">否</option></select>
+                </label>
+                <label>目标价格 <span id="sbtOpportunityCurrency" class="muted"></span>
+                  <input id="sbtOpportunityTarget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="可留空" />
+                </label>
+                <label class="sbt-opportunity-reason">原因
+                  <textarea id="sbtOpportunityReason" rows="3" maxlength="500" placeholder="输入判断原因，最多 500 字"></textarea>
+                </label>
+              </div>
+              <div class="form-actions"><button type="button" class="btn btn-primary" id="sbtOpportunitySaveBtn">保存投资判断</button></div>
+            </section>
             <h3>分红记录</h3>
             <div class="table-wrap"><table id="sbtDividendTable"><thead></thead><tbody></tbody></table></div>
           </div>
@@ -735,6 +750,9 @@
               <table id="sbtChipRankTable">
                 <thead><tr>
                   <th class="sbt-sortable" data-sort="stock">股票</th>
+                  <th class="sbt-c sbt-sortable" data-sort="potential_opportunity">潜在机会</th>
+                  <th class="num">目标价格</th>
+                  <th class="sbt-opportunity-reason-col">原因</th>
                   <th class="num sbt-sortable" data-sort="profit_ratio">获利比例</th>
                   <th class="num sbt-sortable" data-sort="latest_close" id="sbtChipRankPriceTh">当前股价</th>
                   <th class="num sbt-sortable" data-sort="avg_cost">平均成本</th>
@@ -2160,6 +2178,6 @@
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=2"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=105"></script>
+  <script src="app.js?v=106"></script>
 </body>
 </html>
