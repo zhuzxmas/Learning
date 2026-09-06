@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=68" />
+  <link rel="stylesheet" href="style.css?v=69" />
 </head>
 <body>
   <header class="topbar">
@@ -718,21 +718,23 @@
             </section>
             <h3>财务指标</h3>
             <div class="table-wrap sbt-scroll"><table id="sbtCombinedTable"><thead></thead><tbody></tbody></table></div>
-            <section id="sbtOpportunityCard" class="sbt-opportunity">
-              <div class="sbt-opportunity-head"><h3>投资判断</h3><span id="sbtOpportunityUpdated" class="muted"></span></div>
-              <div class="sbt-opportunity-fields">
-                <label>潜在机会
-                  <select id="sbtOpportunitySelect"><option value="">未评估</option><option value="true">是</option><option value="false">否</option></select>
-                </label>
-                <label>目标价格 <span id="sbtOpportunityCurrency" class="muted"></span>
-                  <input id="sbtOpportunityTarget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="可留空" />
-                </label>
-                <label class="sbt-opportunity-reason">原因
-                  <textarea id="sbtOpportunityReason" rows="3" maxlength="500" placeholder="输入判断原因，最多 500 字"></textarea>
-                </label>
+            <details id="sbtOpportunityCard" class="sbt-opportunity">
+              <summary class="sbt-opportunity-head"><span class="sbt-opportunity-title">投资判断</span><span id="sbtOpportunityUpdated" class="muted"></span></summary>
+              <div class="sbt-opportunity-body">
+                <div class="sbt-opportunity-fields">
+                  <label>潜在机会
+                    <select id="sbtOpportunitySelect"><option value="">未评估</option><option value="true">是</option><option value="false">否</option></select>
+                  </label>
+                  <label>目标价格 <span id="sbtOpportunityCurrency" class="muted"></span>
+                    <input id="sbtOpportunityTarget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="可留空" />
+                  </label>
+                  <label class="sbt-opportunity-reason">原因
+                    <textarea id="sbtOpportunityReason" rows="3" maxlength="500" placeholder="输入判断原因，最多 500 字"></textarea>
+                  </label>
+                </div>
+                <div class="form-actions"><button type="button" class="btn btn-primary" id="sbtOpportunitySaveBtn">保存投资判断</button></div>
               </div>
-              <div class="form-actions"><button type="button" class="btn btn-primary" id="sbtOpportunitySaveBtn">保存投资判断</button></div>
-            </section>
+            </details>
             <h3>分红记录</h3>
             <div class="table-wrap"><table id="sbtDividendTable"><thead></thead><tbody></tbody></table></div>
           </div>

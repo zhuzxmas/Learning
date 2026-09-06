@@ -1729,12 +1729,16 @@ button.blog-tag:hover { background: #dbeafe; }
 #sbtValSensitivity th:first-child, #sbtValSensitivity td:first-child { text-align: left; }
 #sbtValSensitivity tr.sbt-val-base { background: #e7f3df; font-weight: 700; }
 .sbt-opportunity { margin: 16px 0; padding: 13px 14px; border: 1px solid #d9dee7; border-radius: 10px; background: #fbfcfe; }
-.sbt-opportunity-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.sbt-opportunity-head h3 { margin: 0; color: #26364a; }
+.sbt-opportunity-head { cursor: pointer; color: #26364a; }
+.sbt-opportunity-head::marker { color: #64748b; }
+.sbt-opportunity-title { margin-left: 4px; font-size: 17px; font-weight: 600; }
+.sbt-opportunity-head .muted { float: right; margin-left: 10px; font-weight: 400; }
+.sbt-opportunity-body { padding-top: 1px; }
 .sbt-opportunity-fields { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(150px, .8fr) minmax(240px, 2fr); gap: 10px; margin-top: 10px; }
 .sbt-opportunity-fields label { display: flex; flex-direction: column; gap: 5px; color: #4b5563; font-size: 13px; }
 .sbt-opportunity-fields input, .sbt-opportunity-fields select, .sbt-opportunity-fields textarea { width: 100%; padding: 8px 9px; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; background: #fff; }
 .sbt-opportunity-fields textarea { resize: vertical; min-height: 72px; }
+.sbt-opportunity .form-actions { margin-top: 14px; }
 @media (max-width: 640px) {
   .sbt-opportunity-fields { grid-template-columns: minmax(0, 1fr); }
 }
