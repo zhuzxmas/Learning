@@ -1842,6 +1842,8 @@ button.blog-tag:hover { background: #dbeafe; }
 #sbtChipRankTable tbody tr.sbt-rank-active > td:first-child { background: #e3f0ff; }
 .sbt-opportunity-reason-col, .sbt-opportunity-reason-cell { width: 220px; max-width: 220px; }
 .sbt-opportunity-reason-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbt-rank-actions { display: flex; gap: 6px; margin-left: auto; }
+.sbt-rank-actions .btn-mini { margin-right: 0; }
 .sbt-rank-row { cursor: pointer; }
 .sbt-rank-row:hover { background: #f2f4f7; }
 .sbt-rank-row.sbt-rank-active { background: #e3f0ff; }

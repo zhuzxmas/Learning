@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=70" />
+  <link rel="stylesheet" href="style.css?v=71" />
 </head>
 <body>
   <header class="topbar">
@@ -746,7 +746,10 @@
             <div class="table-head-row">
               <h2>筹码排行</h2>
               <span id="sbtChipRankMeta" class="muted"></span>
-              <button type="button" class="btn btn-ghost btn-mini" id="sbtReloadBtn">刷新</button>
+              <div class="sbt-rank-actions">
+                <button type="button" class="btn btn-ghost btn-mini" id="sbtResetSortBtn">恢复默认排序</button>
+                <button type="button" class="btn btn-ghost btn-mini" id="sbtReloadBtn">刷新</button>
+              </div>
             </div>
             <div class="table-wrap sbt-rank-scroll">
               <table id="sbtChipRankTable">
@@ -2179,7 +2182,8 @@
   <script src="msal-browser.min.js"></script>
   <script src="categories.js"></script>
   <script src="stock-realization.js?v=2"></script>
+  <script src="stock-ranking.js?v=1"></script>
   <script src="valuation.js?v=2"></script>
-  <script src="app.js?v=108"></script>
+  <script src="app.js?v=109"></script>
 </body>
 </html>

@@ -360,6 +360,7 @@ const els = {
   stocksApp: $("stocksApp"),
   sbtSelect: $("sbtSelect"),
   sbtReloadBtn: $("sbtReloadBtn"),
+  sbtResetSortBtn: $("sbtResetSortBtn"),
   sbtTabDetailBtn: $("sbtTabDetailBtn"),
   sbtTabChipBtn: $("sbtTabChipBtn"),
   sbtTabSettingsBtn: $("sbtTabSettingsBtn"),
@@ -3426,12 +3427,20 @@ function incSwitchTab(name) {
  let sbtDriveBase = "";         // resolved /drives/{id}/items/{id} base (shared mode)
  let sbtOwnRootBase = "";       // resolved /me/drive/root:/... base (owner mode)
  let sbtChipRanking = null;     // cached parsed output/_chip_ranking.json
- let sbtRankSort = { col: "profit_ratio", dir: 1 };  // 1 asc, -1 desc; default 获利比例升序
+ let sbtChipRankingVersion = 0;
+ const SBT_DEFAULT_RANK_SORT = "default";
+ let sbtRankSort = { col: SBT_DEFAULT_RANK_SORT, dir: 1 };
+ let sbtHeldCodes = new Set();
+ let sbtHoldingsLoaded = false;
+ let sbtHoldingsMustFetch = false;
+ let sbtHoldingsVersion = 0;
  let sbtChipExpandCode = "";    // stock_cn of the currently expanded/highlighted row ("" = none)
  const SBT_VALUATION_SETTINGS_FILE = "valuation-settings.json";
  let sbtValuationSettings = { version: 2, defaults: {}, stocks: {} };
  let sbtValuationEtag = null;
  let sbtValuationSettingsError = "";
+ let sbtOpportunityBaseline = null;
+ let sbtOpportunitySaving = false;
  
  // True only for the folder owner — gates all write actions (add/delete/trigger).
  function sbtCanEdit() {
@@ -3579,14 +3588,20 @@ async function sbtMutateStockSettings(code, mutate) {
     if (!configuredCodes.has(cn)) continue;
     sbtFiles[cn] = { name: f.name, lastModified: f.lastModifiedDateTime || "" };
   }
-  if (force) sbtStocks = {};                      // drop in-memory cache on manual refresh
-  if (force) sbtChipRanking = null;               // re-read the ranking file on refresh
+   if (force) sbtStocks = {};                      // drop in-memory cache on manual refresh
+   if (force) {
+     sbtChipRanking = null;                         // re-read the ranking file on refresh
+     sbtChipRankingVersion++;
+     sbtHoldingsLoaded = false;
+     sbtHoldingsMustFetch = true;                   // do not reuse stockRecords after an external edit
+     sbtHoldingsVersion++;
+   }
 
   sbtLoaded = true;
   sbtPopulateSelect();                            // lazy-loads the selected stock only
   // If the 筹码排行 tab is currently visible, refresh it.
   if (els.sbtTabChip && !els.sbtTabChip.classList.contains("hidden")) {
-    sbtRenderChipRank().catch(() => {});
+    await sbtRenderChipRank();
   }
   const n = Object.keys(sbtFiles).length;
   if (els.sbtRecordCount) els.sbtRecordCount.textContent = n ? `${n} 只股票` : "";
@@ -3673,9 +3688,11 @@ async function sbtLoadStock(code) {
 // memory; re-read on demand. Returns [] if absent.
 async function sbtLoadChipRanking() {
   if (sbtChipRanking) return sbtChipRanking;
+  const version = sbtChipRankingVersion;
   const token = await getToken();
-  sbtChipRanking = (await sbtReadJson(token, "output/_chip_ranking.json")) || [];
-  return sbtChipRanking;
+  const rows = (await sbtReadJson(token, "output/_chip_ranking.json")) || [];
+  if (version === sbtChipRankingVersion) sbtChipRanking = rows;
+  return version === sbtChipRankingVersion ? rows : sbtLoadChipRanking();
 }
 
 // Build a numeric-code -> {profit, liab, div} bool map from _summary.json,
@@ -3753,7 +3770,9 @@ function sbtChipExpandRow(tr, code) {
 function sbtSortRanking(list) {
   const { col, dir } = sbtRankSort;
   const arr = list.slice();
-  if (col === "stock") {
+  if (col === SBT_DEFAULT_RANK_SORT) {
+    arr.sort(StockRanking.defaultCompare);
+  } else if (col === "stock") {
     arr.sort((a, b) => {
       const ak = `${a.stock_cn || ""} ${a.stock_name || ""}`;
       const bk = `${b.stock_cn || ""} ${b.stock_name || ""}`;
@@ -3790,6 +3809,7 @@ function sbtSortRanking(list) {
 // Render the merged 筹码排行 table (ranking + summary flags), with sortable
 // headers and inline chip-chart expansion on row click.
 async function sbtRenderChipRank() {
+  await sbtLoadHoldings();
   const rows = await sbtLoadChipRanking();
   const flags = sbtSummaryFlags();
   let list = (Array.isArray(rows) ? rows : [])
@@ -3802,6 +3822,7 @@ async function sbtRenderChipRank() {
       const manual = (sbtValuationSettings.stocks || {})[r.stock_cn] || {};
       return Object.assign({}, r, {
         b_profit: !!f.b_profit, b_liab: !!f.b_liab, b_div: !!f.b_div,
+        is_held: sbtHeldCodes.has(StockRanking.canonicalCode(r.stock_cn)),
         potential_opportunity: manual.potential_opportunity == null ? null : !!manual.potential_opportunity,
         target_price: manual.target_price == null ? null : Number(manual.target_price),
         opportunity_reason: manual.opportunity_reason || "",
@@ -3813,6 +3834,7 @@ async function sbtRenderChipRank() {
   const has = list.length > 0;
   if (els.sbtChipRankEmpty) els.sbtChipRankEmpty.classList.toggle("hidden", has);
   if (els.sbtChipRankMeta) els.sbtChipRankMeta.textContent = has ? `共 ${list.length} 只` : "";
+  if (els.sbtResetSortBtn) els.sbtResetSortBtn.disabled = sbtRankSort.col === SBT_DEFAULT_RANK_SORT;
   if (els.sbtChipRankPriceTh) {
     let repDate = "";
     for (const r of list) { if (r && r.as_of && String(r.as_of) > repDate) repDate = String(r.as_of); }
@@ -3850,7 +3872,7 @@ async function sbtRenderChipRank() {
     tr.className = "sbt-rank-row" + (code === sbtChipExpandCode ? " sbt-rank-active" : "");
     tr.dataset.stockCode = code;
     tr.innerHTML =
-      `<td>${escapeHtml(nm ? `${code} ${nm}` : code)}</td>` +
+      `<td>${escapeHtml((r.is_held ? "*" : "") + (nm ? `${code} ${nm}` : code))}</td>` +
       `<td class="sbt-c strong">${opportunity(r.potential_opportunity)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.target_price)))}</td>` +
       `<td class="sbt-opportunity-reason-cell" title="${escapeHtml(r.opportunity_reason || "")}">${escapeHtml(r.opportunity_reason || "—")}</td>` +
@@ -3870,6 +3892,34 @@ async function sbtRenderChipRank() {
     tr.onclick = () => sbtChipExpandRow(tr, code);
     els.sbtChipRankBody.appendChild(tr);
   }
+}
+
+async function sbtLoadHoldings() {
+  if (sbtHoldingsLoaded) return;
+  const version = sbtHoldingsVersion;
+  let records = stockLoaded && !sbtHoldingsMustFetch ? stockRecords : null;
+  try {
+    if (!records) {
+      const token = await getToken();
+      await stkResolveFolder(token);
+      const liveEtag = await stkReadETag(token, STOCK_RECORDS_FILE);
+      const cached = liveEtag ? await idbGet(STOCK_RECORDS_FILE) : null;
+      if (cached && cached.etag === liveEtag && Array.isArray(cached.records)) {
+        records = cached.records;
+      } else {
+        const result = await stkReadJson(token, STOCK_RECORDS_FILE);
+        records = result.data && Array.isArray(result.data.records) ? result.data.records : [];
+        if (result.exists && result.etag) idbSet(STOCK_RECORDS_FILE, result.etag, records);
+      }
+    }
+  } catch (error) {
+    console.warn("holding markers unavailable:", error);
+    throw error;
+  }
+  if (version !== sbtHoldingsVersion) return sbtLoadHoldings();
+  sbtHeldCodes = StockRanking.heldCodes(records || []);
+  sbtHoldingsLoaded = true;
+  sbtHoldingsMustFetch = false;
 }
 
 // Render the 筹码分布 (chip distribution) tab: a horizontal histogram of chip
@@ -4137,6 +4187,30 @@ async function sbtRenderChip(code) {
     return Object.assign({}, (sbtValuationSettings.stocks || {})[code] || {});
   }
 
+  function sbtOpportunityFormValue() {
+    return StockRanking.opportunityForm(
+      els.sbtOpportunitySelect.value,
+      els.sbtOpportunityTarget.value,
+      els.sbtOpportunityReason.value);
+  }
+
+  function sbtUpdateOpportunitySaveState() {
+    const value = sbtOpportunityFormValue();
+    const inputValid = els.sbtOpportunityTarget.validity.valid;
+    const enabled = sbtCanEdit() && !sbtValuationSettingsError && !sbtOpportunitySaving &&
+      value.valid && inputValid && value.reason.length <= 500 &&
+      !StockRanking.sameOpportunity(value, sbtOpportunityBaseline);
+    [els.sbtOpportunitySelect, els.sbtOpportunityTarget, els.sbtOpportunityReason]
+      .forEach((element) => { element.disabled = !sbtCanEdit() || sbtOpportunitySaving; });
+    els.sbtOpportunitySaveBtn.disabled = !enabled;
+    els.sbtOpportunitySaveBtn.title = !sbtCanEdit() ? "仅管理员可保存"
+      : sbtValuationSettingsError ? "股票设置载入失败"
+      : !value.valid || !inputValid ? "目标价格必须是非负数字或留空"
+      : value.reason.length > 500 ? "原因不能超过 500 字"
+      : StockRanking.sameOpportunity(value, sbtOpportunityBaseline) ? "没有需要保存的修改"
+      : sbtOpportunitySaving ? "正在保存…" : "";
+  }
+
   function sbtAutoGrowOpportunityReason() {
     const textarea = els.sbtOpportunityReason;
     if (!textarea) return;
@@ -4153,12 +4227,11 @@ async function sbtRenderChip(code) {
     els.sbtOpportunityTarget.value = value.target_price == null ? "" : value.target_price;
     els.sbtOpportunityCurrency.textContent = currency || (code.endsWith(".HK") ? "HKD" : "CNY");
     els.sbtOpportunityReason.value = value.opportunity_reason || "";
+    sbtOpportunityBaseline = sbtOpportunityFormValue();
     sbtAutoGrowOpportunityReason();
     els.sbtOpportunityUpdated.textContent = value.opportunity_updated_at
       ? "更新于 " + sbtDateOnly(value.opportunity_updated_at) : "";
-    [els.sbtOpportunitySelect, els.sbtOpportunityTarget, els.sbtOpportunityReason]
-      .forEach((element) => { element.disabled = !sbtCanEdit(); });
-    els.sbtOpportunitySaveBtn.disabled = !sbtCanEdit() || !!sbtValuationSettingsError;
+    sbtUpdateOpportunitySaveState();
   }
 
   async function sbtSaveOpportunity() {
@@ -4168,7 +4241,8 @@ async function sbtRenderChip(code) {
     const targetText = els.sbtOpportunityTarget.value.trim();
     const target = targetText === "" ? null : Number(targetText);
     const reason = els.sbtOpportunityReason.value.trim();
-    if (target != null && (!isFinite(target) || target < 0)) {
+    if (!els.sbtOpportunityTarget.validity.valid ||
+        (target != null && (!isFinite(target) || target < 0))) {
       setStatus("目标价格必须是非负数字或留空。", "warn", 3000); return;
     }
     if (reason.length > 500) {
@@ -4181,10 +4255,18 @@ async function sbtRenderChip(code) {
       opportunity_updated_at: new Date().toISOString(),
       opportunity_updated_by: userEmail(),
     };
-    await sbtMutateStockSettings(code, (current) => Object.assign(current, patch));
-    if (els.sbtSelect.value === code) sbtRenderOpportunity(code, sbtStocks[code]);
-    await sbtRenderChipRank();
-    setStatus("投资判断已保存。", "success", 2500);
+    sbtOpportunitySaving = true;
+    sbtUpdateOpportunitySaveState();
+    try {
+      await sbtMutateStockSettings(code, (current) => Object.assign(current, patch));
+      if (els.sbtSelect.value === code) sbtRenderOpportunity(code, sbtStocks[code]);
+      await sbtRenderChipRank().catch((error) =>
+        console.warn("opportunity saved; ranking refresh failed:", error));
+      setStatus("投资判断已保存。", "success", 2500);
+    } finally {
+      sbtOpportunitySaving = false;
+      sbtUpdateOpportunitySaveState();
+    }
   }
 
  async function sbtRenderDetail(code) {
@@ -4332,6 +4414,11 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
+  els.sbtResetSortBtn.onclick = () => {
+    sbtRankSort = { col: SBT_DEFAULT_RANK_SORT, dir: 1 };
+    sbtRenderChipRank().catch((e) =>
+      setStatus("恢复默认排序失败：" + (e.message || e), "error"));
+  };
    els.sbtTabDetailBtn.onclick = () => sbtSwitchTab("detail");
    els.sbtTabSettingsBtn.onclick = () => sbtSwitchTab("settings");
    if (els.sbtTabChipBtn) els.sbtTabChipBtn.onclick = () => sbtSwitchTab("chip");
@@ -4373,9 +4460,11 @@ function sbtWireEvents() {
      }));
    els.sbtValSaveBtn.onclick = () => sbtSaveValuationAssumptions(false).catch((e) => setStatus(e.message || String(e), "error"));
    els.sbtValResetBtn.onclick = () => sbtSaveValuationAssumptions(true).catch((e) => setStatus(e.message || String(e), "error"));
-    els.sbtOpportunitySaveBtn.onclick = () => sbtSaveOpportunity()
-      .catch((e) => setStatus(e.message || String(e), "error"));
-    els.sbtOpportunityReason.addEventListener("input", sbtAutoGrowOpportunityReason);
+     els.sbtOpportunitySaveBtn.onclick = () => sbtSaveOpportunity()
+       .catch((e) => setStatus(e.message || String(e), "error"));
+     [els.sbtOpportunitySelect, els.sbtOpportunityTarget, els.sbtOpportunityReason]
+       .forEach((element) => element.addEventListener("input", sbtUpdateOpportunitySaveState));
+     els.sbtOpportunityReason.addEventListener("input", sbtAutoGrowOpportunityReason);
     els.sbtOpportunityCard.addEventListener("toggle", () => {
       if (els.sbtOpportunityCard.open) requestAnimationFrame(sbtAutoGrowOpportunityReason);
     });
@@ -5183,7 +5272,12 @@ async function stkWriteJson(token, name, getData, etag, applyOnConflict) {
       const item = await res.json();
       const newEtag = item.eTag || (await stkReadETag(token, name));
       if (name === STOCK_RECORDS_FILE) {
-        idbSet(STOCK_RECORDS_FILE, newEtag, (data && data.records) || []);
+        const records = (data && data.records) || [];
+        idbSet(STOCK_RECORDS_FILE, newEtag, records);
+        sbtHoldingsVersion++;
+        sbtHeldCodes = StockRanking.heldCodes(records);
+        sbtHoldingsLoaded = true;
+        sbtHoldingsMustFetch = false;
       }
       return newEtag;
     }
