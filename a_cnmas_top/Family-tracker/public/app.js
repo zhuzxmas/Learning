@@ -12832,6 +12832,11 @@ async function travelRemoveCustom(name) {
     setStatus("已删除，但同步到云端失败：" + (e.message || e), "error");
   }
 }
+function travelAutoGrowRemark() {
+  if (!els.travelRemarkInput) return;
+  els.travelRemarkInput.style.height = "auto";
+  els.travelRemarkInput.style.height = els.travelRemarkInput.scrollHeight + "px";
+}
 function travelNew(coords, place) {
   travelSwitchTab("edit");
   els.travelEditTitle.textContent = "新建记录";
@@ -12841,6 +12846,7 @@ function travelNew(coords, place) {
   els.travelLatInput.value = "";
   els.travelLngInput.value = "";
   els.travelRemarkInput.value = "";
+  requestAnimationFrame(travelAutoGrowRemark);
   // The people-box render must never block navigation to the form.
   try { travelRenderPeopleBox(new Set()); } catch (e) { console.warn("travelRenderPeopleBox:", e); }
   els.travelPeopleExtra.value = "";
@@ -12860,6 +12866,7 @@ function travelEdit(id) {
   els.travelLatInput.value = r.latitude;
   els.travelLngInput.value = r.longitude;
   els.travelRemarkInput.value = r.remark || "";
+  requestAnimationFrame(travelAutoGrowRemark);
   const names = travelPeopleOf(r);
   els.travelPeopleBox.querySelectorAll("input").forEach((c) => { c.checked = names.includes(c.value); });
   const extra = names.filter((n) => !travelPeoplePool().includes(n));
@@ -12955,6 +12962,7 @@ function travelWireEvents() {
     else if (e.key === "Escape") travelClearPlaceSearch(false);
   });
   els.travelSearch.addEventListener("input", () => travelRenderList());
+  els.travelRemarkInput.addEventListener("input", travelAutoGrowRemark);
   els.travelNewBtn.onclick = () => travelNew();
   els.travelSaveBtn.onclick = () => travelSave();
   els.travelCancelBtn.onclick = () => travelSwitchTab("list");

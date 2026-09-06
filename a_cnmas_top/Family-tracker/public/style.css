@@ -1509,7 +1509,8 @@ button.blog-tag:hover { background: #dbeafe; }
   margin-bottom: 12px;
 }
 #travelTabEdit .travel-inline-field > label { margin: 0; }
-#travelTabEdit .travel-inline-field > input { min-width: 0; }
+#travelTabEdit .travel-inline-field > input,
+#travelTabEdit .travel-inline-field > textarea { min-width: 0; }
 #travelDateInput { width: min(220px, 100%); }
 #travelTabEdit .form-actions { margin-top: 14px; }
 
