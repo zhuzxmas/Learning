@@ -32,5 +32,8 @@ assert.equal(Ranking.sameOpportunity(baseline, Ranking.opportunityForm("true", "
 assert.equal(Ranking.sameOpportunity(baseline, Ranking.opportunityForm("false", "10", "原因")), false);
 assert.equal(Ranking.opportunityForm("", "-1", "").valid, false);
 assert.equal(Ranking.opportunityForm("", "", "").valid, true);
+assert.equal(Ranking.opportunityForm("true", "", "").valid, false);
+assert.equal(Ranking.opportunityForm("true", "10", "").valid, true);
+assert.equal(Ranking.opportunityForm("false", "", "").valid, true);
 
 console.log("stock ranking tests passed");

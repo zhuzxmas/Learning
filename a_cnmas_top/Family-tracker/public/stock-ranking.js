@@ -50,7 +50,8 @@
       status: status === "true" || status === "false" ? status : "",
       target,
       reason: String(reason || "").trim(),
-      valid: target == null || (isFinite(target) && target >= 0),
+      valid: (status !== "true" || target != null) &&
+        (target == null || (isFinite(target) && target >= 0)),
     };
   }
 

@@ -3880,7 +3880,6 @@ async function sbtRenderChipRank() {
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
-      `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +
       `<td class="sbt-c">${yn(r.b_profit)}</td>` +
       `<td class="sbt-c">${yn(r.b_liab)}</td>` +
       `<td class="sbt-c">${yn(r.b_div)}</td>` +
@@ -4205,6 +4204,7 @@ async function sbtRenderChip(code) {
     els.sbtOpportunitySaveBtn.disabled = !enabled;
     els.sbtOpportunitySaveBtn.title = !sbtCanEdit() ? "仅管理员可保存"
       : sbtValuationSettingsError ? "股票设置载入失败"
+      : value.status === "true" && value.target == null ? "潜在机会为是时必须填写目标价格"
       : !value.valid || !inputValid ? "目标价格必须是非负数字或留空"
       : value.reason.length > 500 ? "原因不能超过 500 字"
       : StockRanking.sameOpportunity(value, sbtOpportunityBaseline) ? "没有需要保存的修改"
@@ -4241,6 +4241,9 @@ async function sbtRenderChip(code) {
     const targetText = els.sbtOpportunityTarget.value.trim();
     const target = targetText === "" ? null : Number(targetText);
     const reason = els.sbtOpportunityReason.value.trim();
+    if (status === "true" && target == null) {
+      setStatus("潜在机会为是时必须填写目标价格。", "warn", 3000); return;
+    }
     if (!els.sbtOpportunityTarget.validity.valid ||
         (target != null && (!isFinite(target) || target < 0))) {
       setStatus("目标价格必须是非负数字或留空。", "warn", 3000); return;

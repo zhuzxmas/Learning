@@ -1825,7 +1825,7 @@ button.blog-tag:hover { background: #dbeafe; }
 }
 
 /* 筹码排行 table (合并 排行 + 汇总 + 行内筹码图) */
-#sbtChipRankTable { width: auto; min-width: 1480px; }
+#sbtChipRankTable { width: auto; min-width: 1360px; }
 .sbt-rank-scroll { max-height: 72vh; overflow: auto; }
 #sbtChipRankTable th, #sbtChipRankTable td { padding: 8px 10px; white-space: nowrap; }
 #sbtChipRankTable th.num, #sbtChipRankTable td.num { text-align: right; }
