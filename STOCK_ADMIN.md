@@ -106,9 +106,8 @@ GitHub Actions 的 `schedule` 是尽力调度，高峰期可能延迟数小时�
    - 两种定时运行完成后都会发送筹码排行邮件。
    - 事件 payload 中的 `beijing_date` 可用于核对当天任务是否已触发。
 
-> 首次切换采用两阶段方式：当前暂时保留 GitHub 原生 cron 作为后备。先部署 Worker、
-> 添加 Cron Trigger，并确认一次 `finance-batch-scheduled-event` 成功运行；随后删除
-> `.github/workflows/finance-quarterly.yml` 中的 `schedule`，避免长期重复触发。
+> GitHub 原生 cron 已移除，Cloudflare Worker Cron Trigger 是唯一的自动定时入口，
+> 不会再与 GitHub 的定时任务重复触发。
 > Cloudflare 能解决 GitHub cron 延迟，但 GitHub runner 自身排队仍可能造成短暂延迟。
 
 ### 常见报错
