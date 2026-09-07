@@ -63,11 +63,57 @@ function corsHeaders(origin) {
   };
 }
 
-// GitHub repository_dispatch config for the single-stock finance batch trigger.
+// GitHub repository_dispatch config for single-stock and scheduled finance runs.
 // GH_DISPATCH_TOKEN (a fine-grained PAT with Contents:write on this repo, which
 // also authorizes dispatch) must be set as an encrypted Worker secret.
 const GH_DISPATCH_REPO = "zhuzxmas/Learning";
-const GH_DISPATCH_EVENT = "finance-batch-stock-event";
+const GH_STOCK_DISPATCH_EVENT = "finance-batch-stock-event";
+const GH_SCHEDULE_DISPATCH_EVENT = "finance-batch-scheduled-event";
+
+async function dispatchGitHub(env, eventType, clientPayload) {
+  if (!env.GH_DISPATCH_TOKEN) throw new Error("GH_DISPATCH_TOKEN is not configured");
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let response;
+    try {
+      response = await fetch(`https://api.github.com/repos/${GH_DISPATCH_REPO}/dispatches`, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + env.GH_DISPATCH_TOKEN,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "User-Agent": "family-tracker-worker",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({ event_type: eventType, client_payload: clientPayload }),
+      });
+    } catch (error) {
+      // The request may have reached GitHub even when its response was lost.
+      // Do not retry this ambiguous case because that can create duplicate runs.
+      throw error;
+    }
+    if (response && response.status === 204) return;
+    if (response && response.status !== 429 && response.status < 500) {
+      let detail = "";
+      try { detail = await response.text(); } catch {}
+      throw new Error("GitHub dispatch failed " + response.status + (detail ? ": " + detail.slice(0, 300) : ""));
+    }
+    if (response) lastError = new Error("GitHub dispatch failed " + response.status);
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+  }
+  throw lastError || new Error("GitHub dispatch failed");
+}
+
+function beijingSchedule(scheduledTime) {
+  const beijing = new Date(Number(scheduledTime) + 8 * 60 * 60 * 1000);
+  const weekday = beijing.getUTCDay();
+  if (weekday === 0 || weekday === 6) return null;
+  return {
+    beijing_date: beijing.toISOString().slice(0, 10),
+    light_mode: weekday >= 2 && weekday <= 5,
+    scheduled: true,
+  };
+}
 
 function jsonError(status, message, origin) {
   return new Response(JSON.stringify({ error: message }), {
@@ -127,6 +173,12 @@ function resolveUpstream(payload, env) {
 }
 
 export default {
+  async scheduled(controller, env, ctx) {
+    const payload = beijingSchedule(controller.scheduledTime);
+    if (!payload) return;
+    ctx.waitUntil(dispatchGitHub(env, GH_SCHEDULE_DISPATCH_EVENT, payload));
+  },
+
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || ALLOWED_ORIGINS[0];
 
@@ -167,32 +219,14 @@ export default {
       if (!env.GH_DISPATCH_TOKEN) {
         return jsonError(500, "服务端未配置 GH_DISPATCH_TOKEN。", origin);
       }
-      let gh;
       try {
-        gh = await fetch(`https://api.github.com/repos/${GH_DISPATCH_REPO}/dispatches`, {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + env.GH_DISPATCH_TOKEN,
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-            "User-Agent": "family-tracker-worker",
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
-          body: JSON.stringify({
-            event_type: GH_DISPATCH_EVENT,
-            client_payload: {
-              stock,
-              force_reports: forceReports,
-              force_dividends: forceDividends,
-            },
-          }),
+        await dispatchGitHub(env, GH_STOCK_DISPATCH_EVENT, {
+          stock,
+          force_reports: forceReports,
+          force_dividends: forceDividends,
         });
       } catch (e) {
-        return jsonError(502, "无法连接 GitHub：" + ((e && e.message) || e), origin);
-      }
-      if (gh.status !== 204) {
-        let detail = ""; try { detail = await gh.text(); } catch {}
-        return jsonError(502, "GitHub 触发失败 " + gh.status + (detail ? "：" + detail.slice(0, 300) : ""), origin);
+        return jsonError(502, "GitHub 触发失败：" + ((e && e.message) || e), origin);
       }
       return new Response(JSON.stringify({ ok: true, stock }), {
         status: 200,

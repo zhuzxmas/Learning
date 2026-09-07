@@ -91,6 +91,26 @@ Worker 里已经加了 `/trigger-stock` 路由（见 `tools/deepseek-worker.js`�
    `finance-quarterly action` 运行（由 `repository_dispatch` 触发）
 3. 跑完后回页面「刷新」查看
 
+## 四、配置准时的定时任务
+
+GitHub Actions 的 `schedule` 是尽力调度，高峰期可能延迟数小时。当前财务工作流改为由
+`api.cnmas.top` 对应的 Cloudflare Worker 定时触发 GitHub：
+
+1. 按上文步骤部署最新版 `tools/deepseek-worker.js`。
+2. Cloudflare 仪表盘打开该 Worker → **Settings** → **Triggers** → **Cron Triggers**。
+3. 添加表达式 `0 8 * * MON-FRI`（Cloudflare 使用 UTC，对应北京时间工作日 16:00）。
+4. 确认 Worker Secret `GH_DISPATCH_TOKEN` 已配置且未过期。
+5. 到 GitHub Actions 验证事件类型为 `repository_dispatch`：
+   - 周一执行完整财务、分红、股价和筹码更新。
+   - 周二至周五执行轻量股价、筹码和安全边际更新。
+   - 两种定时运行完成后都会发送筹码排行邮件。
+   - 事件 payload 中的 `beijing_date` 可用于核对当天任务是否已触发。
+
+> 首次切换采用两阶段方式：当前暂时保留 GitHub 原生 cron 作为后备。先部署 Worker、
+> 添加 Cron Trigger，并确认一次 `finance-batch-scheduled-event` 成功运行；随后删除
+> `.github/workflows/finance-quarterly.yml` 中的 `schedule`，避免长期重复触发。
+> Cloudflare 能解决 GitHub cron 延迟，但 GitHub runner 自身排队仍可能造成短暂延迟。
+
 ### 常见报错
 - **未授权 / 403**：当前登录的微信/微软账号不在 Worker 白名单里（`deepseek-worker.js`
   顶部 `ALLOWED_EMAILS`）。
@@ -103,7 +123,7 @@ Worker 里已经加了 `/trigger-stock` 路由（见 `tools/deepseek-worker.js`�
 ## 相关文件
 - `a_cnmas_top/Family-tracker/public/app.js` — 前端 `sbt*` 增删/更新逻辑
 - `a_cnmas_top/Family-tracker/tools/deepseek-worker.js` — `/trigger-stock` 路由
-- `.github/workflows/finance-quarterly.yml` — 读取 `client_payload.stock` → `STOCK_ONLY`
+- `.github/workflows/finance-quarterly.yml` — 读取单股和 Cloudflare 定时 dispatch 参数
 - `KLINE_UPDATE.md` — kline 数据下载说明
 </content>
 </invoke>
