@@ -110,10 +110,23 @@ GitHub Actions 的 `schedule` 是尽力调度，高峰期可能延迟数小时�
 > 不会再与 GitHub 的定时任务重复触发。
 > Cloudflare 能解决 GitHub cron 延迟，但 GitHub runner 自身排队仍可能造成短暂延迟。
 
+### Cloudflare 日志排查
+
+在 Worker 的 **Observability → Logs** 中可按 `event` 字段过滤：
+
+- `event = "scheduled_finance"`：定时任务开始或周末跳过。
+- `event = "github_dispatch"`：GitHub 是否接受任务；`status = "accepted"` 且
+  `github_status = 204` 表示已成功触发。
+- `event = "ai_chat"`：AI 请求的 provider、上游状态及耗时。
+- `event = "authorization"`：未授权请求。
+
+日志不会记录 Microsoft/GitHub/API token、AI 提示词和回复正文，也不会记录家庭财务数据。
+Cloudflare 免费版通常保留约 3 天，付费版约 7 天。
+
 ### 常见报错
 - **未授权 / 403**：当前登录的微信/微软账号不在 Worker 白名单里（`deepseek-worker.js`
   顶部 `ALLOWED_EMAILS`）。
-- **服务端未配置 GH_DISPATCH_TOKEN / 500**：Worker 密钥没加成功，回到步骤 2。
+- **服务端未配置 GH_DISPATCH_TOKEN / 502**：Worker 密钥没加成功，回到步骤 2。
 - **GitHub 触发失败 / 502**：PAT 权限不足或已过期；确认 Contents: Read and write 且
   选对了 `zhuzxmas/Learning`，必要时重建 PAT。
 

@@ -70,8 +70,36 @@ const GH_DISPATCH_REPO = "zhuzxmas/Learning";
 const GH_STOCK_DISPATCH_EVENT = "finance-batch-stock-event";
 const GH_SCHEDULE_DISPATCH_EVENT = "finance-batch-scheduled-event";
 
+function workerLog(level, event, fields) {
+  const entry = { event, ...fields };
+  const method = level === "error" ? "error" : level === "warn" ? "warn" : "log";
+  console[method](entry);
+}
+
+function dispatchLogFields(eventType, payload) {
+  if (eventType === GH_STOCK_DISPATCH_EVENT) {
+    return {
+      dispatch_type: "stock",
+      force_reports: payload.force_reports === true,
+      force_dividends: payload.force_dividends === true,
+    };
+  }
+  return {
+    dispatch_type: "scheduled",
+    beijing_date: payload.beijing_date,
+    mode: payload.light_mode ? "light" : "full",
+  };
+}
+
 async function dispatchGitHub(env, eventType, clientPayload) {
-  if (!env.GH_DISPATCH_TOKEN) throw new Error("GH_DISPATCH_TOKEN is not configured");
+  const started = Date.now();
+  const logFields = dispatchLogFields(eventType, clientPayload);
+  if (!env.GH_DISPATCH_TOKEN) {
+    workerLog("error", "github_dispatch", {
+      ...logFields, status: "configuration_error", duration_ms: 0,
+    });
+    throw new Error("GH_DISPATCH_TOKEN is not configured");
+  }
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     let response;
@@ -90,17 +118,34 @@ async function dispatchGitHub(env, eventType, clientPayload) {
     } catch (error) {
       // The request may have reached GitHub even when its response was lost.
       // Do not retry this ambiguous case because that can create duplicate runs.
+      workerLog("error", "github_dispatch", {
+        ...logFields, status: "network_error", duration_ms: Date.now() - started,
+      });
       throw error;
     }
-    if (response && response.status === 204) return;
+    if (response && response.status === 204) {
+      workerLog("info", "github_dispatch", {
+        ...logFields, status: "accepted", github_status: 204,
+        attempts: attempt + 1, duration_ms: Date.now() - started,
+      });
+      return;
+    }
     if (response && response.status !== 429 && response.status < 500) {
       let detail = "";
       try { detail = await response.text(); } catch {}
+      workerLog("error", "github_dispatch", {
+        ...logFields, status: "rejected", github_status: response.status,
+        attempts: attempt + 1, duration_ms: Date.now() - started,
+      });
       throw new Error("GitHub dispatch failed " + response.status + (detail ? ": " + detail.slice(0, 300) : ""));
     }
     if (response) lastError = new Error("GitHub dispatch failed " + response.status);
     if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
   }
+  workerLog("error", "github_dispatch", {
+    ...logFields, status: "retry_exhausted", attempts: 3,
+    duration_ms: Date.now() - started,
+  });
   throw lastError || new Error("GitHub dispatch failed");
 }
 
@@ -175,11 +220,18 @@ function resolveUpstream(payload, env) {
 export default {
   async scheduled(controller, env, ctx) {
     const payload = beijingSchedule(controller.scheduledTime);
-    if (!payload) return;
+    if (!payload) {
+      workerLog("info", "scheduled_finance", { status: "skipped_weekend" });
+      return;
+    }
+    workerLog("info", "scheduled_finance", {
+      status: "started", beijing_date: payload.beijing_date,
+      mode: payload.light_mode ? "light" : "full",
+    });
     ctx.waitUntil(dispatchGitHub(env, GH_SCHEDULE_DISPATCH_EVENT, payload));
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || ALLOWED_ORIGINS[0];
 
     // CORS preflight.
@@ -195,6 +247,7 @@ export default {
     const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
     const email = await authorize(token);
     if (!email) {
+      workerLog("warn", "authorization", { status: "denied", route: new URL(request.url).pathname });
       return jsonError(403, "未授权：此账号无权使用 AI 对话。", origin);
     }
 
@@ -215,9 +268,6 @@ export default {
         if (stock.length !== 6) {
           return jsonError(400, "缺少合法的股票代码（A股6位数字或 H+港股代码）。", origin);
         }
-      }
-      if (!env.GH_DISPATCH_TOKEN) {
-        return jsonError(500, "服务端未配置 GH_DISPATCH_TOKEN。", origin);
       }
       try {
         await dispatchGitHub(env, GH_STOCK_DISPATCH_EVENT, {
@@ -244,6 +294,12 @@ export default {
     if (!payload || !Array.isArray(payload.messages)) {
       return jsonError(400, "缺少 messages。", origin);
     }
+    const aiStarted = Date.now();
+    const aiProvider = String(payload.provider || "deepseek").toLowerCase() === "bailian"
+      ? "bailian" : "deepseek";
+    workerLog("info", "ai_chat", {
+      status: "started", provider: aiProvider,
+    });
 
     // IMPORTANT (thinking-mode fix):
     //   When thinking is enabled, DeepSeek can take many seconds to send its
@@ -260,14 +316,24 @@ export default {
     headers.set("Cache-Control", "no-store");
     headers.set("Connection", "keep-alive");
 
-    // Background pump: never await this before returning the Response.
-    (async () => {
+    // Return the stream immediately, but keep the pump alive for logging and cleanup.
+    const pump = (async () => {
       const writer = writable.getWriter();
       const enc = new TextEncoder();
+      let terminalLogged = false;
+      const logTerminal = (level, status, fields) => {
+        if (terminalLogged) return;
+        terminalLogged = true;
+        workerLog(level, "ai_chat", {
+          status, provider: aiProvider, duration_ms: Date.now() - aiStarted,
+          ...(fields || {}),
+        });
+      };
       try {
         // Pick upstream (DeepSeek official or Bailian) and rewrite the body.
         const up = resolveUpstream(payload, env);
         if (up.error) {
+          logTerminal("error", "configuration_error");
           await writer.write(enc.encode("data: " + JSON.stringify({ error: up.error }) + "\n\n"));
           await writer.write(enc.encode("data: [DONE]\n\n"));
           await writer.close();
@@ -286,6 +352,7 @@ export default {
             body: JSON.stringify(up.body),
           });
         } catch (e) {
+          logTerminal("error", "network_error");
           const msg = "无法连接 " + providerName + "：" + ((e && e.message) || e);
           await writer.write(enc.encode("data: " + JSON.stringify({ error: msg }) + "\n\n"));
           await writer.write(enc.encode("data: [DONE]\n\n"));
@@ -297,6 +364,7 @@ export default {
           let detail = "";
           try { detail = await dsRes.text(); } catch {}
           const msg = providerName + " 返回错误 " + dsRes.status + (detail ? "：" + detail.slice(0, 500) : "");
+          logTerminal("error", "upstream_error", { upstream_status: dsRes.status });
           await writer.write(enc.encode("data: " + JSON.stringify({ error: msg }) + "\n\n"));
           await writer.write(enc.encode("data: [DONE]\n\n"));
           await writer.close();
@@ -311,7 +379,9 @@ export default {
           if (value) await writer.write(value);
         }
         await writer.close();
+        logTerminal("info", "completed", { upstream_status: dsRes.status });
       } catch (e) {
+        logTerminal("error", "stream_error");
         try {
           const msg = "代理流出错：" + ((e && e.message) || e);
           await writer.write(enc.encode("data: " + JSON.stringify({ error: msg }) + "\n\n"));
@@ -320,6 +390,7 @@ export default {
         try { await writer.close(); } catch {}
       }
     })();
+    ctx.waitUntil(pump);
 
     return new Response(readable, { status: 200, headers });
   },
