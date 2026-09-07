@@ -199,8 +199,8 @@ def build_html(ranking, summary, settings, configured, output_codes, holdings,
     rep_date = max((str(row.get("as_of")) for row in rows if row.get("as_of")), default="")
 
     price_hdr = ("{}当前股价".format(rep_date) if rep_date else "当前股价")
-    th = ("<th>股票</th><th>潜在机会</th><th>目标价格</th><th>原因</th>"
-          "<th>获利比例</th><th>{}</th><th>平均成本</th>"
+    th = ("<th>股票</th><th>潜在机会</th><th>目标价格</th><th>{}</th><th>原因</th>"
+          "<th>获利比例</th><th>平均成本</th>"
           "<th>90%成本区间</th><th>70%成本区间</th>"
           "<th>利润好</th><th>负债低</th><th>分红多</th>"
           "<th>每股 AV</th><th>每股 EPV</th><th>EPV−AV</th>"
@@ -216,11 +216,11 @@ def build_html(ranking, summary, settings, configured, output_codes, holdings,
             "<td>{}</td>".format(html_lib.escape(label))
             + "<td style='text-align:center'>{}</td>".format(_opportunity(x["potential_opportunity"]))
             + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("target_price")))
+            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("latest_close")))
             + "<td class='reason' title='{}'>{}</td>".format(
                 html_lib.escape(str(x["opportunity_reason"]), quote=True),
                 html_lib.escape(str(x["opportunity_reason"] or "—")))
             + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x.get("profit_ratio")))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("latest_close")))
             + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("avg_cost")))
             + "<td style='text-align:right'>{}</td>".format(html_lib.escape(_fmt_rng(x.get("cost_90_low"), x.get("cost_90_high"))))
             + "<td style='text-align:right'>{}</td>".format(html_lib.escape(_fmt_rng(x.get("cost_70_low"), x.get("cost_70_high"))))

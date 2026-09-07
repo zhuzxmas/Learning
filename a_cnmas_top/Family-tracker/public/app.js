@@ -3875,9 +3875,9 @@ async function sbtRenderChipRank() {
       `<td>${escapeHtml((r.is_held ? "*" : "") + (nm ? `${code} ${nm}` : code))}</td>` +
       `<td class="sbt-c strong">${opportunity(r.potential_opportunity)}</td>` +
       `<td class="num">${escapeHtml(String(num(r.target_price)))}</td>` +
+      `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="sbt-opportunity-reason-cell" title="${escapeHtml(r.opportunity_reason || "")}">${escapeHtml(r.opportunity_reason || "—")}</td>` +
       `<td class="num strong">${pct(r.profit_ratio)}</td>` +
-      `<td class="num">${escapeHtml(String(num(r.latest_close)))}</td>` +
       `<td class="num">${escapeHtml(String(num(r.avg_cost)))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_90_low, r.cost_90_high))}</td>` +
       `<td class="num">${escapeHtml(rng(r.cost_70_low, r.cost_70_high))}</td>` +

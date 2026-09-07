@@ -70,7 +70,7 @@ class ChipRankingMailTests(unittest.TestCase):
         self.assertEqual((date, count), ('2026-09-07', 5))
         self.assertIn('*000004.SZ', rendered)
         self.assertIn('2026-09-07当前股价', rendered)
-        self.assertIn('<th>潜在机会</th><th>目标价格</th><th>原因</th>', rendered)
+        self.assertIn('<th>潜在机会</th><th>目标价格</th><th>2026-09-07当前股价</th><th>原因</th>', rendered)
         self.assertIn('<th>每股 AV</th><th>每股 EPV</th><th>EPV−AV</th>', rendered)
         self.assertIn('10.00', rendered)
         self.assertIn('80.0%', rendered)
@@ -80,8 +80,8 @@ class ChipRankingMailTests(unittest.TestCase):
         self.assertNotIn('已删除', rendered)
         headers = rendered.split('<thead><tr>', 1)[1].split('</tr></thead>', 1)[0]
         self.assertEqual(headers.count('<th>'), 17)
-        expected = ['股票', '潜在机会', '目标价格', '原因', '获利比例',
-                    '2026-09-07当前股价', '平均成本', '90%成本区间', '70%成本区间',
+        expected = ['股票', '潜在机会', '目标价格', '2026-09-07当前股价', '原因',
+                    '获利比例', '平均成本', '90%成本区间', '70%成本区间',
                     '利润好', '负债低', '分红多', '每股 AV', '每股 EPV', 'EPV−AV',
                     '当前股价', 'EPV 安全边际']
         self.assertTrue(all('<th>{}</th>'.format(label) in headers for label in expected))
