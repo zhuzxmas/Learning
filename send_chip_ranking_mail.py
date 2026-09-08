@@ -2,7 +2,7 @@
 """Email the 筹码排行 (chip-distribution ranking) table after the finance batch.
 
 Reads the ranking, valuation settings, configured output files and family stock
-ledger, then renders the same default 17-column table the web page shows and
+ledger, then renders the web table's first eight columns using its default order and
 emails it via Microsoft Graph ``/users/{from}/sendMail`` (app-only token from
 funcLG.func_login_secret, i.e. CLIENT_ID/CLIENT_SECRET/TENANT_ID).
 
@@ -201,10 +201,7 @@ def build_html(ranking, summary, settings, configured, output_codes, holdings,
     price_hdr = ("{}当前股价".format(rep_date) if rep_date else "当前股价")
     th = ("<th>股票</th><th>潜在机会</th><th>目标价格</th><th>{}</th><th>原因</th>"
           "<th>获利比例</th><th>平均成本</th>"
-          "<th>90%成本区间</th>"
-          "<th>利润好</th><th>负债低</th><th>分红多</th>"
-          "<th>每股 AV</th><th>每股 EPV</th><th>EPV−AV</th>"
-          "<th>当前股价</th><th>EPV 安全边际</th>").format(html_lib.escape(price_hdr))
+          "<th>90%成本区间</th>").format(html_lib.escape(price_hdr))
     body_rows = []
     for x in rows:
         code = x["stock_cn"]
@@ -223,14 +220,6 @@ def build_html(ranking, summary, settings, configured, output_codes, holdings,
             + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x.get("profit_ratio")))
             + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("avg_cost")))
             + "<td style='text-align:right'>{}</td>".format(html_lib.escape(_fmt_rng(x.get("cost_90_low"), x.get("cost_90_high"))))
-            + "<td style='text-align:center'>{}</td>".format(_yn(x["b_profit"]))
-            + "<td style='text-align:center'>{}</td>".format(_yn(x["b_liab"]))
-            + "<td style='text-align:center'>{}</td>".format(_yn(x["b_div"]))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("asset_value_per_share")))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("epv_per_share")))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("epv_minus_asset_value")))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_num(x.get("latest_close")))
-            + "<td style='text-align:right'>{}</td>".format(_fmt_pct(x.get("epv_margin_of_safety")))
             + "</tr>")
     style = ("table{border-collapse:collapse;font-family:sans-serif;font-size:13px}"
               "th,td{border:1px solid #ddd;padding:6px 10px;white-space:nowrap}"

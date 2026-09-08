@@ -62,7 +62,7 @@ class ChipRankingMailTests(unittest.TestCase):
         self.assertEqual(len(rows), 5)
         self.assertTrue(all(not row['b_profit'] for row in rows))
 
-    def test_html_has_web_columns_markers_format_and_escaping(self):
+    def test_html_has_first_eight_web_columns_markers_format_and_escaping(self):
         ranking, settings, configured = self.fixtures()
         rendered, date, count = build_html(
             ranking, [], settings, configured, configured,
@@ -71,21 +71,24 @@ class ChipRankingMailTests(unittest.TestCase):
         self.assertIn('*000004.SZ', rendered)
         self.assertIn('2026-09-07当前股价', rendered)
         self.assertIn('<th>潜在机会</th><th>目标价格</th><th>2026-09-07当前股价</th><th>原因</th>', rendered)
-        self.assertIn('<th>每股 AV</th><th>每股 EPV</th><th>EPV−AV</th>', rendered)
         self.assertIn('10.00', rendered)
-        self.assertIn('80.0%', rendered)
         self.assertIn('&lt;strong&gt;原因&lt;/strong&gt;', rendered)
         self.assertNotIn('<strong>原因</strong>', rendered)
         self.assertIn('&lt;机会&gt;', rendered)
         self.assertNotIn('已删除', rendered)
         headers = rendered.split('<thead><tr>', 1)[1].split('</tr></thead>', 1)[0]
-        self.assertEqual(headers.count('<th>'), 16)
+        self.assertEqual(headers.count('<th>'), 8)
         expected = ['股票', '潜在机会', '目标价格', '2026-09-07当前股价', '原因',
-                    '获利比例', '平均成本', '90%成本区间',
-                    '利润好', '负债低', '分红多', '每股 AV', '每股 EPV', 'EPV−AV',
-                    '当前股价', 'EPV 安全边际']
+                    '获利比例', '平均成本', '90%成本区间']
         self.assertTrue(all('<th>{}</th>'.format(label) in headers for label in expected))
         self.assertNotIn('70%成本区间', headers)
+        for removed in ['利润好', '负债低', '分红多', '每股 AV', '每股 EPV',
+                        'EPV−AV', 'EPV 安全边际']:
+            self.assertNotIn('<th>{}</th>'.format(removed), headers)
+        body = rendered.split('<tbody>', 1)[1].split('</tbody>', 1)[0]
+        self.assertEqual(body.count('<tr>'), 5)
+        self.assertTrue(all(row.count('<td') == 8
+                            for row in body.split('<tr>')[1:]))
 
     def test_degraded_holdings_warning(self):
         ranking, settings, configured = self.fixtures()
