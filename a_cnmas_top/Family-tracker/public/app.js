@@ -1004,8 +1004,8 @@ async function sharePrivateLink(view, id, title) {
 }
 
 /* --------------------------- Auth ---------------------------------------- */
-async function getToken() {
-  const req = { scopes: SCOPES, account };
+async function getToken(accountOverride) {
+  const req = { scopes: SCOPES, account: accountOverride || account };
   try {
     const res = await msalApp.acquireTokenSilent(req);
     return res.accessToken;
@@ -1046,6 +1046,16 @@ function logout() {
   incEtag = null;
   incDriveBase = null;
   incEtagMeta = null;
+  chatLoaded = false;
+  chatLoadedUsername = "";
+  chatConvs = [];
+  chatCurId = null;
+  chatMessages = [];
+  chatIndexEtag = null;
+  chatCurEtag = null;
+  chatThinkingEtag = null;
+  chatThinkingRevision++;
+  chatAccountGeneration++;
   if (mode === "income") setMode("spending");
   hide(els.appView);
   show(els.loginView);
@@ -1063,6 +1073,7 @@ async function onSignedIn() {
   hide(els.loginBtn);
   show(els.logoutBtn);
   setStatus("正在载入数据…");
+  chatRestoreLocalThinking();
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
@@ -4828,6 +4839,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
     try { await blogLoad(); }
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
 } else if (next === "ai") {
+    chatRestoreLocalThinking();
     try { await chatLoad(); }
     catch (e) { setStatus("聊天载入失败：" + (e.message || e), "error"); }
   } else if (next === "travel") {
@@ -12995,6 +13007,11 @@ var chatStatusTimer = null;  // auto-hide timer for stream completion status
 var chatWired = false;       // idempotency guard for chatWireEvents()
 var chatSearchQuery = "";    // lower-cased sidebar title filter (title-only search)
 var chatMenuId = null;       // conversation id the ⋯ popup menu currently targets
+var chatThinkingEtag = null;
+var chatThinkingRevision = 0;
+var chatThinkingSaveQueue = Promise.resolve();
+var chatAccountGeneration = 0;
+var chatLoadedUsername = "";
 
 // ---- local content cache (instant re-open) -------------------------------
 // Caches each conversation's messages + eTag in localStorage so re-opening is
@@ -13040,6 +13057,127 @@ async function chatResolveFolder(token) {
 }
 function chatEncPath(p) { return p.split("/").map(encodeURIComponent).join("/"); }
 function chatContentUrl(path) { return `${chatDriveBase}:/${chatEncPath(path)}:/content`; }
+
+// ---- account-scoped thinking preference (local instant cache + OneDrive) --
+function chatThinkingUsername(accountValue) {
+  return String((accountValue && accountValue.username) || "unknown").toLowerCase();
+}
+function chatThinkingAccountIsActive(username) {
+  return !!account && chatThinkingUsername(account) === username;
+}
+function chatReadLocalThinking(username) {
+  try {
+    return ChatPreferences.normalize(JSON.parse(
+      localStorage.getItem(ChatPreferences.localKey(username)) || "{}"));
+  } catch { return ChatPreferences.normalize(null); }
+}
+function chatWriteLocalThinking(username, thinking, pending, modified) {
+  const value = { version: 1, thinking: !!thinking, pending: !!pending, modified: modified || "" };
+  try {
+    localStorage.setItem(ChatPreferences.localKey(username), JSON.stringify(value));
+  } catch {}
+  return value;
+}
+function chatRestoreLocalThinking() {
+  if (!els.aiThinking || !account) return;
+  els.aiThinking.checked = chatReadLocalThinking(chatThinkingUsername(account)).thinking;
+}
+async function chatReadThinkingFile(token, username) {
+  const path = ChatPreferences.fileName(username);
+  const res = await fetch(chatContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { value: ChatPreferences.normalize(null), etag: null };
+  if (!res.ok) throw new Error("载入思考模式设置失败：" + res.status);
+  let data = null; try { data = await res.json(); } catch {}
+  return { value: ChatPreferences.normalize(data), etag: res.headers.get("ETag") };
+}
+async function chatSyncThinking(token, username, desired, revision) {
+  const path = ChatPreferences.fileName(username);
+  let etag = chatThinkingEtag;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    if (etag) headers["If-Match"] = etag;
+    else headers["If-None-Match"] = "*";
+    const res = await fetch(chatContentUrl(path), {
+      method: "PUT", headers,
+      body: JSON.stringify({ version: 1, thinking: desired.thinking, modified: desired.modified }),
+    });
+    if (res.ok) {
+      const item = await res.json();
+      if (chatThinkingAccountIsActive(username)) {
+        chatThinkingEtag = item.eTag || res.headers.get("ETag") || null;
+      }
+      if (chatThinkingAccountIsActive(username) && revision === chatThinkingRevision &&
+          els.aiThinking.checked === desired.thinking) {
+        chatWriteLocalThinking(username, desired.thinking, false, desired.modified);
+      }
+      return;
+    }
+    if (res.status === 409 || res.status === 412) {
+      const fresh = await chatReadThinkingFile(token, username);
+      if (ChatPreferences.cloudIsNewer(desired, fresh.value)) {
+        if (chatThinkingAccountIsActive(username) && revision === chatThinkingRevision) {
+          els.aiThinking.checked = fresh.value.thinking;
+          chatWriteLocalThinking(username, fresh.value.thinking, false, fresh.value.modified);
+        }
+        if (chatThinkingAccountIsActive(username)) chatThinkingEtag = fresh.etag;
+        return;
+      }
+      etag = fresh.etag;
+      if (chatThinkingAccountIsActive(username)) chatThinkingEtag = fresh.etag;
+      continue;
+    }
+    throw new Error("保存思考模式设置失败：" + res.status);
+  }
+  throw new Error("保存思考模式设置冲突，重试多次仍失败。");
+}
+function chatQueueThinkingSave(value, modified) {
+  const accountValue = account;
+  if (!accountValue) return;
+  const username = chatThinkingUsername(accountValue);
+  const revision = ++chatThinkingRevision;
+  const desired = chatWriteLocalThinking(username, value, true, modified || new Date().toISOString());
+  chatThinkingSaveQueue = chatThinkingSaveQueue
+    .catch(() => {})
+    .then(() => {
+      if (!chatThinkingAccountIsActive(username)) throw new Error("thinking preference account changed");
+    })
+    .then(() => getToken(accountValue))
+    .then((token) => chatResolveFolder(token).then(() => chatSyncThinking(token, username, desired, revision)))
+    .catch((error) => console.warn("thinking preference sync:", error));
+}
+async function chatLoadThinking(token, accountValue) {
+  const username = chatThinkingUsername(accountValue);
+  const local = chatReadLocalThinking(username);
+  els.aiThinking.checked = local.thinking;
+  const revision = chatThinkingRevision;
+  if (local.pending) {
+    const cloud = await chatReadThinkingFile(token, username);
+    if (!chatThinkingAccountIsActive(username) || revision !== chatThinkingRevision) return;
+    chatThinkingEtag = cloud.etag;
+    if (ChatPreferences.cloudIsNewer(local, cloud.value)) {
+      els.aiThinking.checked = cloud.value.thinking;
+      chatWriteLocalThinking(username, cloud.value.thinking, false, cloud.value.modified);
+    } else {
+      chatQueueThinkingSave(local.thinking, local.modified);
+    }
+    return;
+  }
+  const cloud = await chatReadThinkingFile(token, username);
+  chatThinkingEtag = cloud.etag;
+  if (!chatThinkingAccountIsActive(username) || revision !== chatThinkingRevision) return;
+  els.aiThinking.checked = cloud.value.thinking;
+  chatWriteLocalThinking(username, cloud.value.thinking, false, cloud.value.modified);
+}
+function chatRetryThinkingPreference() {
+  const accountValue = account;
+  if (!accountValue) return;
+  chatRestoreLocalThinking();
+  const local = chatReadLocalThinking(chatThinkingUsername(accountValue));
+  if (!local.pending) return;
+  getToken(accountValue)
+    .then((token) => chatResolveFolder(token).then(() => chatLoadThinking(token, accountValue)))
+    .catch((error) => console.warn("thinking preference retry:", error));
+}
 
 // ---- index JSON read/write (eTag optimistic concurrency) -----------------
 async function chatReadIndex(token) {
@@ -13115,7 +13253,10 @@ async function chatDeleteConv(token, id) {
 
 // ---- load ----------------------------------------------------------------
 async function chatLoad() {
-  if (chatLoaded) return;
+  const accountValue = account;
+  const username = chatThinkingUsername(accountValue);
+  if (chatLoaded && chatLoadedUsername === username) { chatRetryThinkingPreference(); return; }
+  const generation = ++chatAccountGeneration;
   // Guarantee the UI is wired (idempotent) even if the boot-time call didn't
   // complete for any reason — this runs the moment the user opens the tab.
   try { chatWireEvents(); } catch (e) { console.warn("chatWireEvents (load) failed:", e); }
@@ -13124,16 +13265,22 @@ async function chatLoad() {
     return;
   }
   setStatus("正在载入对话…");
-  const token = await getToken();
+  const token = await getToken(accountValue);
   await chatResolveFolder(token);
+  if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
+  try { await chatLoadThinking(token, accountValue); }
+  catch (e) { console.warn("thinking preference load:", e); }
   const idx = await chatReadIndex(token);
+  if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
   chatConvs = idx.convs.slice().sort(chatCmp);
   chatIndexEtag = idx.etag;
   chatLoaded = true;
+  chatLoadedUsername = username;
   chatRenderList();
   // Merge cross-device custom models (best-effort; falls back to local-only).
   try {
     const cloud = await chatReadCustomModelsFile(token);
+    if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
     chatModelsEtag = cloud.etag;
     const local = chatGetCustomModels();
     const merged = cloud.custom.slice();
@@ -13144,6 +13291,7 @@ async function chatLoad() {
     chatRenderModels(chatLastModel);
     if (needUp) { chatSyncCustomModelsUp(token, "merge").catch((e) => console.warn("custom-model sync up:", e)); }
   } catch (e) { console.warn("custom-model sync (load) failed:", e); }
+  if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
   // Always start on a fresh new conversation; existing ones are in the sidebar.
   chatNew();
   setStatus("已载入 " + chatConvs.length + " 个对话。", "ok", 1500);
@@ -13635,6 +13783,7 @@ function chatWireEvents() {
   // ---- Wire the CRITICAL handlers FIRST, before anything that could throw
   // (model dropdown / localStorage), so the 发送 button is always usable. ----
   if (els.aiSendBtn) els.aiSendBtn.onclick = () => chatSend();
+  if (els.aiThinking) els.aiThinking.onchange = () => chatQueueThinkingSave(els.aiThinking.checked);
   if (els.aiNewChatBtn) els.aiNewChatBtn.onclick = () => chatNew();
   if (els.aiConvSearch) {
     els.aiConvSearch.oninput = () => {
