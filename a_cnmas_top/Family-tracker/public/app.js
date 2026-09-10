@@ -13012,6 +13012,7 @@ var chatThinkingRevision = 0;
 var chatThinkingSaveQueue = Promise.resolve();
 var chatAccountGeneration = 0;
 var chatLoadedUsername = "";
+var chatModelsSaveQueue = Promise.resolve();
 
 // ---- local content cache (instant re-open) -------------------------------
 // Caches each conversation's messages + eTag in localStorage so re-opening is
@@ -13257,7 +13258,11 @@ async function chatDeleteConv(token, id) {
 async function chatLoad() {
   const accountValue = account;
   const username = chatThinkingUsername(accountValue);
-  if (chatLoaded && chatLoadedUsername === username) { chatRetryThinkingPreference(); return; }
+  if (chatLoaded && chatLoadedUsername === username) {
+    chatRetryThinkingPreference();
+    chatRetryCustomModelChanges(accountValue);
+    return;
+  }
   const generation = ++chatAccountGeneration;
   // Guarantee the UI is wired (idempotent) even if the boot-time call didn't
   // complete for any reason — this runs the moment the user opens the tab.
@@ -13279,19 +13284,20 @@ async function chatLoad() {
   chatLoaded = true;
   chatLoadedUsername = username;
   chatRenderList();
-  // Merge cross-device custom models (best-effort; falls back to local-only).
+  // Cloud model state is authoritative; stale local caches must not resurrect deletions.
   try {
     const cloud = await chatReadCustomModelsFile(token);
     if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
     chatModelsEtag = cloud.etag;
-    const local = chatGetCustomModels();
-    const merged = cloud.custom.slice();
-    local.forEach((m) => { if (!merged.includes(m)) merged.push(m); });
-    // If the cloud was missing anything we had locally, push our additions up.
-    const needUp = local.some((m) => !cloud.custom.includes(m));
-    chatSaveCustomModels(merged);
+    const state = ChatModels.loadState(cloud, chatGetCustomModels(), chatGetRemovedModels());
+    chatSaveCustomModels(state.custom);
+    chatSaveRemovedModels(state.removed);
     chatRenderModels(chatLastModel);
-    if (needUp) { chatSyncCustomModelsUp(token, "merge").catch((e) => console.warn("custom-model sync up:", e)); }
+    try { localStorage.setItem("chatModel", chatLastModel); } catch {}
+    if (state.needsWrite) {
+      chatQueueCustomModelChange({ type: "bootstrap" }, accountValue);
+    }
+    chatRetryCustomModelChanges(accountValue);
   } catch (e) { console.warn("custom-model sync (load) failed:", e); }
   if (generation !== chatAccountGeneration || !chatThinkingAccountIsActive(username)) return;
   // Always start on a fresh new conversation; existing ones are in the sidebar.
@@ -13686,49 +13692,99 @@ function chatSaveCustomModels(arr) {
 // cache; the cloud file is the cross-device source of truth.
 async function chatReadCustomModelsFile(token) {
   const res = await fetch(chatContentUrl(CHAT_MODELS_FILE), { headers: { Authorization: "Bearer " + token } });
-  if (res.status === 404) return { custom: [], etag: null };
+  if (res.status === 404) return Object.assign(ChatModels.cloud(null, false), { etag: null });
   if (!res.ok) throw new Error("载入自定义模型失败：" + res.status);
   let data = null;
-  try { data = await res.json(); } catch { data = null; }
-  const custom = (data && Array.isArray(data.custom)) ? data.custom.filter((m) => typeof m === "string") : [];
-  return { custom, etag: res.headers.get("ETag") };
+  try { data = await res.json(); }
+  catch { throw new Error("自定义模型文件不是有效 JSON。"); }
+  if (!data || typeof data !== "object" || !Array.isArray(data.custom) ||
+      (Object.prototype.hasOwnProperty.call(data, "removed") && !Array.isArray(data.removed))) {
+    throw new Error("自定义模型文件结构无效。");
+  }
+  return Object.assign(ChatModels.cloud(data, true), { etag: res.headers.get("ETag") });
 }
-// Push the local custom-model list to the cloud.
-//   mode "merge"   : cloud ∪ local  (used on add / initial load) — never loses
-//                    a model another device just added.
-//   mode "replace" : local wins outright (used on delete) — otherwise a merge
-//                    would resurrect the just-deleted model from the cloud.
-// Writes the resolved list back to both localStorage and the cloud file.
-async function chatSyncCustomModelsUp(token, mode) {
+// Apply one operation to freshly read cloud state. This preserves concurrent
+// edits while preventing stale local caches from restoring deleted models.
+async function chatSyncCustomModelsChange(token, change, username) {
   for (let attempt = 0; attempt < 4; attempt++) {
-    let fresh;
-    try { fresh = await chatReadCustomModelsFile(token); } catch { fresh = { custom: [], etag: chatModelsEtag }; }
-    const local = chatGetCustomModels();
-    let resolved;
-    if (mode === "replace") {
-      resolved = local.slice();
-    } else { // merge
-      resolved = fresh.custom.slice();
-      local.forEach((m) => { if (!resolved.includes(m)) resolved.push(m); });
+    const fresh = await chatReadCustomModelsFile(token);
+    if (!chatThinkingAccountIsActive(username)) {
+      throw new Error("custom-model account changed");
     }
-    // Keep localStorage in step with what we're about to persist.
-    chatSaveCustomModels(resolved);
+    const resolved = ChatModels.applyChange(
+      fresh, change, chatGetCustomModels(), chatGetRemovedModels());
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (fresh.etag) headers["If-Match"] = fresh.etag;
+    else headers["If-None-Match"] = "*";
+    if (!chatThinkingAccountIsActive(username)) {
+      throw new Error("custom-model account changed");
+    }
     const res = await fetch(chatContentUrl(CHAT_MODELS_FILE), {
-      method: "PUT", headers, body: JSON.stringify({ custom: resolved }),
+      method: "PUT", headers,
+      body: JSON.stringify({ custom: resolved.custom, removed: resolved.removed }),
     });
-    if (res.ok) { const it = await res.json(); chatModelsEtag = it.eTag; return resolved; }
-    if (res.status === 412) { chatModelsEtag = null; continue; } // conflict: re-read and retry
+    if (res.ok) {
+      const it = await res.json();
+      if (chatThinkingAccountIsActive(username)) {
+        chatModelsEtag = it.eTag;
+        chatSaveCustomModels(resolved.custom);
+        chatSaveRemovedModels(resolved.removed);
+        chatRenderModels(chatLastModel);
+        try { localStorage.setItem("chatModel", chatLastModel); } catch {}
+      }
+      return resolved;
+    }
+    if (res.status === 409 || res.status === 412) {
+      if (chatThinkingAccountIsActive(username)) chatModelsEtag = null;
+      continue;
+    }
     throw new Error("保存自定义模型失败：" + res.status);
   }
   throw new Error("保存自定义模型冲突，重试多次仍失败。");
 }
-// Fire-and-forget wrapper for the sync-up (used from the sync onchange handler).
-function chatPushCustomModels(mode) {
-  getToken()
-    .then((token) => chatSyncCustomModelsUp(token, mode))
-    .catch((e) => console.warn("custom-model sync up (" + mode + "):", e));
+function chatModelPendingKey(username) {
+  return "chatModelOps:" + ChatPreferences.accountId(username);
+}
+function chatReadPendingModelChanges(username) {
+  try {
+    const value = JSON.parse(localStorage.getItem(chatModelPendingKey(username)) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+function chatWritePendingModelChanges(username, changes) {
+  try { localStorage.setItem(chatModelPendingKey(username), JSON.stringify(changes)); } catch {}
+}
+function chatProcessCustomModelChanges(accountValue) {
+  if (!accountValue) return;
+  const username = chatThinkingUsername(accountValue);
+  chatModelsSaveQueue = chatModelsSaveQueue.catch(() => {}).then(async () => {
+    if (!chatThinkingAccountIsActive(username)) return;
+    let pending = chatReadPendingModelChanges(username);
+    if (!pending.length) return;
+    const token = await getToken(accountValue);
+    await chatResolveFolder(token);
+    while (pending.length && chatThinkingAccountIsActive(username)) {
+      const current = pending[0];
+      await chatSyncCustomModelsChange(token, current, username);
+      // Re-read so an operation appended while the request was in flight is kept.
+      pending = chatReadPendingModelChanges(username).filter((item) => item.id !== current.id);
+      chatWritePendingModelChanges(username, pending);
+    }
+  }).catch((e) => console.warn("custom-model sync:", e));
+}
+function chatQueueCustomModelChange(change, accountValue) {
+  accountValue = accountValue || account;
+  if (!accountValue) return;
+  const username = chatThinkingUsername(accountValue);
+  const pending = chatReadPendingModelChanges(username);
+  pending.push(Object.assign({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+  }, change));
+  chatWritePendingModelChanges(username, pending);
+  chatProcessCustomModelChanges(accountValue);
+}
+function chatRetryCustomModelChanges(accountValue) {
+  chatProcessCustomModelChanges(accountValue);
 }
 
 // Built-in models the user has chosen to hide from the dropdown.
@@ -13843,7 +13899,9 @@ function chatWireEvents() {
         const arr = chatGetCustomModels();
         if (!CHAT_MODELS.includes(name) && !arr.includes(name)) {
           arr.push(name); chatSaveCustomModels(arr);
-          chatPushCustomModels("merge");   // sync the new model across devices
+          chatQueueCustomModelChange({ type: "add-custom", name });
+        } else if (CHAT_MODELS.includes(name)) {
+          chatQueueCustomModelChange({ type: "unhide-built-in", name });
         }
         chatRenderModels(name);
       } else {
@@ -13859,10 +13917,11 @@ function chatWireEvents() {
         const custom = chatGetCustomModels();
         if (custom.includes(name)) {
           chatSaveCustomModels(custom.filter((m) => m !== name));
-          chatPushCustomModels("replace");   // sync the deletion across devices
+          chatQueueCustomModelChange({ type: "delete-custom", name });
         } else {
           const removed = chatGetRemovedModels();
           if (!removed.includes(name)) { removed.push(name); chatSaveRemovedModels(removed); }
+          chatQueueCustomModelChange({ type: "hide-built-in", name });
         }
         // If the deleted model was the current default, fall back to the first remaining one.
         const remaining = chatModelList();
