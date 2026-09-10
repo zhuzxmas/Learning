@@ -13153,7 +13153,9 @@ async function chatLoadThinking(token, accountValue) {
   if (local.pending) {
     const cloud = await chatReadThinkingFile(token, username);
     if (!chatThinkingAccountIsActive(username) || revision !== chatThinkingRevision) return;
-    chatThinkingEtag = cloud.etag;
+    if (chatThinkingAccountIsActive(username) && revision === chatThinkingRevision) {
+      chatThinkingEtag = cloud.etag;
+    }
     if (ChatPreferences.cloudIsNewer(local, cloud.value)) {
       els.aiThinking.checked = cloud.value.thinking;
       chatWriteLocalThinking(username, cloud.value.thinking, false, cloud.value.modified);
@@ -13163,8 +13165,8 @@ async function chatLoadThinking(token, accountValue) {
     return;
   }
   const cloud = await chatReadThinkingFile(token, username);
-  chatThinkingEtag = cloud.etag;
   if (!chatThinkingAccountIsActive(username) || revision !== chatThinkingRevision) return;
+  chatThinkingEtag = cloud.etag;
   els.aiThinking.checked = cloud.value.thinking;
   chatWriteLocalThinking(username, cloud.value.thinking, false, cloud.value.modified);
 }
