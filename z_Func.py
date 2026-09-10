@@ -174,14 +174,62 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
     idx = income_df.index
     item = lambda names: hk_item_series(balance_df, names, idx)
     cash_item = lambda names: hk_item_series(cashflow_df, names, idx, use_report_date=True)
-    securities = item(['交易性金融资产', '证券投资', '短期投资', '金融资产'])
-    designated_securities = pd.concat([
+    aggregate_securities = item(['金融资产', '证券投资', '短期投资'])
+    component_securities = pd.concat([
+        item(['交易性金融资产', '交易性金融资产(流动)']),
+        item(['其他金融资产(流动)']),
+        item(['其他金融资产(非流动)']),
         item(['指定以公允价值记账之金融资产']),
         item(['指定以公允价值记账之金融资产(流动)']),
+        item(['衍生金融工具-资产', '衍生金融工具-资产(流动)']),
     ], axis=1).sum(axis=1, min_count=1)
+    securities = aggregate_securities.combine_first(component_securities)
+    debt = sum_numeric_series(pd.DataFrame({
+        str(i): item(names) for i, names in enumerate([
+            ['短期借款', '短期贷款'], ['长期借款', '长期贷款'],
+            ['应付债券', '债券', '可转换票据及债券'],
+            ['一年内到期的非流动负债', '应付票据(非流动)'],
+        ])
+    }), ['0', '1', '2', '3'], idx)
+    financial_marker = pd.Series(0.0, index=idx)
+    if {'STD_ITEM_NAME', 'AMOUNT'}.issubset(balance_df.columns):
+        financial_items = ('客户存款', '吸收存款', '保险合同负债', '保户储金',
+                           '发放贷款及垫款', '客户贷款', '拆入资金', '卖出回购金融资产')
+        selected = balance_df[balance_df['STD_ITEM_NAME'].astype(str).str.contains(
+            '|'.join(financial_items), regex=True)]
+        if not selected.empty:
+            is_financial = pd.to_numeric(selected['AMOUNT'], errors='coerce').gt(0).any()
+            financial_marker[:] = float(is_financial)
+    # Some non-financial issuers keep null debt template rows when debt is zero,
+    # then omit those rows in newer periods. Carry that confirmed zero forward,
+    # but never turn completely absent/unrecognized debt data into zero.
+    if {'STD_ITEM_NAME', 'AMOUNT'}.issubset(balance_df.columns) and not financial_marker.eq(1).any():
+        debt_names = ('短期借款', '短期贷款', '长期借款', '长期贷款',
+                      '应付债券', '债券', '可转换票据及债券',
+                      '一年内到期的非流动负债', '应付票据(非流动)')
+        debt_rows = balance_df[balance_df['STD_ITEM_NAME'].astype(str).isin(debt_names)].copy()
+        if not debt_rows.empty:
+            debt_rows['_amount'] = pd.to_numeric(debt_rows['AMOUNT'], errors='coerce')
+            grouped_debt = debt_rows.groupby(debt_rows.index)['_amount'].sum(min_count=1).reindex(idx)
+            template_periods = set(debt_rows.index.astype(str))
+            explicit_zero_periods = {
+                str(period) for period in idx
+                if str(period) in template_periods and
+                (pd.isna(grouped_debt.loc[period]) or grouped_debt.loc[period] == 0)
+            }
+            for period in explicit_zero_periods:
+                if period in debt.index and pd.isna(debt.loc[period]):
+                    debt.loc[period] = 0.0
+            latest_template = max(explicit_zero_periods) if explicit_zero_periods else None
+            newer_positive = (debt_rows['_amount'].gt(0) &
+                              (debt_rows.index.astype(str) > (latest_template or ''))).any()
+            if latest_template and not newer_positive:
+                for period in debt.index:
+                    if str(period) > latest_template and pd.isna(debt.loc[period]):
+                        debt.loc[period] = 0.0
     rows = {
         '估值_现金 亿元': item(['现金及等价物', '现金及现金等价物']),
-        '估值_有价证券 亿元': securities.combine_first(designated_securities),
+        '估值_有价证券 亿元': securities,
         '估值_应收款项 亿元': item([
             '应收账款', '应收账款及票据', '应收款项',
             '预付款按金及其他应收款', '预付款项',
@@ -193,13 +241,7 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
         '估值_无形资产 亿元': item(['无形资产']),
         '估值_商誉 亿元': item(['商誉']),
         '估值_总负债 亿元': item(['总负债', '负债合计']),
-        '估值_有息负债 亿元': sum_numeric_series(pd.DataFrame({
-            str(i): item(names) for i, names in enumerate([
-                ['短期借款', '短期贷款'], ['长期借款', '长期贷款'],
-                ['应付债券', '债券', '可转换票据及债券'],
-                ['一年内到期的非流动负债', '应付票据(非流动)'],
-            ])
-        }), ['0', '1', '2', '3'], idx),
+        '估值_有息负债 亿元': debt,
         '估值_少数股东权益 亿元': item(['少数股东权益', '非控股权益']),
         '估值_税前利润 亿元': numeric_series(income_df, [
             'PRETAX_PROFIT', 'PROFIT_BEFORE_TAX', 'TOTAL_PROFIT'], idx),
@@ -230,12 +272,7 @@ def valuation_rows_hk(income_df, balance_df, cashflow_df):
             result.loc['估值_商誉 亿元', absent_goodwill] = 0.0
     if 'DATE_TYPE_CODE' in income_df.columns:
         result.loc['估值_年报标记'] = income_df['DATE_TYPE_CODE'].astype(str).eq('001').astype(float).reindex(idx)
-    if 'STD_ITEM_NAME' in balance_df.columns:
-        financial_items = ('客户存款', '吸收存款', '保险合同负债', '保户储金',
-                           '发放贷款及垫款', '客户贷款', '拆入资金', '卖出回购金融资产')
-        is_financial = balance_df['STD_ITEM_NAME'].astype(str).str.contains(
-            '|'.join(financial_items), regex=True).any()
-        result.loc['估值_金融企业标记'] = float(is_financial)
+    result.loc['估值_金融企业标记'] = financial_marker
     return result
 
 

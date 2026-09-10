@@ -195,6 +195,106 @@ class ValuationEngineTests(unittest.TestCase):
         self.assertIsNotNone(valuation['epv'])
         self.assertNotIn('securities', valuation['missing'])
 
+    def test_hk_01211_current_securities_aliases(self):
+        periods = pd.Index(['2025-12-31'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['001']}, index=periods)
+        balance = pd.DataFrame([
+            ['2025-12-31', '交易性金融资产(流动)', 70e8],
+            ['2025-12-31', '衍生金融工具-资产', 3e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'],
+           index=['2025-12-31'] * 2)
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_有价证券 亿元', '2025-12-31'], 73)
+        self.assertEqual(rows.loc['估值_金融企业标记', '2025-12-31'], 0)
+
+    def test_hk_00168_null_financial_templates_and_missing_da(self):
+        periods = pd.Index(['2025-12-31'])
+        income = pd.DataFrame({
+            'OPERATE_INCOME': [100e8], 'OPERATE_PROFIT': [10e8],
+            'PRETAX_PROFIT': [9e8], 'TAX_EBT': [20], 'DATE_TYPE_CODE': ['001'],
+        }, index=periods)
+        balance = pd.DataFrame([
+            ['2025-12-31', '现金及等价物', 10e8],
+            ['2025-12-31', '交易性金融资产(流动)', 5e8],
+            ['2025-12-31', '衍生金融工具-资产', 2e8],
+            ['2025-12-31', '应收款项', 5e8],
+            ['2025-12-31', '存货', 5e8],
+            ['2025-12-31', '固定资产', 20e8],
+            ['2025-12-31', '无形资产', 1e8],
+            ['2025-12-31', '总负债', 30e8],
+            ['2025-12-31', '少数股东权益', 1e8],
+            ['2025-12-31', '短期贷款', None],
+            ['2025-12-31', '吸收存款及同业存放', None],
+            ['2025-12-31', '贷款及垫款', None],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'],
+           index=['2025-12-31'] * 12)
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_金融企业标记', '2025-12-31'], 0)
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-12-31'], 0)
+        self.assertEqual(rows.loc['估值_有价证券 亿元', '2025-12-31'], 7)
+        frame = rows.copy()
+        frame.loc['总资产 亿元'] = 100
+        frame.loc['营业总收入 销售额 亿元'] = 100
+        frame.loc['普通股数量 百万'] = 1000
+        valuation = build_valuation(frame, {'currency': 'HKD'}, stock_name='青岛啤酒股份')
+        self.assertTrue(valuation['applicable'])
+        self.assertIsNotNone(valuation['asset_value'])
+        self.assertIsNotNone(valuation['epv'])
+        self.assertNotIn('normalized_depreciation_amortization', valuation['missing'])
+        self.assertEqual(valuation['epv']['normalized_depreciation_amortization'], 0)
+
+    def test_hk_positive_financial_balance_marks_all_periods(self):
+        periods = pd.Index(['2025-12-31', '2024-12-31'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['001', '001']}, index=periods)
+        balance = pd.DataFrame([
+            ['2024-12-31', '吸收存款', 10e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'], index=['2024-12-31'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(list(rows.loc['估值_金融企业标记']), [1, 1])
+
+    def test_hk_absent_debt_without_null_template_stays_unknown(self):
+        periods = pd.Index(['2025-12-31'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['001']}, index=periods)
+        balance = pd.DataFrame([
+            ['2025-12-31', '现金及等价物', 10e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'], index=['2025-12-31'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertTrue(pd.isna(rows.loc['估值_有息负债 亿元', '2025-12-31']))
+
+    def test_hk_confirmed_null_debt_carries_forward(self):
+        periods = pd.Index(['2026-06-30', '2025-06-30'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['002', '002']}, index=periods)
+        balance = pd.DataFrame([
+            ['2025-06-30', '短期贷款', None],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'], index=['2025-06-30'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-06-30'], 0)
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2026-06-30'], 0)
+
+    def test_hk_confirmed_zero_debt_carries_forward(self):
+        periods = pd.Index(['2026-06-30', '2025-06-30'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['002', '002']}, index=periods)
+        balance = pd.DataFrame([
+            ['2025-06-30', '短期贷款', 0],
+            ['2025-06-30', '长期贷款', 0],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'],
+           index=['2025-06-30', '2025-06-30'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-06-30'], 0)
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2026-06-30'], 0)
+
+    def test_hk_partial_null_debt_does_not_confirm_future_zero(self):
+        periods = pd.Index(['2026-06-30', '2025-06-30'])
+        income = pd.DataFrame({'DATE_TYPE_CODE': ['002', '002']}, index=periods)
+        balance = pd.DataFrame([
+            ['2025-06-30', '短期贷款', None],
+            ['2025-06-30', '长期贷款', 10e8],
+        ], columns=['REPORT_DATE', 'STD_ITEM_NAME', 'AMOUNT'],
+           index=['2025-06-30', '2025-06-30'])
+        rows = z_Func.valuation_rows_hk(income, balance, pd.DataFrame())
+        self.assertEqual(rows.loc['估值_有息负债 亿元', '2025-06-30'], 10)
+        self.assertTrue(pd.isna(rows.loc['估值_有息负债 亿元', '2026-06-30']))
+
     def test_hk_total_issued_shares_precede_hk_shares(self):
         frame = pd.DataFrame({
             'ISSUED_COMMON_SHARES': [2234645597, None],

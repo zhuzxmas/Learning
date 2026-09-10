@@ -68,8 +68,7 @@
     [["shares", number(latest.shares)], ["revenue", revenue], ["normalized_ebit_margin", margin],
       ["capitalization_rate", capRate], ["cash", number(latest.cash)],
       ["interest_bearing_debt", debt], ["securities", number(latest.securities)],
-      ["minority_interest", number(latest.minority_interest)],
-      ["normalized_depreciation_amortization", normalizedDa]]
+      ["minority_interest", number(latest.minority_interest)]]
       .forEach(([key, value]) => { if (value == null || (["shares", "capitalization_rate"].includes(key) && value <= 0)) epvMissing.push(key); });
     let epv = null;
     if (!epvMissing.length) {
@@ -79,8 +78,8 @@
       const equity = operatingValue + number(latest.cash) + number(latest.securities)
         - debt - number(latest.minority_interest);
       epv = { normalized_ebit_margin: margin, normalized_ebit: round2(ebit),
-        effective_tax_rate: taxRate, normalized_depreciation_amortization: round2(normalizedDa),
-        maintenance_capex: round2(normalizedDa), normalized_operating_earnings: round2(earnings),
+        effective_tax_rate: taxRate, normalized_depreciation_amortization: round2(normalizedDa || 0),
+        maintenance_capex: round2(normalizedDa || 0), normalized_operating_earnings: round2(earnings),
         operating_value: round2(operatingValue), equity_value: round2(equity),
         per_share: round2(equity / number(latest.shares)) };
     }

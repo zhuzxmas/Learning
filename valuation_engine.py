@@ -146,26 +146,26 @@ def calculate(periods, assumptions=None, industry=None, org_type=None,
                         ("normalized_ebit_margin", normalized_margin),
                         ("capitalization_rate", cap_rate),
                         ("cash", cash), ("interest_bearing_debt", debt),
-                        ("securities", securities),
-                        ("minority_interest", minority_interest),
-                        ("normalized_depreciation_amortization", normalized_da)):
+                         ("securities", securities),
+                         ("minority_interest", minority_interest)):
         if value is None or (name in ("shares", "capitalization_rate") and value <= 0):
             epv_missing.append(name)
     epv = None
     if not epv_missing:
         normalized_ebit = latest_revenue * normalized_margin
         after_tax_earnings = normalized_ebit * (1 - tax_rate)
-        # Under the selected no-growth assumption, maintenance capex equals D&A.
+        # Under the selected no-growth assumption, maintenance capex equals D&A,
+        # so the two terms cancel. Missing D&A must not block EPV.
         maintenance_capex = normalized_da
-        normalized_operating_earnings = after_tax_earnings + normalized_da - maintenance_capex
+        normalized_operating_earnings = after_tax_earnings
         operating_value = normalized_operating_earnings / cap_rate
         equity_value = operating_value + cash + securities - debt - minority_interest
         epv = {
             "normalized_ebit_margin": round(normalized_margin, 6),
             "normalized_ebit": _round(normalized_ebit),
             "effective_tax_rate": round(tax_rate, 6),
-            "normalized_depreciation_amortization": _round(normalized_da),
-            "maintenance_capex": _round(maintenance_capex),
+            "normalized_depreciation_amortization": _round(normalized_da or 0.0),
+            "maintenance_capex": _round(maintenance_capex or 0.0),
             "normalized_operating_earnings": _round(normalized_operating_earnings),
             "operating_value": _round(operating_value),
             "equity_value": _round(equity_value),
