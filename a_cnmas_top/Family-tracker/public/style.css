@@ -1740,6 +1740,8 @@ button.blog-tag:hover { background: #dbeafe; }
 .sbt-opportunity-fields input, .sbt-opportunity-fields select, .sbt-opportunity-fields textarea { width: 100%; padding: 8px 9px; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; background: #fff; }
 .sbt-opportunity-fields textarea { min-height: 72px; overflow-y: hidden; resize: none; }
 .sbt-opportunity .form-actions { margin-top: 14px; }
+.sbt-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sbt-detail-head h2 { margin: 0; }
 @media (max-width: 640px) {
   .sbt-opportunity-fields { grid-template-columns: minmax(0, 1fr); }
 }

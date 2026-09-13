@@ -386,6 +386,7 @@ const els = {
   sbtRecordCount: $("sbtRecordCount"),
   sbtDetailCard: $("sbtDetailCard"),
   sbtDetailTitle: $("sbtDetailTitle"),
+  sbtDetailMailBtn: $("sbtDetailMailBtn"),
   sbtChecks: $("sbtChecks"),
   sbtGenerated: $("sbtGenerated"),
   sbtLast7: $("sbtLast7"),
@@ -3429,6 +3430,7 @@ function incSwitchTab(name) {
  // owner-only and are hidden for non-owners regardless of this URL.
  const SBT_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgDnmqAG8melSIHDcgh7oDNMAfcU0DzrmSjQJ61eX5dFJp8?email=celine_mas%40outlook.com&e=2eMl0h";
  const SBT_TRIGGER_URL = CHAT_API_URL + "/trigger-stock";  // Worker endpoint -> GitHub dispatch
+ const SBT_DETAIL_MAIL_URL = CHAT_API_URL + "/send-stock-detail-email";
  let sbtLoaded = false;         // one-time load guard
  let sbtSummary = [];           // parsed _summary.json (list of records)
  let sbtStocks = {};            // code -> parsed output/{code}.json (in-memory cache)
@@ -4428,6 +4430,7 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
+  els.sbtDetailMailBtn.onclick = () => sbtSendDetailMail();
   els.sbtResetSortBtn.onclick = () => {
     sbtRankSort = { col: SBT_DEFAULT_RANK_SORT, dir: 1 };
     sbtRenderChipRank().catch((e) =>
@@ -4487,9 +4490,36 @@ function sbtWireEvents() {
  // Read-only vs. owner: hide the write-oriented 设置 tab for non-owners (add /
  // update-trigger / delete all live there; their /me/drive has no folder anyway).
  // Called from sbtLoad(), i.e. AFTER sign-in — at boot `account` is still null.
- function sbtApplyPerms() {
-   if (!els.sbtTabSettingsBtn) return;
-   els.sbtTabSettingsBtn.classList.toggle("hidden", !sbtCanEdit());
+  function sbtApplyPerms() {
+    if (!els.sbtTabSettingsBtn) return;
+    els.sbtTabSettingsBtn.classList.toggle("hidden", !sbtCanEdit());
+    if (els.sbtDetailMailBtn) els.sbtDetailMailBtn.classList.toggle("hidden", !sbtCanEdit());
+  }
+
+ async function sbtSendDetailMail() {
+   const code = els.sbtSelect.value;
+   if (!code || !sbtCanEdit()) return;
+   const name = sbtNameFor(code) || "";
+   const label = name ? `${code} ${name}` : code;
+   if (!confirm(`将“${label}”详情发送到固定收件人？`)) return;
+   els.sbtDetailMailBtn.disabled = true;
+   try {
+     const token = await getToken();
+     const res = await fetch(SBT_DETAIL_MAIL_URL, {
+       method: "POST",
+       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+       body: JSON.stringify({ stock: code }),
+     });
+     if (!res.ok) {
+       let detail = ""; try { detail = (await res.json()).error || ""; } catch {}
+       throw new Error(res.status + (detail ? "：" + detail : ""));
+     }
+     setStatus(`已提交 ${label} 的详情邮件任务。`, "ok", 5000);
+   } catch (error) {
+     setStatus("邮件任务提交失败：" + (error.message || error), "error", 6000);
+   } finally {
+     els.sbtDetailMailBtn.disabled = false;
+   }
  }
 
 /* ---- settings: read/write stock_list.csv + trigger single-stock action --- */

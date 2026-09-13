@@ -69,6 +69,8 @@ function corsHeaders(origin) {
 const GH_DISPATCH_REPO = "zhuzxmas/Learning";
 const GH_STOCK_DISPATCH_EVENT = "finance-batch-stock-event";
 const GH_SCHEDULE_DISPATCH_EVENT = "finance-batch-scheduled-event";
+const GH_DETAIL_MAIL_EVENT = "stock-detail-mail-event";
+const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
 
 function workerLog(level, event, fields) {
   const entry = { event, ...fields };
@@ -77,9 +79,9 @@ function workerLog(level, event, fields) {
 }
 
 function dispatchLogFields(eventType, payload) {
-  if (eventType === GH_STOCK_DISPATCH_EVENT) {
+  if (eventType === GH_STOCK_DISPATCH_EVENT || eventType === GH_DETAIL_MAIL_EVENT) {
     return {
-      dispatch_type: "stock",
+      dispatch_type: eventType === GH_DETAIL_MAIL_EVENT ? "stock_detail_mail" : "stock",
       force_reports: payload.force_reports === true,
       force_dividends: payload.force_dividends === true,
     };
@@ -279,6 +281,29 @@ export default {
         return jsonError(502, "GitHub 触发失败：" + ((e && e.message) || e), origin);
       }
       return new Response(JSON.stringify({ ok: true, stock }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      });
+    }
+
+    if (new URL(request.url).pathname === "/send-stock-detail-email") {
+      if (email !== STOCK_ADMIN_EMAIL) {
+        workerLog("warn", "authorization", { status: "denied", route: "/send-stock-detail-email" });
+        return jsonError(403, "仅管理员可发送股票详情邮件。", origin);
+      }
+      let body;
+      try { body = await request.json(); } catch { body = null; }
+      let stock = body ? String(body.stock || "").trim().toUpperCase() : "";
+      if (/^H\d{1,5}$/.test(stock)) stock = stock.slice(1).padStart(5, "0") + ".HK";
+      else if (/^\d{5}\.HK$/.test(stock)) stock = stock;
+      else if (/^\d{6}\.(SH|SZ)$/.test(stock)) stock = stock;
+      else return jsonError(400, "缺少合法的股票代码。", origin);
+      try {
+        await dispatchGitHub(env, GH_DETAIL_MAIL_EVENT, { stock });
+      } catch (error) {
+        return jsonError(502, "GitHub 邮件任务触发失败：" + ((error && error.message) || error), origin);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
       });

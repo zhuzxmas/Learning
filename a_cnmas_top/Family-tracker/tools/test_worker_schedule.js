@@ -108,6 +108,73 @@ async function runWeekend(isoTime) {
   assert.equal(serializedLogs.includes("graph-token"), false);
   assert.equal(serializedLogs.includes("github-token"), false);
 
+  // Stock detail mail: admin-only, canonical code, dedicated dispatch event.
+  requests.length = 0;
+  logs.length = 0;
+  const detailResponse = await context.worker.fetch(new Request(
+    "https://api.cnmas.top/send-stock-detail-email", {
+      method: "POST",
+      headers: { Authorization: "Bearer graph-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: "H01211", recipient: "attacker@example.com" }),
+    }), { GH_DISPATCH_TOKEN: "github-token" }, { waitUntil() {} });
+  assert.equal(detailResponse.status, 200);
+  const detailDispatch = requests.find((request) => String(request.url).includes("api.github.com"));
+  const detailBody = JSON.parse(detailDispatch.options.body);
+  assert.deepEqual(detailBody, {
+    event_type: "stock-detail-mail-event",
+    client_payload: { stock: "01211.HK" },
+  });
+  const detailLog = logs.find((entry) => entry.value.event === "github_dispatch").value;
+  assert.equal(detailLog.dispatch_type, "stock_detail_mail");
+  assert.equal(JSON.stringify(logs).includes("01211"), false);
+  assert.equal(JSON.stringify(detailBody).includes("attacker@example.com"), false);
+
+  requests.length = 0;
+  context.fetch = async (url, options) => {
+    requests.push({ url, options });
+    if (String(url).includes("graph.microsoft.com")) {
+      return new Response(JSON.stringify({ mail: "celinemas@outlook.com" }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(null, { status: 204 });
+  };
+  const denied = await context.worker.fetch(new Request(
+    "https://api.cnmas.top/send-stock-detail-email", {
+      method: "POST",
+      headers: { Authorization: "Bearer graph-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: "600104.SH" }),
+    }), { GH_DISPATCH_TOKEN: "github-token" }, { waitUntil() {} });
+  assert.equal(denied.status, 403);
+  assert.equal(requests.some((request) => String(request.url).includes("api.github.com")), false);
+
+  requests.length = 0;
+  context.fetch = async (url, options) => {
+    requests.push({ url, options });
+    if (String(url).includes("graph.microsoft.com")) {
+      return new Response(JSON.stringify({ mail: "zhuzx2006@outlook.com" }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(null, { status: 204 });
+  };
+  const invalid = await context.worker.fetch(new Request(
+    "https://api.cnmas.top/send-stock-detail-email", {
+      method: "POST",
+      headers: { Authorization: "Bearer graph-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: "../secret" }),
+    }), { GH_DISPATCH_TOKEN: "github-token" }, { waitUntil() {} });
+  assert.equal(invalid.status, 400);
+  assert.equal(requests.some((request) => String(request.url).includes("api.github.com")), false);
+
+  const invalidLongHk = await context.worker.fetch(new Request(
+    "https://api.cnmas.top/send-stock-detail-email", {
+      method: "POST",
+      headers: { Authorization: "Bearer graph-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: "H012345" }),
+    }), { GH_DISPATCH_TOKEN: "github-token" }, { waitUntil() {} });
+  assert.equal(invalidLongHk.status, 400);
+
   requests.length = 0;
   let attempts = 0;
   context.fetch = async (url, options) => {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=72" />
+  <link rel="stylesheet" href="style.css?v=73" />
 </head>
 <body>
   <header class="topbar">
@@ -655,7 +655,10 @@
             </div>
           </div>
           <div class="card" id="sbtDetailCard">
-            <h2 id="sbtDetailTitle">详情</h2>
+            <div class="sbt-detail-head">
+              <h2 id="sbtDetailTitle">详情</h2>
+              <button type="button" class="btn btn-ghost btn-mini hidden" id="sbtDetailMailBtn">发送邮件</button>
+            </div>
             <div id="sbtChecks"></div>
             <div id="sbtGenerated" class="muted"></div>
             <div id="sbtLast7" class="muted"></div>
@@ -2185,6 +2188,6 @@
   <script src="chat-preferences.js?v=1"></script>
   <script src="chat-models.js?v=1"></script>
   <script src="valuation.js?v=3"></script>
-  <script src="app.js?v=114"></script>
+  <script src="app.js?v=115"></script>
 </body>
 </html>
