@@ -1208,7 +1208,10 @@
           <input type="hidden" id="brwEditId" />
           <div class="field">
             <label for="brwPerson">对方</label>
-            <select id="brwPerson" required></select>
+            <div class="select-row">
+              <select id="brwPerson" required></select>
+              <button type="button" class="btn-hide-cat" id="brwRemovePersonBtn" title="从新增记录列表移除该对方">－</button>
+            </div>
             <input type="text" id="brwPersonCustom" class="hidden" autocomplete="off"
                    placeholder="输入新的人名" />
           </div>
@@ -2187,7 +2190,8 @@
   <script src="stock-ranking.js?v=2"></script>
   <script src="chat-preferences.js?v=1"></script>
   <script src="chat-models.js?v=1"></script>
+  <script src="borrow-people.js?v=1"></script>
   <script src="valuation.js?v=3"></script>
-  <script src="app.js?v=115"></script>
+  <script src="app.js?v=117"></script>
 </body>
 </html>

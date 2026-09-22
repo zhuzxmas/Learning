@@ -578,6 +578,7 @@ const els = {
   brwEditId: $("brwEditId"),
   brwPerson: $("brwPerson"),
   brwPersonCustom: $("brwPersonCustom"),
+  brwRemovePersonBtn: $("brwRemovePersonBtn"),
   brwDate: $("brwDate"),
   brwType: $("brwType"),
   brwAmount: $("brwAmount"),
@@ -7687,6 +7688,7 @@ function celWireEvents() {
  *   <0 => 对方欠你, >0 => 你欠对方. borrow-repay.json.                        *
  * ========================================================================= */
 let borrowRecords = [];
+let brwPeople = { custom: [], hidden: [] };
 let brwEtag = null;
 let borrowLoaded = false;
 let brwShowAll = false;
@@ -7706,7 +7708,9 @@ async function brwLoad() {
   const token = await getToken();
   await xtResolveFolder(token);
   const r = await xtReadJson(token, BORROW_REPAY_FILE);
-  borrowRecords = (r.data && Array.isArray(r.data.records)) ? r.data.records : [];
+  const doc = BorrowPeople.normalize(r.data);
+  borrowRecords = doc.records;
+  brwPeople = doc.people;
   brwEtag = r.etag;
   borrowLoaded = true;
   brwRebuildPersonOptions();
@@ -7714,28 +7718,27 @@ async function brwLoad() {
   setStatus("已载入 " + borrowRecords.length + " 条借还款记录。", "ok", 2000);
 }
 
-function brwApplyOp(list, op) {
-  const out = list.slice();
-  const idx = (id) => out.findIndex((r) => r.id === id);
-  if (op.type === "delete") {
-    const i = idx(op.id); if (i >= 0) out.splice(i, 1);
-    return out;
-  }
-  const i = idx(op.rec.id);
-  if (i >= 0) out[i] = op.rec; else out.push(op.rec);
-  return out;
+function brwDocument() {
+  return BorrowPeople.normalize({ records: borrowRecords, people: brwPeople });
+}
+function brwApplyOp(doc, op) {
+  return BorrowPeople.apply(doc, op);
+}
+function brwUseDocument(doc) {
+  const normalized = BorrowPeople.normalize(doc);
+  borrowRecords = normalized.records;
+  brwPeople = normalized.people;
 }
 
 async function brwPersist(op) {
   setStatus("正在保存借还款记录…");
   const token = await getToken();
   brwEtag = await xtWriteJson(
-    token, BORROW_REPAY_FILE, () => ({ records: borrowRecords }), brwEtag,
+    token, BORROW_REPAY_FILE, () => brwDocument(), brwEtag,
     (fresh) => {
-      const list = (fresh && Array.isArray(fresh.records)) ? fresh.records : [];
-      borrowRecords = brwApplyOp(list, op);
+      brwUseDocument(brwApplyOp(fresh, op));
     },
-    () => brwRender()
+    () => { brwRebuildPersonOptions(); brwRender(); }
   );
   setStatus("已保存。", "ok", 3000);
 }
@@ -7743,13 +7746,8 @@ async function brwPersist(op) {
 /* ------------------------- 借还款 person dropdown ------------------------- */
 function brwRebuildPersonOptions(selected) {
   const cur = selected != null ? selected : els.brwPerson.value;
-  const seen = new Set();
-  const persons = [];
-  for (const r of borrowRecords) {
-    const p = (r.person || "").trim();
-    if (p && !seen.has(p)) { seen.add(p); persons.push(p); }
-  }
-  persons.sort((a, b) => a.localeCompare(b, "zh"));
+  const keep = els.brwEditId.value ? cur : "";
+  const persons = BorrowPeople.visible(brwDocument(), keep);
 
   els.brwPerson.innerHTML = "";
   const ph = document.createElement("option");
@@ -7770,6 +7768,13 @@ function brwRebuildPersonOptions(selected) {
   brwPersonOnChange();
 }
 
+function brwUpdateRemovePersonState() {
+  if (!els.brwRemovePersonBtn) return;
+  const value = els.brwPerson.value;
+  els.brwRemovePersonBtn.disabled = !borrowLoaded || !!els.brwEditId.value ||
+    !value || value === BRW_PERSON_CUSTOM;
+}
+
 function brwPersonValue() {
   return els.brwPerson.value === BRW_PERSON_CUSTOM
     ? els.brwPersonCustom.value.trim()
@@ -7781,13 +7786,14 @@ function brwPersonOnChange() {
   els.brwPersonCustom.classList.toggle("hidden", !on);
   if (on) els.brwPersonCustom.focus();
   else els.brwPersonCustom.value = "";
+  brwUpdateRemovePersonState();
 }
 
 /* --------------------------- 借还款 form --------------------------------- */
 function brwResetForm() {
   els.brwForm.reset();
   els.brwEditId.value = "";
-  els.brwPerson.value = "";
+  brwRebuildPersonOptions("");
   els.brwPersonCustom.value = "";
   els.brwPersonCustom.classList.add("hidden");
   els.brwType.value = "lend";
@@ -7795,6 +7801,7 @@ function brwResetForm() {
   els.brwFormTitle.textContent = "添加借还款记录";
   els.brwAddBtn.textContent = "添加并保存";
   hide(els.brwCancelBtn);
+  brwUpdateRemovePersonState();
 }
 
 async function brwOnSubmit(e) {
@@ -7816,7 +7823,14 @@ async function brwOnSubmit(e) {
   if (!rec.person) { setStatus("请填写对方。", "warn"); return; }
   if (!rec.date) { setStatus("请选择日期。", "warn"); return; }
 
-  const snap = borrowRecords.slice();
+  const snap = brwDocument();
+  const wasCustom = els.brwPerson.value === BRW_PERSON_CUSTOM;
+  const wasHidden = brwPeople.hidden.includes(rec.person);
+  const operations = [];
+  if (!isEdit && wasCustom) {
+    operations.push({ type: wasHidden ? "restore-person" : "add-custom-person", name: rec.person });
+    brwUseDocument(brwApplyOp(brwDocument(), operations[0]));
+  }
   if (isEdit) {
     const i = borrowRecords.findIndex((r) => r.id === rec.id);
     if (i >= 0) { rec.createdBy = borrowRecords[i].createdBy || rec.createdBy; borrowRecords[i] = rec; }
@@ -7828,11 +7842,12 @@ async function brwOnSubmit(e) {
   brwRebuildPersonOptions();
   brwRender();
   try {
-    await brwPersist(isEdit ? { type: "edit", rec } : { type: "add", rec });
+    const recordOp = isEdit ? { type: "edit", rec } : { type: "add", rec };
+    await brwPersist({ type: "batch", operations: operations.concat([recordOp]) });
     brwResetForm();
     setStatus(isEdit ? "已保存修改。" : "已添加并保存。", "ok", 3000);
   } catch (err) {
-    borrowRecords = snap; brwRebuildPersonOptions(); brwRender();
+    brwUseDocument(snap); brwRebuildPersonOptions(); brwRender();
     setStatus("保存出错：" + (err.message || err), "error");
   } finally {
     els.brwAddBtn.disabled = false;
@@ -7852,6 +7867,7 @@ function brwStartEdit(id) {
   els.brwFormTitle.textContent = "编辑借还款记录";
   els.brwAddBtn.textContent = "保存修改";
   show(els.brwCancelBtn);
+  brwUpdateRemovePersonState();
   brwSwitchTab("add");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -7870,6 +7886,26 @@ async function brwDelete(id) {
   } catch (err) {
     borrowRecords = snap; brwRebuildPersonOptions(); brwRender();
     setStatus("删除失败：" + (err.message || err), "error");
+  }
+}
+
+async function brwRemovePerson() {
+  if (!borrowLoaded) { setStatus("数据尚未载入完成，请稍候再操作。", "warn"); return; }
+  if (els.brwEditId.value) { setStatus("编辑记录时不能移除对方，请先保存或取消编辑。", "warn"); return; }
+  const name = els.brwPerson.value;
+  if (!name || name === BRW_PERSON_CUSTOM) { setStatus("请先选择要移除的对方。", "warn"); return; }
+  if (!confirm(`从新增记录的对方列表中移除「${name}」？\n已有借还款记录、搜索和图表不会删除。`)) return;
+  const snap = brwDocument();
+  const selection = name;
+  brwUseDocument(brwApplyOp(snap, { type: "hide-person", name }));
+  brwRebuildPersonOptions("");
+  try {
+    await brwPersist({ type: "hide-person", name });
+    setStatus(`已从新增记录列表移除：${name}`, "ok", 3000);
+  } catch (error) {
+    brwUseDocument(snap);
+    brwRebuildPersonOptions(selection);
+    setStatus("移除对方失败：" + (error.message || error), "error");
   }
 }
 
@@ -7999,6 +8035,7 @@ function brwWireEvents() {
   els.brwForm.addEventListener("submit", brwOnSubmit);
   els.brwCancelBtn.onclick = brwResetForm;
   els.brwPerson.addEventListener("change", brwPersonOnChange);
+  els.brwRemovePersonBtn.onclick = () => brwRemovePerson();
 
   els.brwFilterDate.addEventListener("change", () => {
     brwFilterOn = true; brwShowAll = false;
