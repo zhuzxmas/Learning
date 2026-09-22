@@ -4431,7 +4431,7 @@ function sbtWireEvents() {
     try { await sbtLoad(true); }
     catch (e) { setStatus("刷新失败：" + (e.message || e), "error"); }
   };
-  els.sbtDetailMailBtn.onclick = () => sbtSendDetailMail();
+  if (els.sbtDetailMailBtn) els.sbtDetailMailBtn.onclick = () => sbtSendDetailMail();
   els.sbtResetSortBtn.onclick = () => {
     sbtRankSort = { col: SBT_DEFAULT_RANK_SORT, dir: 1 };
     sbtRenderChipRank().catch((e) =>
@@ -6422,8 +6422,10 @@ function stkWireEvents() {
   stkFillFilters();
   els.stkFilterDate.value = todayStr();
 
-  // 股票基本面 (StockBatchTracker) viewer — read-only, loads lazily.
-  sbtWireEvents();
+  // Optional modules must never block MSAL session restoration when old/new
+  // static assets are briefly mixed by a browser or CDN cache.
+  try { sbtWireEvents(); }
+  catch (e) { console.warn("sbtWireEvents failed:", e); }
 
 
   // Medical module UI (data loads lazily when switching to 看病 mode).
@@ -6437,9 +6439,11 @@ function stkWireEvents() {
   els.celFilterDate.value = todayStr();
 
   // 借还款 module UI (data loads lazily when switching to that mode).
-  brwWireEvents();
-  brwResetForm();
-  els.brwFilterDate.value = todayStr();
+  try {
+    brwWireEvents();
+    brwResetForm();
+    if (els.brwFilterDate) els.brwFilterDate.value = todayStr();
+  } catch (e) { console.warn("brw UI init failed:", e); }
 
   // 理财 module UI (data loads lazily when switching to that mode).
   invWireEvents();
@@ -7702,13 +7706,23 @@ const BRW_PERSON_COLORS = [
   "#EB5757", "#2D9CDB", "#6FCF97", "#BB6BD9", "#F2C94C",
 ];
 
+function brwNormalizeDocument(data) {
+  if (typeof BorrowPeople !== "undefined") return BorrowPeople.normalize(data);
+  const value = data && typeof data === "object" ? data : {};
+  const people = value.people && typeof value.people === "object" ? value.people : {};
+  const clean = (items) => Array.from(new Set((Array.isArray(items) ? items : [])
+    .filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())));
+  return { records: Array.isArray(value.records) ? value.records.slice() : [],
+    people: { custom: clean(people.custom), hidden: clean(people.hidden) } };
+}
+
 async function brwLoad() {
   if (borrowLoaded) return;
   setStatus("正在载入借还款数据…");
   const token = await getToken();
   await xtResolveFolder(token);
   const r = await xtReadJson(token, BORROW_REPAY_FILE);
-  const doc = BorrowPeople.normalize(r.data);
+  const doc = brwNormalizeDocument(r.data);
   borrowRecords = doc.records;
   brwPeople = doc.people;
   brwEtag = r.etag;
@@ -7719,13 +7733,26 @@ async function brwLoad() {
 }
 
 function brwDocument() {
-  return BorrowPeople.normalize({ records: borrowRecords, people: brwPeople });
+  return brwNormalizeDocument({ records: borrowRecords, people: brwPeople });
 }
 function brwApplyOp(doc, op) {
-  return BorrowPeople.apply(doc, op);
+  if (typeof BorrowPeople !== "undefined") return BorrowPeople.apply(doc, op);
+  let value = brwNormalizeDocument(doc);
+  if (op.type === "batch") return (op.operations || []).reduce(brwApplyOp, value);
+  if (op.type === "delete") value.records = value.records.filter((record) => record.id !== op.id);
+  else if (op.type === "add" || op.type === "edit") {
+    const index = value.records.findIndex((record) => record.id === op.rec.id);
+    if (index >= 0) value.records[index] = op.rec; else value.records.push(op.rec);
+  } else if (op.type === "hide-person") {
+    if (!value.people.hidden.includes(op.name)) value.people.hidden.push(op.name);
+  } else if (op.type === "restore-person" || op.type === "add-custom-person") {
+    value.people.hidden = value.people.hidden.filter((name) => name !== op.name);
+    if (!value.people.custom.includes(op.name)) value.people.custom.push(op.name);
+  }
+  return brwNormalizeDocument(value);
 }
 function brwUseDocument(doc) {
-  const normalized = BorrowPeople.normalize(doc);
+  const normalized = brwNormalizeDocument(doc);
   borrowRecords = normalized.records;
   brwPeople = normalized.people;
 }
@@ -7745,9 +7772,16 @@ async function brwPersist(op) {
 
 /* ------------------------- 借还款 person dropdown ------------------------- */
 function brwRebuildPersonOptions(selected) {
+  if (!els.brwPerson) return;
   const cur = selected != null ? selected : els.brwPerson.value;
   const keep = els.brwEditId.value ? cur : "";
-  const persons = BorrowPeople.visible(brwDocument(), keep);
+  const documentValue = brwDocument();
+  const persons = typeof BorrowPeople !== "undefined"
+    ? BorrowPeople.visible(documentValue, keep)
+    : Array.from(new Set(documentValue.records.map((record) => String(record.person || "").trim())
+      .concat(documentValue.people.custom).filter(Boolean)))
+      .filter((name) => !documentValue.people.hidden.includes(name) || name === keep)
+      .sort((a, b) => a.localeCompare(b, "zh"));
 
   els.brwPerson.innerHTML = "";
   const ph = document.createElement("option");
@@ -8035,7 +8069,7 @@ function brwWireEvents() {
   els.brwForm.addEventListener("submit", brwOnSubmit);
   els.brwCancelBtn.onclick = brwResetForm;
   els.brwPerson.addEventListener("change", brwPersonOnChange);
-  els.brwRemovePersonBtn.onclick = () => brwRemovePerson();
+  if (els.brwRemovePersonBtn) els.brwRemovePersonBtn.onclick = () => brwRemovePerson();
 
   els.brwFilterDate.addEventListener("change", () => {
     brwFilterOn = true; brwShowAll = false;
