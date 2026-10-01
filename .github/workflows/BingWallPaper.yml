@@ -12,7 +12,7 @@ on:
   #  branches: [ "main" ]
   workflow_dispatch:
   repository_dispatch:
-    types: [ms-powre-automate-event]
+    types: [ms-power-automate-event]
 
 permissions:
   contents: write
