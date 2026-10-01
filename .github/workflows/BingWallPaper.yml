@@ -27,22 +27,7 @@ jobs:
   run-python-script:
     runs-on: ubuntu-latest
 
-    steps:
-    - name: checkout repo content
-      uses: actions/checkout@v6
-
-    - name: setup python 3.13.9
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.13.9'  # You can specify any available Python version here
-      
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements-finance.txt ]; then pip install -r requirements-finance.txt; fi
-
-    - name: run main file
-      env:
+    env:
         client_id : ${{secrets.CLIENT_ID}}
         site__id_personal_z : ${{secrets.SITE__ID_PERSONAL_Z}}
         site__id_cmmas : ${{secrets.SITE__ID_CMMAS}}
@@ -68,6 +53,22 @@ jobs:
         ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
         TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
         ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+
+    steps:
+    - name: checkout repo content
+      uses: actions/checkout@v6
+
+    - name: setup python 3.13.9
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.13.9'  # You can specify any available Python version here
+      
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-finance.txt ]; then pip install -r requirements-finance.txt; fi
+
+    - name: run main file
       id: run_script
       run: |
         # Create a temp file to store full output
@@ -126,6 +127,42 @@ jobs:
             "run_id": "${{ github.run_id }}",
             "repo": "${{ github.repository }}",
             "results": "${{ steps.run_script.outputs.LOG_OUTPUT }}",
+            "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
+            "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
+          }'
+
+    - name: run second file
+      id: run_script_second
+      run: |
+        # Create a temp file to store full output
+        LOG_FILE=$(mktemp)
+    
+        # Run script, show live output, AND save to file
+        python -u 03.OneDrive-BingPic.py 2>&1 | tee "$LOG_FILE"
+    
+        # Capture last 3 lines from the log file
+        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+    
+        # Save to GITHUB_OUTPUT
+        echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$TRUNCATED" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+    
+        # Optional: clean up
+        rm -f "$LOG_FILE"
+
+    - name: Notify Power Automate (Success) - Business
+      if: success()
+      run: |
+        curl -X POST "https://default8bee2fb215ff45ad8a49aa967122d5.37.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2e6f70b11999410f9e56ada71117e2a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W-ge-P0EP6j07Rdu9MXkHw2gJPEcrSzN1s70-G-ISjQ" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "event": "workflow_completed",
+            "status": "success",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "repo": "${{ github.repository }}",
+            "results": "${{ steps.run_script_second.outputs.LOG_OUTPUT }}",
             "actionURL": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}",
             "completed_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"
           }'
