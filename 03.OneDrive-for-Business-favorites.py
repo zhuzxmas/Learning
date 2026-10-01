@@ -29,7 +29,7 @@ delta_days_number = delta_days_date.days
 today = datetime.now().strftime('%Y-%m-%d')
 
 # Check condition
-if delta_days_number < 40:
+if delta_days_number < 30:
     print("\nRefresh Token is still ok to use.\n")
     access_token_with_refresh_token = funcLG.get_access_token_with_refresh(refresh_token=refresh_token)
 else:
