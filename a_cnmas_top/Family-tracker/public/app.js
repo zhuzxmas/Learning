@@ -231,6 +231,9 @@ let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显�
 /* --------------------------- DOM refs ------------------------------------ */
 const $ = (id) => document.getElementById(id);
 const els = {
+  startupView: $("startupView"),
+  startupMessage: $("startupMessage"),
+  startupRetryBtn: $("startupRetryBtn"),
   loginView: $("loginView"),
   appView: $("appView"),
   loginBtn: $("loginBtn"),
@@ -1006,6 +1009,26 @@ async function sharePrivateLink(view, id, title) {
 }
 
 /* --------------------------- Auth ---------------------------------------- */
+function showLoginScreen() {
+  hide(els.startupView);
+  hide(els.appView);
+  show(els.loginView);
+  show(els.loginBtn);
+  hide(els.logoutBtn);
+}
+
+function showStartupError(message) {
+  hide(els.loginView);
+  hide(els.loginBtn);
+  hide(els.appView);
+  hide(els.logoutBtn);
+  show(els.startupView);
+  els.startupView.setAttribute("aria-busy", "false");
+  els.startupMessage.textContent = message;
+  show(els.startupRetryBtn);
+  setStatus(message, "error");
+}
+
 async function getToken(accountOverride) {
   const req = { scopes: SCOPES, account: accountOverride || account };
   try {
@@ -1059,10 +1082,7 @@ function logout() {
   chatThinkingRevision++;
   chatAccountGeneration++;
   if (mode === "income") setMode("spending");
-  hide(els.appView);
-  show(els.loginView);
-  hide(els.logoutBtn);
-  show(els.loginBtn);
+  showLoginScreen();
   els.userName.textContent = "";
   els.commentReminderWrap.classList.add("hidden");
   els.commentReminderPanel.classList.add("hidden");
@@ -1070,6 +1090,7 @@ function logout() {
 
 async function onSignedIn() {
   els.userName.textContent = account.name || account.username || "";
+  hide(els.startupView);
   hide(els.loginView);
   show(els.appView);
   hide(els.loginBtn);
@@ -6401,6 +6422,8 @@ function stkWireEvents() {
 
 /* --------------------------- Boot ---------------------------------------- */
 (async function boot() {
+  // A reload retries the whole startup without duplicating module event handlers.
+  els.startupRetryBtn.onclick = () => window.location.reload();
   // Always wire up UI first so the page is usable and errors are visible.
   initCategoryDropdowns();
   resetForm();
@@ -6496,13 +6519,13 @@ function stkWireEvents() {
   });
 
   if (!CLIENT_ID || CLIENT_ID.startsWith("PASTE-")) {
-    setStatus("尚未配置 CLIENT_ID，请编辑 app.js。", "error");
+    showStartupError("尚未配置 CLIENT_ID，请编辑 app.js。");
     return;
   }
 
   // Confirm the MSAL library actually loaded (local vendor file).
   if (typeof msal === "undefined" || !msal.PublicClientApplication) {
-    setStatus("登录组件未加载（msal-browser.min.js 缺失或被拦截）。", "error");
+    showStartupError("登录组件未加载（msal-browser.min.js 缺失或被拦截）。");
     return;
   }
 
@@ -6513,7 +6536,7 @@ function stkWireEvents() {
       await msalApp.initialize();
     }
   } catch (e) {
-    setStatus("登录初始化失败：" + (e.message || e), "error");
+    showStartupError("登录初始化失败：" + (e.message || e));
     return;
   }
 
@@ -6522,7 +6545,8 @@ function stkWireEvents() {
   try {
     redirectResult = await msalApp.handleRedirectPromise();
   } catch (e) {
-    setStatus("登录失败：" + (e.message || e), "error");
+    showStartupError("登录状态恢复失败：" + (e.message || e));
+    return;
   }
   if (redirectResult && redirectResult.account) {
     account = redirectResult.account;
@@ -6538,10 +6562,14 @@ function stkWireEvents() {
     try {
       await onSignedIn();
     } catch (e) {
-      setStatus("自动登录失败，请手动登录。", "warn");
+      showStartupError("载入失败，请重试：" + (e.message || e));
     }
+  } else {
+    showLoginScreen();
   }
-})();
+})().catch((e) => {
+  showStartupError("启动失败，请重试：" + (e.message || e));
+});
 
 /* ========================================================================= *
  *                            MEDICAL  MODULE                                *

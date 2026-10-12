@@ -15,14 +15,20 @@
         <div class="comment-reminder-panel hidden" id="commentReminderPanel"></div>
       </div>
       <span id="userName" class="user-name"></span>
-      <button id="loginBtn" class="btn btn-primary">使用 Microsoft 登录</button>
+      <button id="loginBtn" class="btn btn-primary hidden">使用 Microsoft 登录</button>
       <button id="logoutBtn" class="btn btn-ghost hidden">退出</button>
     </div>
   </header>
 
   <main>
-    <!-- Login prompt -->
-    <section id="loginView" class="card center-view">
+    <!-- Restore the saved session before offering sign-in. -->
+    <section id="startupView" class="card center-view" aria-live="polite" aria-busy="true">
+      <p id="startupMessage">正在恢复登录状态…</p>
+      <button type="button" id="startupRetryBtn" class="btn btn-primary hidden">重试</button>
+    </section>
+
+    <!-- Login prompt (only shown after session restoration finds no account). -->
+    <section id="loginView" class="card center-view hidden">
       <p>请使用您的 Microsoft 账户登录，以读取和保存 OneDrive 中的记账数据。</p>
       <button id="loginBtn2" class="btn btn-primary">使用 Microsoft 登录</button>
       <p id="bootStatus" class="status"></p>
@@ -2192,6 +2198,6 @@
   <script src="chat-models.js?v=1"></script>
   <script src="borrow-people.js?v=2"></script>
   <script src="valuation.js?v=3"></script>
-  <script src="app.js?v=118"></script>
+  <script src="app.js?v=119"></script>
 </body>
 </html>
