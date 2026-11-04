@@ -5013,7 +5013,7 @@ const STK_FORUM_TOPIC_ID = "generated-stock-investment-income";
 const STK_FORUM_POST_PREFIX = "generated:stock-close:v1:";
 const STK_REALIZED_FORUM_POST_PREFIX = "generated:stock-realized:v2:";
 const STK_FORUM_INTRO_POST_ID = "generated:stock-topic:intro:v1";
-const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。历史收益沿用清仓口径；新交易按每笔卖出和股息统计已实现收益。系统会自动新增、更新或删除对应记录，数据没有变化时不会重复写入。";
+const STK_FORUM_INTRO_CONTENT = "本主题由股票模块自动维护。历史收益沿用清仓口径；新交易按每笔卖出和股息统计已实现收益。年度收益与股票图表一致，按卖出日期（股息按到账日期）归属年度；记录按该日期从新到旧排列，同日按交易顺序排列。每条记录的累计收益为截至该笔交易的收益。系统会自动新增、更新或删除对应记录，数据没有变化时不会重复写入。";
 const CLOUD_GROWTH_TOPIC_ID = "2026-08-21-01";
 
 function stkIncomePayee(accountName) {
@@ -5104,6 +5104,13 @@ function stkDeriveRealizedEvents(records) {
   return StockRealization.derive(records);
 }
 
+function stkRealizedRows(records) {
+  return stkDeriveClosedCycles(records).cycles.map((cycle) =>
+    Object.assign({ kind: "legacy", date: cycle.endDate }, cycle))
+    .concat(stkDeriveRealizedEvents(records))
+    .sort((a, b) => stkRealizedSortKey(a).localeCompare(stkRealizedSortKey(b)));
+}
+
 function stkRecordTotal(record) {
   return Number(record && record.shares) === 0
     ? StockRealization.cashEventTotal(record)
@@ -5135,7 +5142,7 @@ function stkRealizedSortKey(row) {
 }
 
 function stkRealizedYear(row) {
-  return String(row.kind === "legacy" ? row.startDate : (row.date || row.endDate) || "").slice(0, 4);
+  return String(row.date || row.endDate || "").slice(0, 4);
 }
 
 function stkRealizedTotals(target, allRows) {
@@ -5362,15 +5369,8 @@ async function stkWriteJson(token, name, getData, etag, applyOnConflict) {
 }
 
 /* ---------------------------- Stock load --------------------------------- */
-async function stkLoad() {
-  if (stockLoaded) return;
-  setStatus("正在载入股票数据…");
-  const token = await getToken();
+async function stkReadLatestRecords(token) {
   await stkResolveFolder(token);
-  const m = await stkReadJson(token, STOCK_META_FILE);
-  stkMeta = stkNormMeta(m.data);
-  stkEtagMeta = m.etag;
-
   const liveEtag = await stkReadETag(token, STOCK_RECORDS_FILE);
   const cached = liveEtag ? await idbGet(STOCK_RECORDS_FILE) : null;
   if (cached && cached.etag === liveEtag && Array.isArray(cached.records)) {
@@ -5382,6 +5382,17 @@ async function stkLoad() {
     stkEtag = r.etag;
     if (r.exists && r.etag) idbSet(STOCK_RECORDS_FILE, r.etag, stockRecords);
   }
+}
+
+async function stkLoad() {
+  if (stockLoaded) return;
+  setStatus("正在载入股票数据…");
+  const token = await getToken();
+  await stkResolveFolder(token);
+  const m = await stkReadJson(token, STOCK_META_FILE);
+  stkMeta = stkNormMeta(m.data);
+  stkEtagMeta = m.etag;
+  await stkReadLatestRecords(token);
   stockLoaded = true;
   stkInitForm();
   stkFillFilters();
@@ -5534,12 +5545,9 @@ function stkRealizedForumPostContent(event, allRows) {
 async function stkReconcileForum() {
   const token = await getToken();
   await forumResolveFolder(token);
-  const cycles = stkDeriveClosedCycles(stockRecords).cycles
-    .slice().sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)) ||
-      String(a.account).localeCompare(String(b.account)));
-  const events = stkDeriveRealizedEvents(stockRecords);
-  const allRealized = cycles.map((cycle) => Object.assign({ kind: "legacy", date: cycle.endDate }, cycle)).concat(events)
-    .sort((a, b) => stkRealizedSortKey(a).localeCompare(stkRealizedSortKey(b)));
+  const allRealized = stkRealizedRows(stockRecords);
+  const cycles = allRealized.filter((row) => row.kind === "legacy");
+  const events = allRealized.filter((row) => row.kind !== "legacy");
   const desired = [{
     id: STK_FORUM_INTRO_POST_ID,
     author: "股票模块自动同步",
@@ -5555,6 +5563,7 @@ async function stkReconcileForum() {
     generated: true,
     source: {
       module: "stock", type: STK_INCOME_SOURCE_TYPE, version: 1,
+      date: cycle.endDate, realizationOrder: cycle.realizationOrder,
       closingTransactionId: cycle.closingTransactionId,
       transactionIds: cycle.transactionIds.slice(),
     },
@@ -5566,6 +5575,7 @@ async function stkReconcileForum() {
     generated: true,
     source: {
       module: "stock", type: STK_REALIZED_SOURCE_TYPE, version: 2,
+      date: event.date, realizationOrder: event.realizationOrder,
       transactionId: event.transactionId, kind: event.kind,
     },
   })));
@@ -6137,11 +6147,9 @@ function stkYearsAsc() {
 function stkRealizedByYearAccount() {
   const byYearAcct = new Map();
   const accounts = new Set();
-  const rows = stkDeriveClosedCycles(stockRecords).cycles.map((cycle) => ({
-    date: cycle.endDate, account: cycle.account, pnl: cycle.pnl,
-  })).concat(stkDeriveRealizedEvents(stockRecords));
+  const rows = stkRealizedRows(stockRecords);
   for (const row of rows) {
-    const year = String(row.date || "").slice(0, 4);
+    const year = stkRealizedYear(row);
     const acct = row.account || "(未知)";
     if (!year) continue;
     if (!byYearAcct.has(year)) byYearAcct.set(year, new Map());
@@ -11867,6 +11875,22 @@ async function forumOpenTopic(id, fromDeepLink) {
   try {
     const token = await getToken();
     await forumResolveFolder(token);
+    if (id === STK_FORUM_TOPIC_ID) {
+      try {
+        await stkReadLatestRecords(token);
+        if (stockLoaded) {
+          stkFillFilters();
+          stkRender();
+        }
+        await stkReconcileForum();
+      } catch (e) {
+        setStatus("投资收益同步失败，当前显示上次保存的记录：" + (e.message || e), "warn", 8000);
+      }
+      if (requestId !== forumOpenRequestId || forumCurTopicId !== id) return;
+      const updatedTopic = forumTopics.find((t) => t.id === id) || topic;
+      els.forumViewMeta.textContent = (updatedTopic.author || "匿名") + " 发起 · " +
+        formatBeijingTime(updatedTopic.created) + " · " + (updatedTopic.postCount || 0) + " 楼";
+    }
     const data = await forumReadTopic(token, id);
     if (requestId !== forumOpenRequestId || forumCurTopicId !== id) return;
     forumCurPosts = data.posts;
@@ -11879,6 +11903,32 @@ async function forumOpenTopic(id, fromDeepLink) {
   }
 }
 
+function forumPostSortKey(post) {
+  const source = post.source || {};
+  if (source.module === "stock" && /^\d{4}-\d{2}-\d{2}$/.test(source.date || "")) {
+    return stkRealizedSortKey({
+      date: new Date(source.date + "T00:00:00+08:00").toISOString(),
+      realizationOrder: source.realizationOrder,
+      transactionId: source.transactionId || source.closingTransactionId || post.id,
+    });
+  }
+  return stkRealizedSortKey({ date: post.created, transactionId: post.id });
+}
+
+function forumPostLayout(posts, topicId, topic) {
+  const isSystemTopic = topicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
+  const chronological = posts.slice().sort((a, b) => topicId === STK_FORUM_TOPIC_ID
+    ? forumPostSortKey(a).localeCompare(forumPostSortKey(b))
+    : String(a.created || "").localeCompare(String(b.created || "")) ||
+      String(a.id || "").localeCompare(String(b.id || "")));
+  const fixedPost = isSystemTopic
+    ? chronological.find((p) => p.id === STK_FORUM_INTRO_POST_ID) : chronological[0];
+  const replies = (isSystemTopic
+    ? chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID)
+    : chronological.slice(1)).reverse();
+  return { chronological, fixedPost, replies, isSystemTopic };
+}
+
 async function forumRenderPosts(token) {
   els.forumPosts.innerHTML = "";
   if (!forumCurPosts.length) {
@@ -11886,16 +11936,9 @@ async function forumRenderPosts(token) {
     els.forumPostPager.classList.add("hidden");
     return;
   }
-  const chronological = forumCurPosts.slice().sort((a, b) =>
-    String(a.created || "").localeCompare(String(b.created || "")) ||
-    String(a.id || "").localeCompare(String(b.id || "")));
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
-  const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
-  const intro = chronological.find((p) => p.id === STK_FORUM_INTRO_POST_ID);
-  const fixedPost = isSystemTopic ? intro : chronological[0];
-  const replies = (isSystemTopic
-    ? chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID)
-    : chronological.slice(1)).reverse();
+  const { chronological, fixedPost, replies, isSystemTopic } =
+    forumPostLayout(forumCurPosts, forumCurTopicId, topic);
   const pages = Math.max(1, Math.ceil(replies.length / FORUM_POST_PAGE_SIZE));
   forumPostPage = Math.max(0, Math.min(forumPostPage, pages - 1));
   const pageReplies = replies.slice(forumPostPage * FORUM_POST_PAGE_SIZE, (forumPostPage + 1) * FORUM_POST_PAGE_SIZE);
@@ -11944,14 +11987,8 @@ async function forumRenderPosts(token) {
 }
 
 function forumPageForPost(id) {
-  const chronological = forumCurPosts.slice().sort((a, b) =>
-    String(a.created || "").localeCompare(String(b.created || "")) ||
-    String(a.id || "").localeCompare(String(b.id || "")));
   const topic = forumTopics.find((t) => t.id === forumCurTopicId);
-  const isSystemTopic = forumCurTopicId === STK_FORUM_TOPIC_ID || !!(topic && topic.protected);
-  const replies = (isSystemTopic
-    ? chronological.filter((p) => p.id !== STK_FORUM_INTRO_POST_ID)
-    : chronological.slice(1)).reverse();
+  const { replies } = forumPostLayout(forumCurPosts, forumCurTopicId, topic);
   const index = replies.findIndex((p) => p.id === id);
   return index < 0 ? 0 : Math.floor(index / FORUM_POST_PAGE_SIZE);
 }
