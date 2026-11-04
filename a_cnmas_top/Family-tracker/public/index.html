@@ -575,7 +575,7 @@
               <div class="chart-total-label" id="stkChartTotalLabel">全部年度已实现盈亏</div>
             </div>
             <div class="chart-asof">
-              <div class="chart-asof-label">买入年度：</div>
+              <div class="chart-asof-label">收益年度：</div>
               <select id="stkChartYear"></select>
             </div>
           </div>
@@ -585,6 +585,20 @@
           <div class="chart-cell-title">各年已实现盈亏（按卖出或股息发生年度归属，含手续费；柱内按账户分色）</div>
           <div id="stkPnlBars" class="waterfall"></div>
           <div id="stkPnlLegend" class="pie-legend cat-legend"></div>
+          <p class="muted">点击年度柱子，查看对应的收益交易。</p>
+          <section id="stkPnlDetails" class="stk-pnl-details hidden" aria-live="polite">
+            <div class="stk-pnl-details-header">
+              <h3 id="stkPnlDetailsTitle"></h3>
+              <button type="button" id="stkPnlDetailsClose" class="btn btn-ghost btn-mini">收起明细</button>
+            </div>
+            <p id="stkPnlDetailsSummary" class="muted"></p>
+            <div class="stk-pnl-details-table-wrap">
+              <table class="stk-pnl-details-table">
+                <thead><tr><th scope="col">卖出／到账日期</th><th scope="col">账户名</th><th scope="col">股票代码及名称</th><th scope="col">类型</th><th scope="col" class="num">收益金额（元）</th></tr></thead>
+                <tbody id="stkPnlDetailsBody"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
         <div class="chart-cell">
           <div class="chart-cell-title">各年手续费合计（全部交易）</div>

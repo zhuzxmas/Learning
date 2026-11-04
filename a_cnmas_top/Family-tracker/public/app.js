@@ -470,6 +470,11 @@ const els = {
   stkChartTotal: $("stkChartTotal"),
   stkChartTotalLabel: $("stkChartTotalLabel"),
   stkChartYear: $("stkChartYear"),
+  stkPnlDetails: $("stkPnlDetails"),
+  stkPnlDetailsTitle: $("stkPnlDetailsTitle"),
+  stkPnlDetailsSummary: $("stkPnlDetailsSummary"),
+  stkPnlDetailsBody: $("stkPnlDetailsBody"),
+  stkPnlDetailsClose: $("stkPnlDetailsClose"),
   stkAcctBreakdown: $("stkAcctBreakdown"),
   stkPnlBars: $("stkPnlBars"),
   stkPnlLegend: $("stkPnlLegend"),
@@ -4972,6 +4977,7 @@ let stkSearchText = "";
 let stkCodeFilter = "";
 let stkAccountFilter = "";
 let stkChartYearVal = null;
+let stkPnlDetailYear = null;
 let stkSearchTimer = null;
 
 function stkNormMeta(d) {
@@ -6192,7 +6198,7 @@ function stkBuildWaterfall(container, steps, opts) {
   const colorOf = opts.colorOf || null;
   container.innerHTML = "";
   const anyData = steps.some((s) => s.val || (s.parts && s.parts.some((p) => p.val)));
-  if (!steps.length || !anyData) {
+  if (!steps.length || (!anyData && !opts.onSelect)) {
     container.innerHTML = '<p class="muted">暂无数据。</p>';
     return;
   }
@@ -6248,6 +6254,23 @@ function stkBuildWaterfall(container, steps, opts) {
     }
     const col = document.createElement("div");
     col.className = "wf-col" + dim;
+    if (opts.onSelect) {
+      col.dataset.year = r.name;
+      col.classList.add("wf-interactive");
+      col.classList.toggle("wf-selected", opts.selectedYear === r.name);
+      col.tabIndex = 0;
+      col.setAttribute("role", "button");
+      col.setAttribute("aria-label", `${r.name}年已实现盈亏 ${fmtAmount(r.val)}元，查看交易明细`);
+      col.setAttribute("aria-controls", "stkPnlDetails");
+      col.setAttribute("aria-expanded", String(opts.selectedYear === r.name));
+      col.onclick = () => opts.onSelect(r.name);
+      col.onkeydown = (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          opts.onSelect(r.name);
+        }
+      };
+    }
     col.innerHTML =
       `<div class="wf-track">` +
         connector +
@@ -6273,10 +6296,51 @@ function stkBuildWaterfall(container, steps, opts) {
   container.appendChild(tot);
 }
 
+function stkPnlDetailRows(year) {
+  return stkRealizedRows(stockRecords).filter((row) => stkRealizedYear(row) === year).reverse();
+}
+
+function stkSelectPnlYear(year) {
+  stkPnlDetailYear = year;
+  stkRenderPnlDetails();
+  for (const col of els.stkPnlBars.querySelectorAll(".wf-interactive")) {
+    const selected = col.dataset.year === year;
+    col.classList.toggle("wf-selected", selected);
+    col.classList.toggle("dim", !!year && !selected);
+    col.setAttribute("aria-expanded", String(selected));
+  }
+}
+
+function stkRenderPnlDetails() {
+  if (!els.stkPnlDetails) return;
+  els.stkPnlDetails.classList.toggle("hidden", !stkPnlDetailYear);
+  els.stkPnlDetailsBody.innerHTML = "";
+  if (!stkPnlDetailYear) return;
+  const rows = stkPnlDetailRows(stkPnlDetailYear);
+  const total = round2(rows.reduce((sum, row) => sum + Number(row.pnl || 0), 0));
+  els.stkPnlDetailsTitle.textContent = `${stkPnlDetailYear} 年收益交易明细`;
+  els.stkPnlDetailsSummary.textContent = `共 ${rows.length} 条，收益合计 ${fmtAmount(total)} 元（每次清仓、每笔卖出及股息分别列出）`;
+  if (!rows.length) {
+    els.stkPnlDetailsBody.innerHTML = '<tr><td colspan="5" class="muted">该年度暂无已实现收益交易。</td></tr>';
+    return;
+  }
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.dataset.transactionId = row.transactionId || row.closingTransactionId || "";
+    const kind = row.kind === "legacy" ? "清仓收益" : row.kind === "dividend" ? "股息" : `卖出 ${fmtInt(row.shares)} 股`;
+    tr.innerHTML = `<td>${escapeHtml(row.date || row.endDate || "")}</td>` +
+      `<td>${escapeHtml(row.account || "(未知)")}</td><td>${escapeHtml(row.code || "(未知)")}</td>` +
+      `<td>${escapeHtml(kind)}</td><td class="num ${row.pnl < 0 ? "stk-pnl-loss" : "stk-pnl-gain"}">${fmtAmount(row.pnl)}</td>`;
+    els.stkPnlDetailsBody.appendChild(tr);
+  }
+}
+
 function stkRenderChart() {
   // Year selector: 全部年度 + each year (ascending). Selection highlights that
   // year across both charts and drives the 金额 total.
   const yearsAsc = stkYearsAsc();
+  if (stkPnlDetailYear && !yearsAsc.includes(stkPnlDetailYear)) stkPnlDetailYear = null;
+  stkRenderPnlDetails();
   const cur = String(new Date().getFullYear());
   if (!stkChartYearVal) stkChartYearVal = "ALL";
   if (stkChartYearVal !== "ALL" && !yearsAsc.includes(stkChartYearVal)) {
@@ -6346,7 +6410,10 @@ function stkRenderChart() {
     const val = round2(parts.reduce((s, p) => s + p.val, 0));
     return { name: y, val, parts };
   });
-  stkBuildWaterfall(els.stkPnlBars, pnlSteps, { highlightYear: yr, colorOf, posColor: "#26890D", negColor: "#D64550" });
+  stkBuildWaterfall(els.stkPnlBars, pnlSteps, {
+    highlightYear: stkPnlDetailYear || yr, selectedYear: stkPnlDetailYear,
+    onSelect: stkSelectPnlYear, colorOf, posColor: "#26890D", negColor: "#D64550",
+  });
 
   // P&L account legend.
   els.stkPnlLegend.innerHTML = "";
@@ -6425,7 +6492,8 @@ function stkWireEvents() {
     stkRender();
   };
   els.stkShowAllBtn.onclick = () => { stkShowAll = !stkShowAll; stkRender(); };
-  els.stkChartYear.onchange = () => { stkChartYearVal = els.stkChartYear.value; stkRenderChart(); };
+  els.stkChartYear.onchange = () => { stkChartYearVal = els.stkChartYear.value; stkPnlDetailYear = null; stkRenderChart(); };
+  if (els.stkPnlDetailsClose) els.stkPnlDetailsClose.onclick = () => { stkPnlDetailYear = null; stkRenderChart(); };
 }
 
 /* --------------------------- Boot ---------------------------------------- */
