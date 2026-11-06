@@ -9,7 +9,8 @@ const context = vm.createContext({
   StockRealization, console,
   round2: (n) => Math.round(n * 100) / 100,
   fmtInt: (n) => String(Math.round(n)),
-  stockRecords: [], forumLoaded: false, forumCurTopicId: "", forumTopics: [],
+  stockRecords: [], stockLoaded: false, incomeLoaded: false,
+  forumLoaded: false, forumCurTopicId: "", forumTopics: [],
   FORUM_POST_PAGE_SIZE: 2,
   FORUM_INDEX_FILE: "forum/index.json",
 });

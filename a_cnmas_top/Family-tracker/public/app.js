@@ -1076,6 +1076,7 @@ function logout() {
   incEtag = null;
   incDriveBase = null;
   incEtagMeta = null;
+  incChartStockReady = false;
   chatLoaded = false;
   chatLoadedUsername = "";
   chatConvs = [];
@@ -3190,6 +3191,7 @@ function incRenderHidden() {
 function incRender() {
   incFillFilterSelects();
   incRenderTable();
+  if (incTab === "chart") incRenderChart();
 }
 
 function incRenderTable() {
@@ -3278,17 +3280,52 @@ const INC_CAT_COLORS = [
 ];
 function incCatColor(name, index) { return INC_CAT_COLORS[index % INC_CAT_COLORS.length]; }
 
-function incYears() {
+// The chart replaces stored stock income with the same realized rows as the
+// stock page, including historical trades and accounts without a sync mapping.
+let incChartStockReady = false;
+
+function incChartRows() {
+  return incomeRecords.filter((r) => r.title !== "股票投资收入" && !stkIsGeneratedIncome(r))
+    .concat(stkRealizedRows(stockRecords).map((row) => ({
+      title: "股票投资收入", date: row.date || row.endDate, netAmount: row.pnl,
+    })));
+}
+
+async function incLoadChart() {
+  try {
+    await incLoad();
+    const token = await getToken();
+    await stkReadLatestRecords(token);
+    incRenderChart();
+  } catch (e) {
+    incChartStockReady = false;
+    incRenderChart();
+    setStatus("收入图表载入失败：" + (e.message || e), "error");
+  }
+}
+
+function incYears(rows = incomeRecords) {
   const s = new Set();
-  for (const r of incomeRecords) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
+  for (const r of rows) if (r.date && r.date.length >= 4) s.add(r.date.slice(0, 4));
   return [...s].sort().reverse();
 }
 
 function incRenderChart() {
+  if (!incChartStockReady) {
+    els.incChartTitle.textContent = "收入图表待载入股票收益";
+    els.incChartTotal.textContent = "—";
+    els.incChartTotal.classList.toggle("neg", false);
+    els.incChartEmpty.classList.add("hidden");
+    els.incWaterfall.innerHTML = "";
+    els.incMonthBars.innerHTML = "";
+    els.incCatLegend.innerHTML = "";
+    return;
+  }
+  const chartRows = incChartRows();
   // Populate the year selector (once per render).
-  const years = incYears();
+  const years = incYears(chartRows);
   const cur = String(new Date().getFullYear());
-  if (!incChartYearVal) incChartYearVal = years.includes(cur) ? cur : (years[0] || cur);
+  if (!incChartYearVal || !years.includes(incChartYearVal)) incChartYearVal = years.includes(cur) ? cur : (years[0] || cur);
   els.incChartYear.innerHTML = "";
   for (const y of years) {
     const o = document.createElement("option");
@@ -3297,19 +3334,19 @@ function incRenderChart() {
   }
 
   const year = incChartYearVal;
-  const rows = incomeRecords.filter((r) => r.date && r.date.slice(0, 4) === year);
+  const rows = chartRows.filter((r) => r.date && r.date.slice(0, 4) === year);
   const monthTotals = new Array(12).fill(0);
   const catTotals = new Map();       // name -> total (for legend ordering)
   const monthCat = Array.from({ length: 12 }, () => new Map()); // per-month cat map
   for (const r of rows) {
     const mi = parseInt(r.date.slice(5, 7), 10) - 1;
-    if (mi < 0 || mi > 11) continue;
+    if (!Number.isInteger(mi) || mi < 0 || mi > 11) continue;
     const v = Number(r.netAmount) || 0;
-    monthTotals[mi] += v;
-    catTotals.set(r.title, (catTotals.get(r.title) || 0) + v);
-    monthCat[mi].set(r.title, (monthCat[mi].get(r.title) || 0) + v);
+    monthTotals[mi] = round2(monthTotals[mi] + v);
+    catTotals.set(r.title, round2((catTotals.get(r.title) || 0) + v));
+    monthCat[mi].set(r.title, round2((monthCat[mi].get(r.title) || 0) + v));
   }
-  const grand = monthTotals.reduce((a, b) => a + b, 0);
+  const grand = round2(monthTotals.reduce((a, b) => a + b, 0));
   els.incChartTitle.textContent = year + " 年度家庭收入";
   els.incChartTotal.textContent = fmtAmount(grand);
   els.incChartTotal.classList.toggle("neg", grand < 0);
@@ -3421,7 +3458,7 @@ function incBuildCatLegend(catOrder, catTotals, colorOf) {
     row.innerHTML =
       `<span class="legend-dot" style="background:${colorOf.get(name)}"></span>` +
       `<span class="legend-name">${escapeHtml(name)}</span>` +
-      `<span class="legend-val">${fmtInt(catTotals.get(name))}</span>`;
+      `<span class="legend-val">${fmtAmount(catTotals.get(name))}</span>`;
     els.incCatLegend.appendChild(row);
   }
 }
@@ -3440,7 +3477,10 @@ function incSwitchTab(name) {
     if (tabs[k].panel) tabs[k].panel.classList.toggle("hidden", !active);
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
-  if (name === "chart") incRenderChart();
+  if (name === "chart") {
+    incRenderChart();
+    incLoadChart();
+  }
   if (name === "settings") incRenderHidden();
 }
 
@@ -4863,7 +4903,10 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   if (!account) return;
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
-    try { await incLoad(); }
+    try {
+      await incLoad();
+      if (incTab === "chart") await incLoadChart();
+    }
     catch (e) { setStatus("收入数据载入失败：" + (e.message || e), "error"); }
   } else if (isStk) {
     try { await stkLoad(); }
@@ -5388,6 +5431,9 @@ async function stkReadLatestRecords(token) {
     stkEtag = r.etag;
     if (r.exists && r.etag) idbSet(STOCK_RECORDS_FILE, r.etag, stockRecords);
   }
+  incChartStockReady = true;
+  if (incomeLoaded && incTab === "chart") incRenderChart();
+  if (stockLoaded && stkTab === "chart") stkRenderChart();
 }
 
 async function stkLoad() {
@@ -6059,6 +6105,8 @@ function stkFillFilters() {
 
 /* ---------------------------- Stock table -------------------------------- */
 function stkRender() {
+  if (incomeLoaded && incTab === "chart") incRenderChart();
+  if (stkTab === "chart") stkRenderChart();
   const monthFilter = stkFilterOn && els.stkFilterDate ? els.stkFilterDate.value.slice(0, 7) : "";
   const sorted = [...stockRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const q = stkSearchText.trim().toLowerCase();
