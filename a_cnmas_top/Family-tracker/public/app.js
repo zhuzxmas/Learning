@@ -6219,6 +6219,46 @@ function stkRealizedByYearAccount() {
   return { byYearAcct, accounts: [...accounts].sort(), yearTotals };
 }
 
+// Transaction return, not annualized account performance. Standalone v2
+// dividends have no sale cost basis and do not add principal or return here.
+function stkTransactionReturnsByYear(records = stockRecords) {
+  const byYear = new Map();
+  for (const row of stkRealizedRows(records)) {
+    const year = stkRealizedYear(row);
+    if (!year) continue;
+    if (!byYear.has(year)) byYear.set(year, {
+      principal: 0, pnl: 0, excludedDividends: 0, count: 0, valid: true, rate: null,
+    });
+    const summary = byYear.get(year);
+    if (row.kind === "dividend") {
+      summary.excludedDividends = round2(summary.excludedDividends + Number(row.pnl || 0));
+      continue;
+    }
+    const principal = Number(row.kind === "legacy" ? row.buyCost : row.costBasis);
+    summary.count++;
+    summary.pnl = round2(summary.pnl + Number(row.pnl || 0));
+    if (!Number.isFinite(principal) || principal <= 0) summary.valid = false;
+    else summary.principal = round2(summary.principal + principal);
+  }
+  for (const summary of byYear.values()) {
+    if (summary.valid && summary.principal > 0) summary.rate = summary.pnl / summary.principal;
+  }
+  return byYear;
+}
+
+function stkTransactionReturnLabel(summary) {
+  const hasRate = summary && Number.isFinite(summary.rate);
+  const text = hasRate ? (summary.rate * 100).toFixed(2) + "%" : "—";
+  const detail = summary
+    ? `纳入收益 ${fmtAmount(summary.pnl)} 元；对应成本本金 ${fmtAmount(summary.principal)} 元；单列股息 ${fmtAmount(summary.excludedDividends)} 元（不纳入收益率）`
+    : "该年度无卖出或清仓交易";
+  return {
+    text, negative: hasRate && summary.rate < 0,
+    title: `已实现交易收益率：${text}。${detail}。收益率 = 卖出／清仓收益 ÷ 对应成本本金；含手续费，不做年化；历史周期内股息随清仓收益计入。` +
+      (summary && !summary.valid ? "存在缺失或非正本金，无法计算年度收益率。" : ""),
+  };
+}
+
 // Total fees (佣金+印花税+过户费, shown as positive cost) per year across ALL trades.
 function stkFeesByYear() {
   const m = new Map();
@@ -6261,7 +6301,7 @@ function stkBuildWaterfall(container, steps, opts) {
     else { if (val > 0) pos = val; else neg = val; }
     const hi = prev + pos, lo = prev + neg;
     rows.push({
-      name: s.name, val, prev, run, parts: s.parts || null,
+      name: s.name, val, prev, run, parts: s.parts || null, returnLabel: s.returnLabel || null,
       low: Math.min(prev, run, lo), high: Math.max(prev, run, hi),
     });
   }
@@ -6308,7 +6348,8 @@ function stkBuildWaterfall(container, steps, opts) {
       col.classList.toggle("wf-selected", opts.selectedYear === r.name);
       col.tabIndex = 0;
       col.setAttribute("role", "button");
-      col.setAttribute("aria-label", `${r.name}年已实现盈亏 ${fmtAmount(r.val)}元，查看交易明细`);
+      col.setAttribute("aria-label", `${r.name}年已实现盈亏 ${fmtAmount(r.val)}元` +
+        (r.returnLabel ? `，${r.returnLabel.title}` : "") + "，查看交易明细");
       col.setAttribute("aria-controls", "stkPnlDetails");
       col.setAttribute("aria-expanded", String(opts.selectedYear === r.name));
       col.onclick = () => opts.onSelect(r.name);
@@ -6324,7 +6365,9 @@ function stkBuildWaterfall(container, steps, opts) {
         connector +
         (showZero ? `<div class="stk-zero" style="bottom:${zeroPct}%"></div>` : "") +
         fills +
-        (r.val ? `<div class="wf-val" style="bottom:${pct(r.high)}%">${fmtInt(r.val)}</div>` : "") +
+        (r.val || r.returnLabel ? `<div class="wf-val" style="bottom:${pct(r.high)}%">` +
+          (r.returnLabel ? `<span class="wf-return${r.returnLabel.negative ? " neg" : ""}" title="${escapeHtml(r.returnLabel.title)}">${escapeHtml(r.returnLabel.text)}</span>` : "") +
+          `${fmtInt(r.val)}</div>` : "") +
       `</div>` +
       `<div class="wf-name">${r.name}${labelSuffix}</div>`;
     container.appendChild(col);
@@ -6452,11 +6495,12 @@ function stkRenderChart() {
   }
 
   // Chart 1: realized P&L waterfall, each year bar split by account.
+  const transactionReturns = stkTransactionReturnsByYear();
   const pnlSteps = yearsAsc.map((y) => {
     const am = byYearAcct.get(y) || new Map();
     const parts = accounts.map((a) => ({ account: a, val: round2(am.get(a) || 0) })).filter((p) => p.val);
     const val = round2(parts.reduce((s, p) => s + p.val, 0));
-    return { name: y, val, parts };
+    return { name: y, val, parts, returnLabel: stkTransactionReturnLabel(transactionReturns.get(y)) };
   });
   stkBuildWaterfall(els.stkPnlBars, pnlSteps, {
     highlightYear: stkPnlDetailYear || yr, selectedYear: stkPnlDetailYear,
