@@ -33,7 +33,7 @@ const context = vm.createContext({
 for (const name of ["stkSortTrades", "stkDeriveClosedCycles", "stkDeriveRealizedEvents",
   "stkRealizedRows", "stkRecordTotal", "stkRealizedSortKey", "stkRealizedYear",
   "stkRealizedByYearAccount", "stkBuildWaterfall", "stkPnlDetailRows", "stkSelectPnlYear",
-  "stkRenderPnlDetails", "stkTransactionReturnsByYear", "stkTransactionReturnLabel",
+  "stkRenderPnlDetails", "stkPeakCapitalReturnsByYear", "stkPeakCapitalReturnLabel",
   "stkYearsAsc", "stkFeesByYear", "stkRenderChart"]) {
   const match = app.match(new RegExp(`^function ${name}\\([^]*?^}`, "m"));
   assert.ok(match, name);
@@ -89,21 +89,21 @@ assert.equal(els.stkPnlBars.querySelectorAll().length, 1);
 assert.ok(html.indexOf('id="stkPnlDetails"') > html.indexOf('id="stkPnlBars"'));
 assert.ok(html.indexOf('id="stkPnlDetails"') < html.indexOf('id="stkFeeBars"'));
 assert.match(html, /收益年度：/);
-// Returns use sale principal, not average percentages or all buys in the year.
-const summary = context.stkTransactionReturnsByYear().get("2026");
-assert.equal(summary.principal, 3000, "two historical cycles plus the allocated cost of both partial sales");
-assert.equal(summary.pnl, 500);
-assert.equal(summary.excludedDividends, 50);
-assert.equal(summary.rate, 500 / 3000);
-assert.equal(context.stkTransactionReturnsByYear().has("2025"), false, "buy year does not determine realization year");
-assert.equal(context.stkTransactionReturnLabel(summary).text, "16.67%");
+// Sequential investments reuse capital; all realized P&L including dividends
+// is divided by the peak simultaneous holding cost, not summed trade costs.
+const summary = context.stkPeakCapitalReturnsByYear().get("2026");
+assert.equal(summary.principal, 1000);
+assert.equal(summary.pnl, 550);
+assert.equal(summary.rate, 0.55);
+assert.equal(context.stkPeakCapitalReturnsByYear().get("2025").principal, 1000);
+assert.equal(context.stkPeakCapitalReturnLabel(summary).text, "55.00%");
 context.stkBuildWaterfall(els.stkPnlBars, [
-  { name: "2026", val: 550, returnLabel: context.stkTransactionReturnLabel(summary) },
+  { name: "2026", val: 550, returnLabel: context.stkPeakCapitalReturnLabel(summary) },
 ], { onSelect: context.stkSelectPnlYear });
 const rateBar = els.stkPnlBars.children[0];
-assert.match(rateBar.innerHTML, /class="wf-return"[^]*16\.67%<\/span>550/);
-assert.match(rateBar.innerHTML, /对应成本本金 3000\.00 元/);
-assert.match(rateBar.attributes["aria-label"], /已实现交易收益率：16\.67%/);
+assert.match(rateBar.innerHTML, /class="wf-return"[^]*55\.00%<\/span>550/);
+assert.match(rateBar.innerHTML, /最大同时占用成本本金 1000\.00 元/);
+assert.match(rateBar.attributes["aria-label"], /年度最大占用本金收益率：55\.00%/);
 assert.doesNotMatch(els.stkPnlBars.children[1].innerHTML, /wf-return/, "grand total is not an annual rate");
 const weightedRecords = [
   trade("small-buy", "2025-12-01", -100, -10000, { code: "small" }),
@@ -111,48 +111,95 @@ const weightedRecords = [
   trade("large-buy", "2026-01-01", -1000, -100000, { code: "large" }),
   trade("large-sale", "2026-02-01", 1000, 105000, { code: "large", realizationVersion: 2 }),
 ];
-const weighted = context.stkTransactionReturnsByYear(weightedRecords).get("2026");
-assert.equal(weighted.principal, 110000);
+const weighted = context.stkPeakCapitalReturnsByYear(weightedRecords).get("2026");
+assert.equal(weighted.principal, 100000, "sell then buy on the same date releases prior capital");
 assert.equal(weighted.pnl, 7000);
-assert.equal(context.stkTransactionReturnLabel(weighted).text, "6.36%");
-const partial = context.stkTransactionReturnsByYear([
+assert.equal(context.stkPeakCapitalReturnLabel(weighted).text, "7.00%");
+const partial = context.stkPeakCapitalReturnsByYear([
   trade("buy", "2025-12-01", -100, -1005),
   trade("sale", "2026-01-01", 40, 300, { realizationVersion: 2 }),
   trade("sale2", "2027-01-01", 60, 1000, { realizationVersion: 2 }),
 ]);
-assert.equal(partial.get("2026").principal, 402);
+assert.equal(partial.get("2026").principal, 1005, "peak includes the position before a partial sale");
 assert.equal(partial.get("2027").principal, 603);
-assert.equal(context.stkTransactionReturnLabel(partial.get("2026")).text, "-25.37%");
+assert.equal(context.stkPeakCapitalReturnLabel(partial.get("2026")).text, "-10.15%");
 context.stkBuildWaterfall(els.stkPnlBars, [{ name: "2026", val: -102,
-  returnLabel: context.stkTransactionReturnLabel(partial.get("2026")) }], {});
+  returnLabel: context.stkPeakCapitalReturnLabel(partial.get("2026")) }], {});
 assert.match(els.stkPnlBars.children[0].innerHTML, /wf-return neg/);
-const legacyDividend = context.stkTransactionReturnsByYear([
+const legacyDividend = context.stkPeakCapitalReturnsByYear([
   trade("buy", "2025-12-01", -100, -1000),
   trade("dividend", "2026-01-01", 0, 50),
   trade("close", "2026-02-01", 100, 1100),
 ]).get("2026");
 assert.equal(legacyDividend.principal, 1000);
 assert.equal(legacyDividend.pnl, 150);
-assert.equal(context.stkTransactionReturnLabel(legacyDividend).text, "15.00%");
-const dividendOnly = context.stkTransactionReturnsByYear([
+assert.equal(context.stkPeakCapitalReturnLabel(legacyDividend).text, "15.00%");
+const dividendOnly = context.stkPeakCapitalReturnsByYear([
   trade("dividend", "2026-01-01", 0, 50, { realizationVersion: 2 }),
 ]).get("2026");
 assert.equal(dividendOnly.principal, 0);
-assert.equal(context.stkTransactionReturnLabel(dividendOnly).text, "—");
-const missingCost = context.stkTransactionReturnsByYear(weightedRecords.concat([
+assert.equal(context.stkPeakCapitalReturnLabel(dividendOnly).text, "—");
+const missingCost = context.stkPeakCapitalReturnsByYear(weightedRecords.concat([
   trade("missing-cost", "2026-03-01", 10, 100, { code: "missing", realizationVersion: 2 }),
 ])).get("2026");
 assert.equal(missingCost.rate, null, "one transaction without principal invalidates the aggregate rate");
-assert.match(context.stkTransactionReturnLabel(missingCost).title, /无法计算年度收益率/);
-const flat = context.stkTransactionReturnsByYear([
+assert.match(context.stkPeakCapitalReturnLabel(missingCost).title, /无法计算年度收益率/);
+const flat = context.stkPeakCapitalReturnsByYear([
   trade("buy", "2026-01-01", -100, -1000),
   trade("sale", "2026-02-01", 100, 1000, { realizationVersion: 2 }),
 ]).get("2026");
 context.stkBuildWaterfall(els.stkPnlBars, [{ name: "2026", val: 0,
-  returnLabel: context.stkTransactionReturnLabel(flat) }], { onSelect: context.stkSelectPnlYear });
+  returnLabel: context.stkPeakCapitalReturnLabel(flat) }], { onSelect: context.stkSelectPnlYear });
 assert.match(els.stkPnlBars.children[0].innerHTML, /0\.00%<\/span>0/);
-assert.equal(context.stkTransactionReturnLabel(undefined).text, "—");
-assert.match(html, /单列股息不纳入收益率/);
+assert.equal(context.stkPeakCapitalReturnLabel(undefined).text, "—");
+assert.match(html, /年度最大占用本金收益率/);
+const reused = [
+  trade("b1", "2026-01-01", -100, -100000),
+  trade("s1", "2026-02-01", 100, 110000, { realizationVersion: 2 }),
+  trade("b2", "2026-03-01", -100, -100000),
+  trade("s2", "2026-04-01", 100, 120000, { realizationVersion: 2 }),
+];
+const reusedSummary = context.stkPeakCapitalReturnsByYear(reused).get("2026");
+assert.equal(reusedSummary.principal, 100000);
+assert.equal(reusedSummary.pnl, 30000);
+assert.equal(context.stkPeakCapitalReturnLabel(reusedSummary).text, "30.00%");
+const overlap = context.stkPeakCapitalReturnsByYear([
+  trade("b1", "2026-01-01", -100, -100000),
+  trade("b2", "2026-01-02", -100, -100000, { account: "15教育账户" }),
+  trade("s1", "2026-02-01", 100, 110000, { realizationVersion: 2 }),
+  trade("s2", "2026-03-01", 100, 120000, { account: "15教育账户", realizationVersion: 2 }),
+]).get("2026");
+assert.equal(overlap.principal, 200000, "simultaneous positions across accounts add together");
+assert.equal(context.stkPeakCapitalReturnLabel(overlap).text, "15.00%");
+const carry = context.stkPeakCapitalReturnsByYear([
+  trade("buy", "2024-12-01", -100, -1000),
+  trade("dividend", "2026-01-01", 0, 100, { realizationVersion: 2 }),
+]);
+assert.equal(carry.get("2025").principal, 1000, "carry cost through years without trades");
+assert.equal(carry.get("2025").rate, 0);
+assert.equal(carry.get("2026").rate, 0.1, "dividends use inherited holding capital");
+const sameDay = [
+  trade("buy", "2026-01-01", -100, -1000),
+  trade("rebuy", "2026-02-01", -100, -1000, { tradeOrder: 2 }),
+  trade("close", "2026-02-01", 100, 1100, { tradeOrder: 1, realizationVersion: 2 }),
+];
+assert.equal(context.stkPeakCapitalReturnsByYear(sameDay).get("2026").principal, 1000,
+  "explicit order closes before reinvesting despite input order");
+sameDay[1].tradeOrder = 1;
+sameDay[2].tradeOrder = 2;
+assert.equal(context.stkPeakCapitalReturnsByYear(sameDay).get("2026").principal, 2000,
+  "buying before selling genuinely increases occupied capital");
+const reinvestProfit = reused.map((r) => r.id === "b2" ? { ...r, total: -110000 } : r);
+assert.equal(context.stkPeakCapitalReturnsByYear(reinvestProfit).get("2026").principal, 110000,
+  "profits reinvested increase the actual peak holding cost");
+const invalidCarry = context.stkPeakCapitalReturnsByYear([
+  trade("bad", "2025-01-01", -100, 0),
+  trade("close", "2026-01-01", 100, 1000, { realizationVersion: 2 }),
+  trade("buy", "2027-01-01", -100, -1000),
+  trade("sale", "2027-02-01", 100, 1100, { realizationVersion: 2 }),
+]);
+assert.equal(invalidCarry.get("2026").rate, null);
+assert.equal(invalidCarry.get("2027").rate, 0.1, "closing an invalid position resets cost state for future years");
 // Verify the actual chart passes annual summaries into the shared waterfall.
 for (const key of ["stkChartYear", "stkChartEmpty", "stkFeeBars", "stkPnlLegend",
   "stkAcctBreakdown", "stkChartTotal", "stkChartTotalLabel"]) els[key] = new Element();
@@ -160,8 +207,8 @@ context.STK_BAR_COLORS = ["#118DFF", "#26890D"];
 context.stkChartYearVal = "ALL";
 context.stkPnlDetailYear = null;
 context.stkRenderChart();
-assert.match(els.stkPnlBars.children[1].innerHTML, /16\.67%<\/span>550/);
+assert.match(els.stkPnlBars.children[1].innerHTML, /55\.00%<\/span>550/);
 assert.equal(els.stkChartTotal.textContent, "550.00", "P&L continues to include standalone dividends");
 assert.ok(els.stkFeeBars.children.every((col) => !col.innerHTML.includes("wf-return")));
 console.log("stock chart detail totals, separate cycles, rendering and bar interaction tests passed");
-console.log("annual transaction return weighting, principal allocation, dividends and labels tests passed");
+console.log("annual peak capital return, reinvestment, overlap, carry, dividends and labels tests passed");

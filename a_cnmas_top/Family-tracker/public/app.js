@@ -6219,26 +6219,53 @@ function stkRealizedByYearAccount() {
   return { byYearAcct, accounts: [...accounts].sort(), yearTotals };
 }
 
-// Transaction return, not annualized account performance. Standalone v2
-// dividends have no sale cost basis and do not add principal or return here.
-function stkTransactionReturnsByYear(records = stockRecords) {
+// Peak simultaneous holding cost across all stocks/accounts. Closing releases
+// principal so subsequent reinvestment does not accumulate turnover as capital.
+function stkPeakCapitalReturnsByYear(records = stockRecords) {
   const byYear = new Map();
+  const positions = new Map();
+  let occupied = 0, currentYear = 0;
+  const ensureYear = (year) => {
+    if (!byYear.has(year)) byYear.set(year, {
+      principal: round2(occupied), pnl: 0,
+      valid: [...positions.values()].every((p) => p.valid), rate: null,
+    });
+    return byYear.get(year);
+  };
+  for (const record of stkSortTrades(records)) {
+    const year = Number(String(record.date || "").slice(0, 4));
+    if (!Number.isInteger(year) || year < 1000 || year > 9999) continue;
+    if (currentYear) for (let y = currentYear + 1; y <= year; y++) ensureYear(String(y));
+    currentYear = year;
+    const summary = ensureYear(String(year));
+    const key = String(record.code || "") + "\u0000" + String(record.account || "");
+    if (!positions.has(key)) positions.set(key, { shares: 0, cost: 0, valid: true });
+    const position = positions.get(key);
+    const shares = Number(record.shares) || 0;
+    const oldCost = position.cost;
+    if (shares < 0) {
+      const cost = -Number(record.total);
+      if (!Number.isFinite(cost) || cost <= 0) position.valid = false;
+      else position.cost += cost;
+      position.shares += -shares;
+    } else if (shares > 0) {
+      if (shares > position.shares + 0.5 || !position.valid) summary.valid = false;
+      const fraction = position.shares > 0 ? Math.min(1, shares / position.shares) : 1;
+      position.cost *= 1 - fraction;
+      position.shares = Math.max(0, position.shares - shares);
+      if (position.shares < 0.5) {
+        position.shares = 0; position.cost = 0; position.valid = true;
+      }
+    }
+    occupied = Math.max(0, occupied + position.cost - oldCost);
+    summary.principal = Math.max(summary.principal, round2(occupied));
+    if (!position.valid) summary.valid = false;
+  }
   for (const row of stkRealizedRows(records)) {
     const year = stkRealizedYear(row);
     if (!year) continue;
-    if (!byYear.has(year)) byYear.set(year, {
-      principal: 0, pnl: 0, excludedDividends: 0, count: 0, valid: true, rate: null,
-    });
-    const summary = byYear.get(year);
-    if (row.kind === "dividend") {
-      summary.excludedDividends = round2(summary.excludedDividends + Number(row.pnl || 0));
-      continue;
-    }
-    const principal = Number(row.kind === "legacy" ? row.buyCost : row.costBasis);
-    summary.count++;
+    const summary = ensureYear(year);
     summary.pnl = round2(summary.pnl + Number(row.pnl || 0));
-    if (!Number.isFinite(principal) || principal <= 0) summary.valid = false;
-    else summary.principal = round2(summary.principal + principal);
   }
   for (const summary of byYear.values()) {
     if (summary.valid && summary.principal > 0) summary.rate = summary.pnl / summary.principal;
@@ -6246,16 +6273,16 @@ function stkTransactionReturnsByYear(records = stockRecords) {
   return byYear;
 }
 
-function stkTransactionReturnLabel(summary) {
+function stkPeakCapitalReturnLabel(summary) {
   const hasRate = summary && Number.isFinite(summary.rate);
   const text = hasRate ? (summary.rate * 100).toFixed(2) + "%" : "—";
   const detail = summary
-    ? `纳入收益 ${fmtAmount(summary.pnl)} 元；对应成本本金 ${fmtAmount(summary.principal)} 元；单列股息 ${fmtAmount(summary.excludedDividends)} 元（不纳入收益率）`
-    : "该年度无卖出或清仓交易";
+    ? `年度已实现盈亏 ${fmtAmount(summary.pnl)} 元（含股息）；年度最大同时占用成本本金 ${fmtAmount(summary.principal)} 元`
+    : "该年度无持仓成本数据";
   return {
     text, negative: hasRate && summary.rate < 0,
-    title: `已实现交易收益率：${text}。${detail}。收益率 = 卖出／清仓收益 ÷ 对应成本本金；含手续费，不做年化；历史周期内股息随清仓收益计入。` +
-      (summary && !summary.valid ? "存在缺失或非正本金，无法计算年度收益率。" : ""),
+    title: `年度最大占用本金收益率：${text}。${detail}。收益率 = 年度已实现盈亏 ÷ 年度最大同时占用成本本金；所有股票、所有账户合并计算，跨年持仓承接成本，清仓释放本金，含手续费，不做年化，不含未实现盈亏。` +
+      (summary && !summary.valid ? "存在缺失成本或异常持仓，无法计算年度收益率。" : ""),
   };
 }
 
@@ -6495,12 +6522,12 @@ function stkRenderChart() {
   }
 
   // Chart 1: realized P&L waterfall, each year bar split by account.
-  const transactionReturns = stkTransactionReturnsByYear();
+  const capitalReturns = stkPeakCapitalReturnsByYear();
   const pnlSteps = yearsAsc.map((y) => {
     const am = byYearAcct.get(y) || new Map();
     const parts = accounts.map((a) => ({ account: a, val: round2(am.get(a) || 0) })).filter((p) => p.val);
     const val = round2(parts.reduce((s, p) => s + p.val, 0));
-    return { name: y, val, parts, returnLabel: stkTransactionReturnLabel(transactionReturns.get(y)) };
+    return { name: y, val, parts, returnLabel: stkPeakCapitalReturnLabel(capitalReturns.get(y)) };
   });
   stkBuildWaterfall(els.stkPnlBars, pnlSteps, {
     highlightYear: stkPnlDetailYear || yr, selectedYear: stkPnlDetailYear,
