@@ -68,3 +68,36 @@ splits it automatically (`正在拆分历史数据…`), then the folder holds
 
 `wrangler.toml` is left over from an earlier CLI/Worker layout and is IGNORED by
 Direct Upload. It can be deleted; it has no effect on this static deployment.
+
+## Stock email automation — Tencent enterprise mailbox
+
+Stock detail emails and scheduled chip-ranking emails are sent by the repository
+root scripts `send_stock_detail_mail.py` and `send_chip_ranking_mail.py` through
+GitHub Actions (`stock-detail-mail.yml` and `finance-quarterly.yml`).
+
+In GitHub → repository Settings → Secrets and variables → Actions, configure:
+
+| Repository Secret | Value |
+| --- | --- |
+| `STOCK_MAIL_FROM` | Existing full sender address; also the SMTP login username |
+| `STOCK_MAIL_TO` | Existing recipient address |
+| `STOCK_MAIL_SMTP_PASSWORD` | Sender mailbox's client-specific password |
+
+Enable SMTP/client access in the Tencent enterprise mailbox settings. The default
+connection is `smtp.exmail.qq.com:465`, using SSL with certificate verification
+and a 30-second timeout. No new Python dependencies are required.
+
+For local execution, supply the same values as environment variables. Optional
+`STOCK_MAIL_SMTP_HOST` and `STOCK_MAIL_SMTP_PORT` environment variables override
+the server and port (SSL only); GitHub workflows use the defaults. OneDrive HTTP
+proxy configuration does not apply to SMTP. SMTP sends are not automatically
+retried, to avoid duplicate delivery after an ambiguous connection failure.
+
+The original personal OneDrive Secrets (`ONEDRIVE_CLIENT_ID`, `TOKEN_ENC_KEY`,
+`ONEDRIVE_REFRESH_TOKEN`) are still required for reading stock data. Enterprise
+`CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID` are no longer injected into these
+mail steps, but other repository workflows still reference them.
+
+After deploying the code and configuring the SMTP password, use the stock detail
+page's “发送邮件” button to verify receipt at the existing recipient address.
+Scheduled ranking delivery keeps its existing trigger and non-fatal failure behavior.

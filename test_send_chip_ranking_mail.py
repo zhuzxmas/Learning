@@ -1,10 +1,14 @@
+import smtplib
+import ssl
 import unittest
+from email import policy
+from email.parser import BytesParser
 from unittest import mock
 
 import onedrive_personal
 from send_chip_ranking_mail import (_canonical_code, _configured_codes,
                                     _held_codes, _normalize_settings,
-                                    build_html, build_rows)
+                                    build_html, build_rows, send_mail)
 
 
 class ChipRankingMailTests(unittest.TestCase):
@@ -125,6 +129,83 @@ class ChipRankingMailTests(unittest.TestCase):
         self.assertTrue(urls[0].endswith('/driveItem?$select=id,parentReference'))
         self.assertTrue(urls[1].endswith(
             '/drives/drive-id/items/folder-id:/stock-records.json:/content'))
+
+
+class SmtpMailTests(unittest.TestCase):
+    def setUp(self):
+        self.env = mock.patch.dict('os.environ', {
+            'STOCK_MAIL_SMTP_PASSWORD': 'test-client-password',
+        }, clear=True)
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.smtp_patch = mock.patch('send_chip_ranking_mail.smtplib.SMTP_SSL')
+        self.factory = self.smtp_patch.start()
+        self.addCleanup(self.smtp_patch.stop)
+        self.smtp = self.factory.return_value.__enter__.return_value
+        self.smtp.send_message.return_value = {}
+
+    def send(self):
+        return send_mail('<p>股票详情：中文</p>', '选股详情 · 测试',
+                         'sender@example.com', 'recipient@example.com')
+
+    def test_ssl_auth_envelope_and_utf8_mime(self):
+        self.assertTrue(self.send())
+        args, kwargs = self.factory.call_args
+        self.assertEqual(args, ('smtp.exmail.qq.com', 465))
+        self.assertEqual(kwargs['timeout'], 30)
+        context = kwargs['context']
+        self.assertTrue(context.check_hostname)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.smtp.login.assert_called_once_with('sender@example.com', 'test-client-password')
+        call = self.smtp.send_message.call_args
+        self.assertEqual(call.kwargs, {
+            'from_addr': 'sender@example.com', 'to_addrs': ['recipient@example.com']})
+        message = BytesParser(policy=policy.default).parsebytes(call.args[0].as_bytes())
+        self.assertEqual(str(message['Subject']), '选股详情 · 测试')
+        self.assertEqual(str(message['From']), 'sender@example.com')
+        self.assertEqual(str(message['To']), 'recipient@example.com')
+        self.assertIsNotNone(message['Date'])
+        self.assertIsNotNone(message['Message-ID'])
+        self.assertIn('HTML', message.get_body(preferencelist=('plain',)).get_content())
+        self.assertIn('<p>股票详情：中文</p>', message.get_body(preferencelist=('html',)).get_content())
+
+    def test_server_override(self):
+        with mock.patch.dict('os.environ', {
+                'STOCK_MAIL_SMTP_HOST': 'smtp.example.com', 'STOCK_MAIL_SMTP_PORT': '8465'}):
+            self.assertTrue(self.send())
+        self.assertEqual(self.factory.call_args.args, ('smtp.example.com', 8465))
+
+    def test_missing_password_and_invalid_port_fail_before_connection(self):
+        with mock.patch.dict('os.environ', {'STOCK_MAIL_SMTP_PASSWORD': ''}):
+            with self.assertRaisesRegex(RuntimeError, 'STOCK_MAIL_SMTP_PASSWORD not set'):
+                self.send()
+        for port in ('invalid', '0', '65536'):
+            with self.subTest(port=port), mock.patch.dict('os.environ', {'STOCK_MAIL_SMTP_PORT': port}):
+                with self.assertRaisesRegex(RuntimeError, 'STOCK_MAIL_SMTP_PORT'):
+                    self.send()
+        self.factory.assert_not_called()
+
+    def test_auth_failure_does_not_send_or_log_server_reply(self):
+        self.smtp.login.side_effect = smtplib.SMTPAuthenticationError(535, b'test-client-password')
+        with mock.patch('builtins.print') as output:
+            self.assertFalse(self.send())
+        self.smtp.send_message.assert_not_called()
+        self.assertIn('535', str(output.call_args))
+        self.assertNotIn('test-client-password', str(output.call_args))
+
+    def test_send_failures_are_not_retried(self):
+        for error in (smtplib.SMTPServerDisconnected('closed'), TimeoutError('timeout'),
+                      smtplib.SMTPRecipientsRefused({'recipient@example.com': (550, b'refused')})):
+            with self.subTest(error=type(error).__name__):
+                self.factory.reset_mock()
+                self.smtp.send_message.side_effect = error
+                self.assertFalse(self.send())
+                self.factory.assert_called_once()
+                self.smtp.send_message.assert_called_once()
+
+    def test_refused_result_is_failure(self):
+        self.smtp.send_message.return_value = {'recipient@example.com': (550, b'refused')}
+        self.assertFalse(self.send())
 
 
 if __name__ == '__main__':

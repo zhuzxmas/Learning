@@ -234,7 +234,7 @@ def main():
             not isinstance(settings.get("stocks"), dict)):
         raise RuntimeError("valuation-settings.json structure invalid")
     body, subject = build_detail_html(data, settings)
-    if not send_mail(body, subject, sender, recipient, proxies):
+    if not send_mail(body, subject, sender, recipient):
         raise RuntimeError("mail send failed")
     return 0
 

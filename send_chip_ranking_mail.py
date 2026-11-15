@@ -3,14 +3,13 @@
 
 Reads the ranking, valuation settings, configured output files and family stock
 ledger, then renders the web table's first eight columns using its default order and
-emails it via Microsoft Graph ``/users/{from}/sendMail`` (app-only token from
-funcLG.func_login_secret, i.e. CLIENT_ID/CLIENT_SECRET/TENANT_ID).
+emails it via Tencent enterprise mailbox SMTP over SSL.
 
 Env / secrets:
-  STOCK_MAIL_FROM   sender mailbox / UPN (must be a real Exchange mailbox in the
-                    same tenant as CLIENT_ID; app needs Application Mail.Send)
+  STOCK_MAIL_FROM   sender mailbox and SMTP login username
   STOCK_MAIL_TO     recipient address
-  CLIENT_ID / CLIENT_SECRET / TENANT_ID   (used by funcLG for the Graph token)
+  STOCK_MAIL_SMTP_PASSWORD   mailbox client-specific password
+  STOCK_MAIL_SMTP_HOST / STOCK_MAIL_SMTP_PORT   optional (smtp.exmail.qq.com / 465)
   ONEDRIVE_CLIENT_ID / TOKEN_ENC_KEY / ONEDRIVE_REFRESH_TOKEN  (OneDrive read)
 
 Failure is non-fatal to the batch: this runs as its own workflow step and only
@@ -24,11 +23,12 @@ import io
 import json
 import math
 import os
+import smtplib
+import ssl
 import sys
+from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 
-import requests
-
-import funcLG
 import onedrive_personal as op
 
 
@@ -236,34 +236,44 @@ def build_html(ranking, summary, settings, configured, output_codes, holdings,
     return html, rep_date, len(rows)
 
 
-def send_mail(html, subject, sender, recipient, proxies):
-    login = funcLG.func_login_secret()
-    result = login["result"]
-    if "access_token" not in result:
-        raise RuntimeError("Graph app token failed: {} {}".format(
-            result.get("error"), result.get("error_description")))
-    headers = {
-        "Authorization": "Bearer " + result["access_token"],
-        "Content-Type": "application/json",
-    }
-    payload = json.dumps({
-        "message": {
-            "subject": subject,
-            "body": {"contentType": "HTML", "content": html},
-            "toRecipients": [{"emailAddress": {"address": recipient}}],
-        },
-        "saveToSentItems": True,
-    })
-    url = "https://graph.microsoft.com/v1.0/users/{}/sendMail".format(sender)
+def send_mail(html, subject, sender, recipient):
+    password = os.environ.get("STOCK_MAIL_SMTP_PASSWORD", "")
+    if not password:
+        raise RuntimeError("STOCK_MAIL_SMTP_PASSWORD not set")
+    host = os.environ.get("STOCK_MAIL_SMTP_HOST", "").strip() or "smtp.exmail.qq.com"
     try:
-        r = requests.post(url, headers=headers, data=payload)
-    except requests.exceptions.RequestException:
-        r = requests.post(url, headers=headers, data=payload, proxies=proxies)
-    if r.status_code == 202:
-        print("Mail sent (202) to {} from {}.".format(recipient, sender))
-        return True
-    print("Mail send FAILED: {} {}".format(r.status_code, r.text[:500]))
-    return False
+        port = int(os.environ.get("STOCK_MAIL_SMTP_PORT", "").strip() or "465")
+        if not 1 <= port <= 65535:
+            raise ValueError
+    except ValueError:
+        raise RuntimeError("STOCK_MAIL_SMTP_PORT must be between 1 and 65535") from None
+
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = recipient
+    message["Subject"] = subject
+    message["Date"] = formatdate(localtime=False)
+    message["Message-ID"] = make_msgid()
+    message.set_content("此邮件包含 HTML 股票报告，请使用支持 HTML 的邮件客户端查看。")
+    message.add_alternative(html, subtype="html")
+
+    # Do not retry: a dropped connection after DATA may still mean delivery.
+    # HTTP proxies used for OneDrive do not apply to the SMTP connection.
+    try:
+        with smtplib.SMTP_SSL(host, port, timeout=30,
+                              context=ssl.create_default_context()) as smtp:
+            smtp.login(sender, password)
+            refused = smtp.send_message(message, from_addr=sender, to_addrs=[recipient])
+            if refused:
+                print("Mail send FAILED: recipient refused.")
+                return False
+    except (smtplib.SMTPException, OSError) as exc:
+        # Server replies can contain sensitive data; report only type/code.
+        print("Mail send FAILED: {} (code {}).".format(
+            type(exc).__name__, getattr(exc, "smtp_code", "unavailable")))
+        return False
+    print("Mail accepted by SMTP to {} from {}.".format(recipient, sender))
+    return True
 
 
 def main():
@@ -323,7 +333,7 @@ def main():
         holdings_available=holdings_available)
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     subject = "选股 · 筹码排行 {}（{} 只）".format(rep_date or today, n)
-    ok = send_mail(html, subject, sender, recipient, proxies)
+    ok = send_mail(html, subject, sender, recipient)
     return 0 if ok else 0   # non-fatal either way
 
 

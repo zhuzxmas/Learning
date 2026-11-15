@@ -31,9 +31,7 @@ jobs:
         TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
         ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
         ONEDRIVE_RT_READONLY: '1'
-        client_id: ${{ secrets.CLIENT_ID }}
-        client_secret: ${{ secrets.CLIENT_SECRET }}
-        tenant_id: ${{ secrets.TENANT_ID }}
+        STOCK_MAIL_SMTP_PASSWORD: ${{ secrets.STOCK_MAIL_SMTP_PASSWORD }}
         STOCK_MAIL_FROM: ${{ secrets.STOCK_MAIL_FROM }}
         STOCK_MAIL_TO: ${{ secrets.STOCK_MAIL_TO }}
         STOCK_DETAIL_CODE: ${{ github.event.client_payload.stock }}

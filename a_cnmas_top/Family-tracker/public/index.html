@@ -255,10 +255,16 @@
             <li>立即复制新密码的 <b>Value</b>（不是 Secret ID）。</li>
             <li>更新 GitHub 仓库 Secret <code>CLIENT_SECRET</code>。</li>
             <li>更新本地 <code>config.cfg</code> 的 <code>[azure].client_secret</code>。</li>
-            <li>测试邮件发送和 MS365 / OneDrive for Business 工作流。</li>
+            <li>测试 MS365 / OneDrive for Business 工作流。</li>
             <li>确认新密码正常后，再删除旧密码；建议新旧密码短期重叠。</li>
           </ol>
           <p class="muted mini">通常无需修改 CLIENT_ID 或 TENANT_ID；Personal OneDrive 的 ONEDRIVE_CLIENT_ID / refresh token 与此客户端密码无关。到期日期请在 Entra Portal 查看。</p>
+          <h4>股票邮件：腾讯企业邮箱 SMTP</h4>
+          <p>股票详情邮件和定时筹码排行邮件使用 <code>smtp.exmail.qq.com:465</code>（SSL），以发件邮箱完整地址和客户端专用密码登录。</p>
+          <ul>
+            <li>GitHub Secrets：<code>STOCK_MAIL_FROM</code>（原发件地址 / 登录账号）、<code>STOCK_MAIL_TO</code>（原收件地址）、<code>STOCK_MAIL_SMTP_PASSWORD</code>（客户端专用密码）。</li>
+            <li>更换邮箱客户端专用密码后，更新 <code>STOCK_MAIL_SMTP_PASSWORD</code>；股票邮件不再依赖上述 Entra 客户端密码。</li>
+          </ul>
         </div>
       </div>
       </div>
