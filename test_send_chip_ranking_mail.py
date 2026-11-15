@@ -162,12 +162,29 @@ class SmtpMailTests(unittest.TestCase):
             'from_addr': 'sender@example.com', 'to_addrs': ['recipient@example.com']})
         message = BytesParser(policy=policy.default).parsebytes(call.args[0].as_bytes())
         self.assertEqual(str(message['Subject']), '选股详情 · 测试')
-        self.assertEqual(str(message['From']), 'sender@example.com')
+        self.assertEqual(str(message['From']), 'Nathan Zhu CN <sender@example.com>')
         self.assertEqual(str(message['To']), 'recipient@example.com')
         self.assertIsNotNone(message['Date'])
         self.assertIsNotNone(message['Message-ID'])
         self.assertIn('HTML', message.get_body(preferencelist=('plain',)).get_content())
         self.assertIn('<p>股票详情：中文</p>', message.get_body(preferencelist=('html',)).get_content())
+
+    def test_display_name_override_preserves_login_and_envelope(self):
+        with mock.patch.dict('os.environ', {'STOCK_MAIL_FROM_NAME': '朱先生, Nathan'}):
+            self.assertTrue(self.send())
+        call = self.smtp.send_message.call_args
+        message = BytesParser(policy=policy.default).parsebytes(call.args[0].as_bytes())
+        address = message['From'].addresses[0]
+        self.assertEqual(address.display_name, '朱先生, Nathan')
+        self.assertEqual(address.addr_spec, 'sender@example.com')
+        self.smtp.login.assert_called_once_with('sender@example.com', 'test-client-password')
+        self.assertEqual(call.kwargs['from_addr'], 'sender@example.com')
+
+    def test_empty_display_name_uses_default(self):
+        with mock.patch.dict('os.environ', {'STOCK_MAIL_FROM_NAME': ''}):
+            self.assertTrue(self.send())
+        self.assertEqual(self.smtp.send_message.call_args.args[0]['From'].addresses[0].display_name,
+                         'Nathan Zhu CN')
 
     def test_server_override(self):
         with mock.patch.dict('os.environ', {

@@ -67,6 +67,7 @@ jobs:
         ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
         STOCK_MAIL_SMTP_PASSWORD: ${{ secrets.STOCK_MAIL_SMTP_PASSWORD }}
         STOCK_MAIL_FROM: ${{ secrets.STOCK_MAIL_FROM }}
+        STOCK_MAIL_FROM_NAME: ${{ vars.STOCK_MAIL_FROM_NAME }}
         STOCK_MAIL_TO: ${{ secrets.STOCK_MAIL_TO }}
       run: python -u send_chip_ranking_mail.py
 

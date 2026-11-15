@@ -83,6 +83,11 @@ In GitHub → repository Settings → Secrets and variables → Actions, configu
 | `STOCK_MAIL_TO` | Existing recipient address |
 | `STOCK_MAIL_SMTP_PASSWORD` | Sender mailbox's client-specific password |
 
+The sender display name defaults to **Nathan Zhu CN**. To override it, set the
+optional repository **Variable** `STOCK_MAIL_FROM_NAME` (not a Secret), or the
+same environment variable for local runs. This changes only the email's display
+name; the SMTP login and sender address remain `STOCK_MAIL_FROM`.
+
 Enable SMTP/client access in the Tencent enterprise mailbox settings. The default
 connection is `smtp.exmail.qq.com:465`, using SSL with certificate verification
 and a 30-second timeout. No new Python dependencies are required.

@@ -33,6 +33,7 @@ jobs:
         ONEDRIVE_RT_READONLY: '1'
         STOCK_MAIL_SMTP_PASSWORD: ${{ secrets.STOCK_MAIL_SMTP_PASSWORD }}
         STOCK_MAIL_FROM: ${{ secrets.STOCK_MAIL_FROM }}
+        STOCK_MAIL_FROM_NAME: ${{ vars.STOCK_MAIL_FROM_NAME }}
         STOCK_MAIL_TO: ${{ secrets.STOCK_MAIL_TO }}
         STOCK_DETAIL_CODE: ${{ github.event.client_payload.stock }}
       run: python -u send_stock_detail_mail.py

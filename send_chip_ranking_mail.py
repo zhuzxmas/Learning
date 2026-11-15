@@ -7,6 +7,7 @@ emails it via Tencent enterprise mailbox SMTP over SSL.
 
 Env / secrets:
   STOCK_MAIL_FROM   sender mailbox and SMTP login username
+  STOCK_MAIL_FROM_NAME   optional display name (Nathan Zhu CN)
   STOCK_MAIL_TO     recipient address
   STOCK_MAIL_SMTP_PASSWORD   mailbox client-specific password
   STOCK_MAIL_SMTP_HOST / STOCK_MAIL_SMTP_PORT   optional (smtp.exmail.qq.com / 465)
@@ -27,6 +28,7 @@ import smtplib
 import ssl
 import sys
 from email.message import EmailMessage
+from email.headerregistry import Address
 from email.utils import formatdate, make_msgid
 
 import onedrive_personal as op
@@ -249,7 +251,8 @@ def send_mail(html, subject, sender, recipient):
         raise RuntimeError("STOCK_MAIL_SMTP_PORT must be between 1 and 65535") from None
 
     message = EmailMessage()
-    message["From"] = sender
+    sender_name = os.environ.get("STOCK_MAIL_FROM_NAME", "").strip() or "Nathan Zhu CN"
+    message["From"] = Address(display_name=sender_name, addr_spec=sender)
     message["To"] = recipient
     message["Subject"] = subject
     message["Date"] = formatdate(localtime=False)
