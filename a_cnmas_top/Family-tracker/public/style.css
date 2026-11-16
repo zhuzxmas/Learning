@@ -47,18 +47,38 @@ body {
 .user-name { color: var(--gray); font-size: 14px; }
 .pull-refresh-status {
   position: fixed;
-  top: calc(var(--topbar-height, 57px) + 8px);
+  top: 0;
   left: 50%;
-  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  transform: translateY(calc(var(--pull-refresh-offset, 0px) / 2 - 16px));
   z-index: 1100;
-  padding: 10px 18px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--blue-dark);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, .12);
+  opacity: var(--pull-refresh-opacity, 0);
+  visibility: hidden;
   pointer-events: none;
-  white-space: nowrap;
+}
+.pull-refresh-spinner {
+  display: block; width: 32px; height: 32px;
+  transform: rotate(var(--pull-refresh-angle, 0deg));
+  -webkit-mask-image: conic-gradient(from 0deg, rgba(0, 0, 0, .15), #000);
+  mask-image: conic-gradient(from 0deg, rgba(0, 0, 0, .15), #000);
+}
+.pull-refresh-spinner path { fill: none; stroke: #8e8e93; stroke-width: 2.5; stroke-linecap: round; }
+.pull-refresh-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html.pull-refresh-active .pull-refresh-status { visibility: visible; }
+html.pull-refresh-active .topbar, html.pull-refresh-active body > main {
+  transform: translateY(var(--pull-refresh-offset, 0px));
+  will-change: transform;
+}
+html.pull-refresh-settling .topbar, html.pull-refresh-settling body > main,
+html.pull-refresh-settling .pull-refresh-status { transition: transform 240ms cubic-bezier(.22, .68, 0, 1), opacity 200ms ease; }
+html.pull-refresh-loading .pull-refresh-spinner { animation: pull-refresh-spin .75s steps(12) infinite; }
+@keyframes pull-refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  html.pull-refresh-active .topbar, html.pull-refresh-active body > main { transform: none; }
+  html.pull-refresh-settling .pull-refresh-status { transition: none; }
+  html.pull-refresh-loading .pull-refresh-spinner { animation-duration: 1.5s; }
 }
 html.wecom-pull-refresh, html.wecom-pull-refresh body { overscroll-behavior-y: none; }
 .comment-reminder-wrap { position: relative; }

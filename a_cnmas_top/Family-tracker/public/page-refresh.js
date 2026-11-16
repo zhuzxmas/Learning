@@ -9,7 +9,10 @@
       initialized = true;
       if (!/wxwork/i.test(navigator.userAgent)) return;
       const indicator = document.getElementById("pullRefreshStatus");
-      if (!indicator) return;
+      const label = document.getElementById("pullRefreshLabel");
+      if (!indicator || !label) return;
+      const root = document.documentElement;
+      let settleTimer = null;
       const edited = new Map();
       let refreshing = false;
       let gesture = null;
@@ -56,9 +59,27 @@
         }
         return false;
       }
+      function showPull(distance, loading = false) {
+        clearTimeout(settleTimer);
+        root.classList.remove("pull-refresh-settling");
+        root.classList.add("pull-refresh-active");
+        // Increasing resistance keeps even a long drag below 100px of travel.
+        const offset = loading ? 56 : 100 * (1 - Math.exp(-distance / 125));
+        root.style.setProperty("--pull-refresh-offset", offset + "px");
+        root.style.setProperty("--pull-refresh-opacity", String(Math.min(1, distance / threshold)));
+        root.style.setProperty("--pull-refresh-angle", Math.min(360, distance / threshold * 270) + "deg");
+        const text = loading ? "正在刷新" : distance >= threshold ? "松开刷新" : "下拉刷新";
+        if (label.textContent !== text) label.textContent = text;
+      }
       function hideIndicator() {
-        indicator.classList.add("hidden");
-        indicator.textContent = "";
+        clearTimeout(settleTimer);
+        root.classList.add("pull-refresh-settling");
+        root.style.setProperty("--pull-refresh-offset", "0px");
+        root.style.setProperty("--pull-refresh-opacity", "0");
+        label.textContent = "";
+        settleTimer = setTimeout(() => {
+          root.classList.remove("pull-refresh-active", "pull-refresh-settling", "pull-refresh-loading");
+        }, 260);
       }
       function refresh() {
         if (refreshing) return;
@@ -67,9 +88,10 @@
           return;
         }
         refreshing = true;
-        indicator.textContent = "正在刷新…";
-        indicator.classList.remove("hidden");
-        window.location.reload();
+        showPull(threshold, true);
+        root.classList.add("pull-refresh-settling", "pull-refresh-loading");
+        // Allow the spinner and settling animation to paint before navigating.
+        setTimeout(() => window.location.reload(), 240);
       }
       document.documentElement.classList.add("wecom-pull-refresh");
       function atTop() {
@@ -107,17 +129,15 @@
         if (dy < 12) { hideIndicator(); return; }
         if (!event.cancelable) { cancelGesture(); return; }
         event.preventDefault();
-        const text = dy >= threshold ? "松开刷新" : "下拉刷新整个网页";
-        if (indicator.textContent !== text) indicator.textContent = text;
-        indicator.classList.remove("hidden");
+        showPull(dy);
       }, { passive: false });
       document.addEventListener("touchend", (event) => {
         if (!gesture) return;
         const completed = event.touches.length === 0 &&
           Array.from(event.changedTouches).some((touch) => touch.identifier === gesture.id);
         const ready = completed && gesture.distance >= threshold && atTop();
-        cancelGesture();
-        if (ready) refresh();
+        if (ready) { gesture = null; refresh(); }
+        else cancelGesture();
       }, { passive: true });
       document.addEventListener("touchcancel", cancelGesture, { passive: true });
       window.addEventListener("pagehide", cancelGesture);

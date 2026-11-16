@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=76" />
+  <link rel="stylesheet" href="style.css?v=77" />
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +19,12 @@
       <button id="logoutBtn" class="btn btn-ghost hidden">退出</button>
     </div>
   </header>
-  <div id="pullRefreshStatus" class="pull-refresh-status hidden" role="status" aria-live="polite"></div>
+  <div id="pullRefreshStatus" class="pull-refresh-status" role="status" aria-live="polite">
+    <svg class="pull-refresh-spinner" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 3v5 M22.5 4.7L20 9 M27.3 9.5L23 12 M29 16h-5 M27.3 22.5L23 20 M22.5 27.3L20 23 M16 29v-5 M9.5 27.3L12 23 M4.7 22.5L9 20 M3 16h5 M4.7 9.5L9 12 M9.5 4.7L12 9" />
+    </svg>
+    <span id="pullRefreshLabel" class="pull-refresh-label"></span>
+  </div>
 
   <main>
     <!-- Restore the saved session before offering sign-in. -->
@@ -2219,7 +2224,7 @@
   <script src="chat-models.js?v=1"></script>
   <script src="borrow-people.js?v=2"></script>
   <script src="valuation.js?v=3"></script>
-  <script src="page-refresh.js?v=2"></script>
+  <script src="page-refresh.js?v=3"></script>
   <script src="app.js?v=120"></script>
 </body>
 </html>
