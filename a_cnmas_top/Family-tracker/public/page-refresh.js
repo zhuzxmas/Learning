@@ -7,9 +7,9 @@
     init({ hasUnsavedChanges = () => false } = {}) {
       if (initialized) return;
       initialized = true;
-      const button = document.getElementById("pageRefreshBtn");
+      if (!/wxwork/i.test(navigator.userAgent)) return;
       const indicator = document.getElementById("pullRefreshStatus");
-      if (!button || !indicator) return;
+      if (!indicator) return;
       const edited = new Map();
       let refreshing = false;
       let gesture = null;
@@ -67,14 +67,10 @@
           return;
         }
         refreshing = true;
-        button.disabled = true;
         indicator.textContent = "正在刷新…";
         indicator.classList.remove("hidden");
         window.location.reload();
       }
-      button.addEventListener("click", refresh);
-
-      if (!/wxwork/i.test(navigator.userAgent)) return;
       document.documentElement.classList.add("wecom-pull-refresh");
       function atTop() {
         return (document.scrollingElement || document.documentElement).scrollTop <= 0;
