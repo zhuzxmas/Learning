@@ -4868,6 +4868,7 @@ async function sbtRemoveStock(code) {
 /* --------------------------- Mode switch --------------------------------- */
 async function setMode(next, options) {
   options = options || {};
+  ensureModuleUI(next);
   if (!options.preserveDeepLink && next !== "blog") clearDeepLink();
   mode = next;
   const isInc = next === "income";
@@ -4901,6 +4902,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   els.modeMoreMenu.classList.add("hidden");
   requestAnimationFrame(blogUpdateTopButton);
   if (!account) return;
+  window.StartupTiming?.mark("当前模块数据请求开始");
   if (isInc) {
     // Load income once; clicking 收入 never triggers a 支出 (re)load.
     try {
@@ -4950,6 +4952,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
     try { await loadRecords(); }
     catch (e) { setStatus("支出数据载入失败：" + (e.message || e), "error"); }
   }
+  window.StartupTiming?.mark("当前模块数据请求结束");
 }
 
 function incWireEvents() {
@@ -6616,7 +6619,29 @@ function stkWireEvents() {
 }
 
 /* --------------------------- Boot ---------------------------------------- */
+const initializedModuleUI = new Set(["spending"]);
+function ensureModuleUI(next) {
+  if (initializedModuleUI.has(next)) return;
+  switch (next) {
+    case "income": incInitForm(); els.incFilterDate.value = todayStr(); break;
+    case "stock": stkWireEvents(); stkInitForm(); stkFillFilters(); els.stkFilterDate.value = todayStr(); break;
+    case "stocks": sbtWireEvents(); break;
+    case "medical": medWireEvents(); medResetForm(); els.medFilterDate.value = todayStr(); break;
+    case "celine": celWireEvents(); celResetForm(); els.celFilterDate.value = todayStr(); break;
+    case "borrow": brwWireEvents(); brwResetForm(); if (els.brwFilterDate) els.brwFilterDate.value = todayStr(); break;
+    case "invest": invWireEvents(); invResetForm(); els.invFilterDate.value = todayStr(); break;
+    case "cards": svcWireEvents(); svcResetForm(); els.svcFilterDate.value = todayStr(); break;
+    case "vehicle": vehWireEvents(); vehResetForm(); els.vehFilterDate.value = todayStr(); break;
+    case "health": heaWireEvents(); hwResetForm(); hbResetForm(); els.hwFilterDate.value = todayStr(); els.hbFilterDate.value = todayStr(); break;
+    case "blog": blogWireEvents(); blogResetForm(); forumWireEvents(); break;
+    case "travel": travelWireEvents(); break;
+    case "ai": chatWireEvents(); break;
+  }
+  initializedModuleUI.add(next);
+}
 (async function boot() {
+  window.StartupTiming?.mark("应用脚本执行");
+  if (window.StartupTiming && !(await window.StartupTiming.stylesReady)) return;
   if (window.PageRefresh) window.PageRefresh.init({ hasUnsavedChanges: () => dirty });
   // A reload retries the whole startup without duplicating module event handlers.
   els.startupRetryBtn.onclick = () => window.location.reload();
@@ -6630,80 +6655,11 @@ function stkWireEvents() {
   els.filterDate.value = todayStr(); // show today's date instead of a blank box
   fillCatFilters();                  // populate 分类 filter dropdowns
 
-  // Income module UI (data loads lazily when switching to 收入 mode).
+  // incWireEvents also owns the global mode navigation.
   incWireEvents();
-  incInitForm();
-  els.incFilterDate.value = todayStr();
-
-  // Stock module UI (data loads lazily when switching to 股票 mode).
-  stkWireEvents();
-  stkInitForm();
-  stkFillFilters();
-  els.stkFilterDate.value = todayStr();
-
-  // Optional modules must never block MSAL session restoration when old/new
-  // static assets are briefly mixed by a browser or CDN cache.
-  try { sbtWireEvents(); }
-  catch (e) { console.warn("sbtWireEvents failed:", e); }
-
-
-  // Medical module UI (data loads lazily when switching to 看病 mode).
-  medWireEvents();
-  medResetForm();
-  els.medFilterDate.value = todayStr();
-
-  // Celine 收入 module UI (data loads lazily when switching to that mode).
-  celWireEvents();
-  celResetForm();
-  els.celFilterDate.value = todayStr();
-
-  // 借还款 module UI (data loads lazily when switching to that mode).
-  try {
-    brwWireEvents();
-    brwResetForm();
-    if (els.brwFilterDate) els.brwFilterDate.value = todayStr();
-  } catch (e) { console.warn("brw UI init failed:", e); }
-
-  // 理财 module UI (data loads lazily when switching to that mode).
-  invWireEvents();
-  invResetForm();
-  els.invFilterDate.value = todayStr();
-
-  // 储值卡 module UI (data loads lazily when switching to that mode).
-  svcWireEvents();
-  svcResetForm();
-  els.svcFilterDate.value = todayStr();
-
-  // 车辆保养 module UI (data loads lazily when switching to that mode).
-  vehWireEvents();
-  vehResetForm();
-  els.vehFilterDate.value = todayStr();
-
-  // 健康 module UI (data loads lazily when switching to that mode).
-  heaWireEvents();
-  hwResetForm();
-  hbResetForm();
-  els.hwFilterDate.value = todayStr();
-  els.hbFilterDate.value = todayStr();
-
-// 生活博客 module UI (data loads lazily when switching to that mode).
-  blogWireEvents();
-  blogResetForm();
-
-  // 贴吧 (forum) module UI (data loads lazily when the 贴吧 tab is opened).
-  forumWireEvents();
-
-  // 旅行地图 (travel) module UI (data loads lazily when switching to 旅行 mode).
-  // Wrapped so a failure here can never abort boot() before MSAL init/login
-  // (which would also break the global error handlers registered below).
-  try { travelWireEvents(); }
-  catch (e) { console.warn("travelWireEvents failed:", e); }
-
-
-  // AI 对话 module UI (data loads lazily when switching to that mode).
-  // Wrapped so a failure here can never abort boot() before MSAL init/login.
-  try { chatWireEvents(); }
-  catch (e) { console.warn("chatWireEvents failed:", e); }
+  // Comment reminders are global, even before the blog module is opened.
+  els.commentReminderBtn.onclick = (e) => { e.stopPropagation(); els.commentReminderPanel.classList.toggle("hidden"); };
+  document.addEventListener("click", (e) => { if (!els.commentReminderWrap.contains(e.target)) els.commentReminderPanel.classList.add("hidden"); });
 
 
   // Surface any uncaught errors to the status bar instead of failing silently.
@@ -6726,6 +6682,7 @@ function stkWireEvents() {
   }
 
   try {
+    window.StartupTiming?.mark("登录恢复开始");
     msalApp = new msal.PublicClientApplication(msalConfig);
     // MSAL v3 requires initialize() before any other call.
     if (typeof msalApp.initialize === "function") {
@@ -6754,6 +6711,7 @@ function stkWireEvents() {
       msalApp.setActiveAccount(account);
     }
   }
+  window.StartupTiming?.mark("登录恢复完成");
   if (account) {
     try {
       await onSignedIn();
@@ -11723,8 +11681,6 @@ function blogRenderPickerPage() {
 
 // ---- wiring --------------------------------------------------------------
 function blogWireEvents() {
-  els.commentReminderBtn.onclick = (e) => { e.stopPropagation(); els.commentReminderPanel.classList.toggle("hidden"); };
-  document.addEventListener("click", (e) => { if (!els.commentReminderWrap.contains(e.target)) els.commentReminderPanel.classList.add("hidden"); });
   els.summaryModelInput.addEventListener("input", updateSummaryModelSaveState);
   els.summaryModelSaveBtn.onclick = () => saveSummaryModel();
   els.blogTabListBtn.onclick = () => blogOpenListTab();

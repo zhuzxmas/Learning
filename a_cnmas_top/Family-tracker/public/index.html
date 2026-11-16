@@ -4,7 +4,91 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=77" />
+  <style>
+    /* The shell paints without waiting for the full stylesheet. */
+    :root { --bg:#f3f4f6; --text:#111827; --border:#e5e7eb; --gray:#6b7280; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:15px -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .hidden { display:none !important; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--border); background:var(--bg); position:sticky; top:0; z-index:1002; }
+    .topbar h1 { margin:0; font-size:18px; }
+    .user-area { display:flex; align-items:center; gap:10px; }
+    main { max-width:1000px; margin:0 auto; padding:20px; }
+    .card { background:white; border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+    .center-view { text-align:center; padding:48px 20px; }
+    .center-view p { margin-bottom:18px; color:var(--gray); }
+    .btn { padding:9px 14px; border:1px solid var(--border); border-radius:8px; cursor:pointer; }
+    .btn-primary { background:#2563eb; color:white; }
+    /* Hidden SVGs still occupy space unless positioned before full CSS arrives. */
+    .pull-refresh-status { position:fixed; top:0; left:50%; width:32px; height:32px; margin-left:-16px; visibility:hidden; pointer-events:none; }
+    .pull-refresh-spinner { display:block; width:32px; height:32px; }
+    html:not(.app-styles-ready) #appView, html:not(.app-styles-ready) #loginView { display:none !important; }
+    .startup-spinner { width:26px; height:26px; margin:0 auto; border:3px solid #e5e7eb; border-top-color:#8e8e93; border-radius:50%; animation:startup-spin .9s linear infinite; }
+    #startupMessage { min-height:22px; }
+    .startup-diagnostics { margin:12px 0; color:var(--gray); font-size:12px; }
+    .startup-diagnostics summary { cursor:pointer; }
+    .startup-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+    @keyframes startup-spin { to { transform:rotate(360deg); } }
+    @media(prefers-reduced-motion:reduce) { .startup-spinner { animation:none; } }
+  </style>
+  <script>
+    (function () {
+      var stages = {}, styleResolve;
+      window.StartupTiming = {
+        stylesReady: new Promise(function (resolve) { styleResolve = resolve; }),
+        mark: function (name) { if (!(name in stages)) stages[name] = performance.now(); },
+        stylesLoaded: function () {
+          document.documentElement.classList.add('app-styles-ready');
+          this.mark('完整样式就绪'); styleResolve(true);
+        },
+        stylesFailed: function () {
+          this.mark('样式加载失败'); styleResolve(false);
+          this.failedMessage = '样式加载失败，请重试。';
+          this.showFailure();
+        },
+        scriptsFailed: function () {
+          this.mark('脚本加载失败');
+          this.failedMessage = '页面组件加载失败，请检查网络后重试。';
+          this.showFailure();
+        },
+        showFailure: function () {
+          var msg = document.getElementById('startupMessage');
+          if (msg) msg.textContent = this.failedMessage;
+          var retry = document.getElementById('startupRetryBtn');
+          if (retry) { retry.classList.remove('hidden'); retry.onclick = function () { location.reload(); }; }
+        },
+        summary: function () {
+          var nav = performance.getEntriesByType('navigation')[0];
+          var lines = ['当前打开已耗时：' + (performance.now()/1000).toFixed(2) + ' 秒'];
+          if (nav) {
+            lines.push('首页首字节：' + (nav.responseStart/1000).toFixed(2) + ' 秒');
+            lines.push('首页接收完成：' + (nav.responseEnd/1000).toFixed(2) + ' 秒');
+            lines.push('DNS：' + ((nav.domainLookupEnd-nav.domainLookupStart)/1000).toFixed(2) + ' 秒');
+            lines.push('连接（含 TLS）：' + ((nav.connectEnd-nav.connectStart)/1000).toFixed(2) + ' 秒');
+          }
+          Object.keys(stages).forEach(function (key) { lines.push(key + '：' + (stages[key]/1000).toFixed(2) + ' 秒'); });
+          performance.getEntriesByType('resource').filter(function (r) {
+            return new URL(r.name).origin === location.origin && /\.(js|css)(\?|$)/.test(r.name);
+          }).sort(function (a,b) { return b.duration-a.duration; }).slice(0,5).forEach(function (r) {
+            lines.push(new URL(r.name).pathname.split('/').pop() + ' 请求：' + (r.duration/1000).toFixed(2) + ' 秒');
+          });
+          return lines.join('\n') + '\n时间点从本次导航开始计算；仅在当前页面显示，不上传。';
+        }
+      };
+      window.StartupTiming.mark('首屏代码到达');
+      document.addEventListener('DOMContentLoaded', function () {
+        if (window.StartupTiming.failedMessage) window.StartupTiming.showFailure();
+      });
+      setTimeout(function () {
+        var msg = document.getElementById('startupMessage');
+        if (msg && !msg.textContent) msg.textContent = '正在加载页面…';
+      }, 800);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=78" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
+  <noscript><link rel="stylesheet" href="style.css?v=78" /></noscript>
+  <link rel="preload" href="msal-browser.min.js" as="script" />
+  <link rel="preload" href="app.js?v=121" as="script" />
 </head>
 <body>
   <header class="topbar">
@@ -29,7 +113,9 @@
   <main>
     <!-- Restore the saved session before offering sign-in. -->
     <section id="startupView" class="card center-view" aria-live="polite" aria-busy="true">
-      <p id="startupMessage">正在恢复登录状态…</p>
+      <div class="startup-spinner" aria-hidden="true"></div>
+      <p id="startupMessage"></p>
+      <noscript><p>请启用 JavaScript 后重新打开网页。</p></noscript>
       <button type="button" id="startupRetryBtn" class="btn btn-primary hidden">重试</button>
     </section>
 
@@ -2214,17 +2300,21 @@
       </div>
     </section>
   </main>
+  <details id="startupDiagnostics" class="startup-diagnostics" style="max-width:960px;margin:12px auto;padding:0 20px" ontoggle="if(this.open) document.getElementById('startupTimingOutput').textContent=StartupTiming.summary()">
+    <summary>查看加载耗时</summary>
+    <pre id="startupTimingOutput"></pre>
+  </details>
 
   <!-- Libraries -->
-  <script src="msal-browser.min.js"></script>
-  <script src="categories.js"></script>
-  <script src="stock-realization.js?v=2"></script>
-  <script src="stock-ranking.js?v=2"></script>
-  <script src="chat-preferences.js?v=1"></script>
-  <script src="chat-models.js?v=1"></script>
-  <script src="borrow-people.js?v=2"></script>
-  <script src="valuation.js?v=3"></script>
-  <script src="page-refresh.js?v=3"></script>
-  <script src="app.js?v=120"></script>
+  <script defer src="msal-browser.min.js" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="categories.js"></script>
+  <script defer src="stock-realization.js?v=2"></script>
+  <script defer src="stock-ranking.js?v=2"></script>
+  <script defer src="chat-preferences.js?v=1"></script>
+  <script defer src="chat-models.js?v=1"></script>
+  <script defer src="borrow-people.js?v=2"></script>
+  <script defer src="valuation.js?v=3"></script>
+  <script defer src="page-refresh.js?v=3"></script>
+  <script defer src="app.js?v=121" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>
