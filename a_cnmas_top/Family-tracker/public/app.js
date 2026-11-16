@@ -6617,6 +6617,7 @@ function stkWireEvents() {
 
 /* --------------------------- Boot ---------------------------------------- */
 (async function boot() {
+  if (window.PageRefresh) window.PageRefresh.init({ hasUnsavedChanges: () => dirty });
   // A reload retries the whole startup without duplicating module event handlers.
   els.startupRetryBtn.onclick = () => window.location.reload();
   // Always wire up UI first so the page is usable and errors are visible.

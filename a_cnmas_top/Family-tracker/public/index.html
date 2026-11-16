@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家庭记账 · Family Spending</title>
-  <link rel="stylesheet" href="style.css?v=74" />
+  <link rel="stylesheet" href="style.css?v=75" />
 </head>
 <body>
   <header class="topbar">
@@ -15,10 +15,12 @@
         <div class="comment-reminder-panel hidden" id="commentReminderPanel"></div>
       </div>
       <span id="userName" class="user-name"></span>
+      <button type="button" id="pageRefreshBtn" class="btn btn-ghost page-refresh-btn" title="重新加载整个网页">刷新</button>
       <button id="loginBtn" class="btn btn-primary hidden">使用 Microsoft 登录</button>
       <button id="logoutBtn" class="btn btn-ghost hidden">退出</button>
     </div>
   </header>
+  <div id="pullRefreshStatus" class="pull-refresh-status hidden" role="status" aria-live="polite"></div>
 
   <main>
     <!-- Restore the saved session before offering sign-in. -->
@@ -2218,6 +2220,7 @@
   <script src="chat-models.js?v=1"></script>
   <script src="borrow-people.js?v=2"></script>
   <script src="valuation.js?v=3"></script>
-  <script src="app.js?v=119"></script>
+  <script src="page-refresh.js?v=1"></script>
+  <script src="app.js?v=120"></script>
 </body>
 </html>
