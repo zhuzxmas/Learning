@@ -5067,7 +5067,7 @@ let stockRecords = [];
 let stkEtag = null;
 let stockLoaded = false;
 let stkDriveBase = null;
-let stkMeta = { codes: { custom: [], hidden: [] }, accounts: { custom: [], hidden: [] }, fees: stkCloneFees(STK_FEE_DEFAULTS) };
+let stkMeta = { codes: { custom: [], hidden: [], deleted: [] }, accounts: { custom: [], hidden: [], deleted: [] }, fees: stkCloneFees(STK_FEE_DEFAULTS) };
 let stkEtagMeta = null;
 let stkShowAll = false;
 let stkFilterOn = false;
@@ -5085,8 +5085,8 @@ function stkNormMeta(d) {
   const codes = (d.codes && typeof d.codes === "object") ? d.codes : {};
   const accts = (d.accounts && typeof d.accounts === "object") ? d.accounts : {};
   return {
-    codes: { custom: arr(codes.custom), hidden: arr(codes.hidden) },
-    accounts: { custom: arr(accts.custom), hidden: arr(accts.hidden) },
+    codes: { custom: arr(codes.custom), hidden: arr(codes.hidden), deleted: arr(codes.deleted) },
+    accounts: { custom: arr(accts.custom), hidden: arr(accts.hidden), deleted: arr(accts.deleted) },
     fees: stkNormFees(d.fees),
   };
 }
@@ -5356,18 +5356,20 @@ function stkMergeMeta(target, src) {
   const uni = (t, s) => { for (const x of s) if (!t.includes(x)) t.push(x); };
   uni(target.codes.custom, src.codes.custom);
   uni(target.codes.hidden, src.codes.hidden);
+  uni(target.codes.deleted, src.codes.deleted);
   uni(target.accounts.custom, src.accounts.custom);
   uni(target.accounts.hidden, src.accounts.hidden);
+  uni(target.accounts.deleted, src.accounts.deleted);
   // Fees: keep local (they represent the current, just-edited rates).
   if (!target.fees) target.fees = stkNormFees(src.fees);
 }
 function stkVisCodes() {
   const all = STOCK_BASE_CODES.concat(stkMeta.codes.custom.filter((x) => !STOCK_BASE_CODES.includes(x)));
-  return all.filter((x) => !stkMeta.codes.hidden.includes(x));
+  return all.filter((x) => !stkMeta.codes.hidden.includes(x) && !stkMeta.codes.deleted.includes(x));
 }
 function stkVisAccounts() {
   const all = STOCK_BASE_ACCOUNTS.concat(stkMeta.accounts.custom.filter((x) => !STOCK_BASE_ACCOUNTS.includes(x)));
-  return all.filter((x) => !stkMeta.accounts.hidden.includes(x));
+  return all.filter((x) => !stkMeta.accounts.hidden.includes(x) && !stkMeta.accounts.deleted.includes(x));
 }
 
 /* ------------------------ Stock derived formulas ------------------------- *
@@ -6021,6 +6023,7 @@ async function stkAddCodeFn() {
   if (!stkMeta.codes.custom.includes(name) && !STOCK_BASE_CODES.includes(name))
     stkMeta.codes.custom.push(name);
   stkMeta.codes.hidden = stkMeta.codes.hidden.filter((x) => x !== name);
+  stkMeta.codes.deleted = stkMeta.codes.deleted.filter((x) => x !== name);
   stkRebuildSelects(name, els.stkAccount.value);
   stkUpdateFxVisibility(); stkRecalc();
   try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已新增股票：" + name, "ok", 3000); }
@@ -6032,6 +6035,7 @@ async function stkAddAccountFn() {
   if (!stkMeta.accounts.custom.includes(name) && !STOCK_BASE_ACCOUNTS.includes(name))
     stkMeta.accounts.custom.push(name);
   stkMeta.accounts.hidden = stkMeta.accounts.hidden.filter((x) => x !== name);
+  stkMeta.accounts.deleted = stkMeta.accounts.deleted.filter((x) => x !== name);
   stkRebuildSelects(els.stkCode.value, name);
   try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已新增账户：" + name, "ok", 3000); }
   catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
@@ -6061,20 +6065,21 @@ async function stkRestore(kind, name) {
   try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已恢复：" + name, "ok", 3000); }
   catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
 }
-// Permanently delete a hidden item. Only user-added (custom) entries can be
-// removed; base seed entries are kept and can only be restored. Existing
-// transactions are untouched.
+// Permanently delete a hidden item. Custom entries are removed from the custom
+// list; built-in entries are tombstoned in a `deleted` list so they stay out of
+// the dropdowns. Either way the row disappears from the manage-hidden panel.
+// Existing transactions are untouched. Re-adding via "+" clears the tombstone.
 async function stkDeleteHidden(kind, name) {
   const label = kind === "code" ? "股票" : "账户";
-  const custom = kind === "code" ? stkMeta.codes.custom : stkMeta.accounts.custom;
-  if (!custom.includes(name)) { setStatus("内置" + label + "无法删除，请使用“恢复”。", "warn"); return; }
-  if (!confirm(`删除${label}「${name}」？\n将从隐藏列表和自定义列表中移除（已有交易记录不受影响）。`)) return;
+  if (!confirm(`删除${label}「${name}」？\n将从下拉菜单和隐藏列表中移除（已有交易记录不受影响）。\n之后如需恢复，可再次用“+”重新添加。`)) return;
   if (kind === "code") {
     stkMeta.codes.hidden = stkMeta.codes.hidden.filter((x) => x !== name);
     stkMeta.codes.custom = stkMeta.codes.custom.filter((x) => x !== name);
+    if (!stkMeta.codes.deleted.includes(name)) stkMeta.codes.deleted.push(name);
   } else {
     stkMeta.accounts.hidden = stkMeta.accounts.hidden.filter((x) => x !== name);
     stkMeta.accounts.custom = stkMeta.accounts.custom.filter((x) => x !== name);
+    if (!stkMeta.accounts.deleted.includes(name)) stkMeta.accounts.deleted.push(name);
   }
   stkRebuildSelects(); stkRenderHidden();
   try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已删除：" + name, "ok", 3000); }
@@ -6084,9 +6089,10 @@ function stkRenderHidden() {
   const build = (container, list, kind) => {
     if (!container) return;
     container.innerHTML = "";
-    if (!list.length) { container.innerHTML = '<p class="muted">暂无隐藏项。</p>'; return; }
-    const customList = kind === "code" ? stkMeta.codes.custom : stkMeta.accounts.custom;
-    for (const name of list) {
+    const deleted = kind === "code" ? stkMeta.codes.deleted : stkMeta.accounts.deleted;
+    const rows = list.filter((name) => !deleted.includes(name));
+    if (!rows.length) { container.innerHTML = '<p class="muted">暂无隐藏项。</p>'; return; }
+    for (const name of rows) {
       const row = document.createElement("div");
       row.className = "hidden-row";
       const span = document.createElement("span"); span.textContent = name;
@@ -6096,12 +6102,10 @@ function stkRenderHidden() {
       btn.type = "button"; btn.className = "btn btn-mini"; btn.textContent = "恢复";
       btn.onclick = () => stkRestore(kind, name);
       actions.appendChild(btn);
-      if (customList.includes(name)) {
-        const del = document.createElement("button");
-        del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
-        del.onclick = () => stkDeleteHidden(kind, name);
-        actions.appendChild(del);
-      }
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
+      del.onclick = () => stkDeleteHidden(kind, name);
+      actions.appendChild(del);
       row.appendChild(span); row.appendChild(actions); container.appendChild(row);
     }
   };
