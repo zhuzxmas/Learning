@@ -225,6 +225,7 @@ let blogTagCandidates = [];
 let blogSelectedTags = new Set();
 let blogTagsEtag = null;
 let dirty = false;         // unsaved changes flag
+let formTouched = false;   // user edited the add/edit form since the last reset
 let spendingLoaded = false; // spending data fetched once per session (lazy + cached)
 let archiveLoaded = false;  // cold (archive) file fetched? Deferred until 显示全部 etc.
 
@@ -1619,14 +1620,26 @@ async function loadRecords() {
   const token = await getToken();
   await resolveFolder(token);
   await loadCustomCats(token);
-  rebuildLevel1();
-  // Recompute visible defaults now that hiddenCats is loaded — but ONLY when the
-  // form is still pristine. Records load asynchronously, so the user may already
-  // be typing a record; resetForm() would wipe their in-progress input (e.g. a
-  // just-entered amount). Category dropdowns are already repopulated by
-  // rebuildLevel1() above, so skipping the reset keeps their selections intact.
-  if (!els.editId.value && !els.amount.value && !els.note.value.trim()) {
+  // The category tree just merged custom/hidden entries, so all three dropdowns
+  // must be rebuilt. Records load asynchronously and the user may already have
+  // picked a category (or typed) while waiting; never wipe their in-progress
+  // input. Only a completely untouched NEW form falls back to fresh defaults.
+  if (els.editId.value) {
+    // Editing: keep the record's own triple, even if a part was later hidden.
+    setCategoryValues(els.iCat.value, els.iiCat.value, els.iiiCat.value);
+  } else if (!formTouched && !els.amount.value && !els.note.value.trim()) {
     resetForm();
+  } else {
+    const cur = { i: els.iCat.value, ii: els.iiCat.value, iii: els.iiiCat.value };
+    const oldAutoNote = computeNoteDefault(cur.i, cur.ii, cur.iii);
+    const adj = sanitizeCategoryTriple(cur.i, cur.ii, cur.iii);
+    setCategoryValues(adj.i, adj.ii, adj.iii);
+    // A category picked before load may have been hidden meanwhile. Recompute
+    // the smart note only when it is still the untouched auto default.
+    if (adj.changed && (els.note.value === "" || els.note.value === oldAutoNote)) {
+      els.note.value = computeNoteDefault(adj.i, adj.ii, adj.iii);
+      autoGrowNote();
+    }
   }
   updateAddBtnLoadingState();   // show "载入中…" / disable submit until loaded
   const cutoff = monthCutoff();
@@ -1869,6 +1882,35 @@ function fillSelectKeep(sel, options, placeholder, keep) {
   const opts = options.slice();
   if (keep && !opts.includes(keep)) opts.push(keep);
   fillSelect(sel, opts, placeholder);
+}
+
+// Adjust a chosen triple after the hidden-category list finishes loading. A
+// category the user picked before load may since be hidden; hidden categories
+// must not be used for NEW records. Keep each still-visible level, and only
+// replace a hidden level (and its descendants) with the first visible option.
+function sanitizeCategoryTriple(i, ii, iii) {
+  const l1 = visL1();
+  if (!i || !l1.includes(i)) {
+    const ni = l1[0] || "";
+    const nii = visL2(ni)[0] || "";
+    const niii = visL3(ni, nii)[0] || "";
+    return { i: ni, ii: nii, iii: niii, changed: true };
+  }
+  let changed = false;
+  let nii = ii;
+  let niii = iii;
+  const l2 = visL2(i);
+  if (!nii || !l2.includes(nii)) {
+    nii = l2[0] || "";
+    niii = "";
+    changed = true;
+  }
+  const l3 = visL3(i, nii);
+  if (!niii || !l3.includes(niii)) {
+    niii = l3[0] || "";
+    changed = true;
+  }
+  return { i, ii: nii, iii: niii, changed };
 }
 
 function initCategoryDropdowns() {
@@ -2166,6 +2208,7 @@ function resetForm() {
   hide(els.cancelEditBtn);
   hide(els.deleteEditBtn);
   updateMedCatLock();
+  formTouched = false;
 }
 
 async function onSubmitForm(e) {
@@ -2191,6 +2234,11 @@ async function onSubmitForm(e) {
   };
   if (!rec.i_cat || !rec.ii_cat || !rec.iii_cat) {
     setStatus("请完整选择三级分类。", "warn");
+    return;
+  }
+  if (!isEdit && (isHiddenL1(rec.i_cat) || isHiddenL2(rec.i_cat, rec.ii_cat) ||
+      isHiddenL3(rec.i_cat, rec.ii_cat, rec.iii_cat))) {
+    setStatus("所选分类已被隐藏，请重新选择。", "warn");
     return;
   }
   if (!isEdit && rec.i_cat === "日常生活" && rec.ii_cat === "看病" && rec.iii_cat === "看病") {
@@ -2623,6 +2671,11 @@ function wireEvents() {
   els.loginBtn2.onclick = login;
   els.logoutBtn.onclick = logout;
   els.form.addEventListener("submit", onSubmitForm);
+  // Any user edit (category/amount/note/date) marks the form dirty so the
+  // async data load won't reset it out from under them.
+  const markFormTouched = () => { formTouched = true; };
+  els.form.addEventListener("input", markFormTouched);
+  els.form.addEventListener("change", markFormTouched);
   els.note.addEventListener("input", autoGrowNote);
   els.cancelEditBtn.onclick = resetForm;
   els.deleteEditBtn.onclick = async () => {
