@@ -267,6 +267,8 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   border-bottom: 1px solid var(--border);
 }
 .hidden-row:last-child { border-bottom: none; }
+.hidden-row-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.hidden-row-actions .btn-mini { margin-right: 0; }
 .form-actions {
   grid-column: 1 / -1;
   display: flex;

@@ -6061,19 +6061,48 @@ async function stkRestore(kind, name) {
   try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已恢复：" + name, "ok", 3000); }
   catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
 }
+// Permanently delete a hidden item. Only user-added (custom) entries can be
+// removed; base seed entries are kept and can only be restored. Existing
+// transactions are untouched.
+async function stkDeleteHidden(kind, name) {
+  const label = kind === "code" ? "股票" : "账户";
+  const custom = kind === "code" ? stkMeta.codes.custom : stkMeta.accounts.custom;
+  if (!custom.includes(name)) { setStatus("内置" + label + "无法删除，请使用“恢复”。", "warn"); return; }
+  if (!confirm(`删除${label}「${name}」？\n将从隐藏列表和自定义列表中移除（已有交易记录不受影响）。`)) return;
+  if (kind === "code") {
+    stkMeta.codes.hidden = stkMeta.codes.hidden.filter((x) => x !== name);
+    stkMeta.codes.custom = stkMeta.codes.custom.filter((x) => x !== name);
+  } else {
+    stkMeta.accounts.hidden = stkMeta.accounts.hidden.filter((x) => x !== name);
+    stkMeta.accounts.custom = stkMeta.accounts.custom.filter((x) => x !== name);
+  }
+  stkRebuildSelects(); stkRenderHidden();
+  try { setStatus("正在保存…"); await stkSaveMeta(); setStatus("已删除：" + name, "ok", 3000); }
+  catch (e) { setStatus("保存失败：" + (e.message || e), "error"); }
+}
 function stkRenderHidden() {
   const build = (container, list, kind) => {
     if (!container) return;
     container.innerHTML = "";
     if (!list.length) { container.innerHTML = '<p class="muted">暂无隐藏项。</p>'; return; }
+    const customList = kind === "code" ? stkMeta.codes.custom : stkMeta.accounts.custom;
     for (const name of list) {
       const row = document.createElement("div");
       row.className = "hidden-row";
       const span = document.createElement("span"); span.textContent = name;
+      const actions = document.createElement("div");
+      actions.className = "hidden-row-actions";
       const btn = document.createElement("button");
       btn.type = "button"; btn.className = "btn btn-mini"; btn.textContent = "恢复";
       btn.onclick = () => stkRestore(kind, name);
-      row.appendChild(span); row.appendChild(btn); container.appendChild(row);
+      actions.appendChild(btn);
+      if (customList.includes(name)) {
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "btn btn-mini btn-danger"; del.textContent = "删除";
+        del.onclick = () => stkDeleteHidden(kind, name);
+        actions.appendChild(del);
+      }
+      row.appendChild(span); row.appendChild(actions); container.appendChild(row);
     }
   };
   build(els.stkHiddenCodes, stkMeta.codes.hidden, "code");
