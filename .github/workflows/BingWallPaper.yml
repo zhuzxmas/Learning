@@ -154,23 +154,3 @@ jobs:
     
         # Optional: clean up
         rm -f "$LOG_FILE"
-
-    - name: Notify Enterprise WeChat (Success) - Business
-      if: success()
-      env:
-        QY_WECHAT_API_KEY: ${{ secrets.QY_Wechat_API_Key }}
-        RESULTS: ${{ steps.run_script_second.outputs.LOG_OUTPUT }}
-        WORKFLOW_NAME: ${{ github.workflow }}
-        REPOSITORY: ${{ github.repository }}
-        RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      run: |
-        CONTENT=$(printf '### GitHub Actions workflow completed\n> **Status:** Success\n> **Workflow:** %s\n> **Repository:** %s\n> **Completed:** %s\n\n**Results**\n%s\n\n[View workflow run](%s)' \
-          "$WORKFLOW_NAME" "$REPOSITORY" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$RESULTS" "$RUN_URL")
-        RESPONSE=$(curl --fail-with-body --silent --show-error \
-          -H "Content-Type: application/json" \
-          -d "$(jq -n --arg content "$CONTENT" '{msgtype:"markdown",markdown:{content:$content}}')" \
-          "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${QY_WECHAT_API_KEY}")
-        if [ "$(jq -r '.errcode // -1' <<< "$RESPONSE")" != "0" ]; then
-          echo "::error::Enterprise WeChat notification failed: $RESPONSE"
-          exit 1
-        fi
