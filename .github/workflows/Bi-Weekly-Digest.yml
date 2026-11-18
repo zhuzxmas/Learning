@@ -51,6 +51,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: run main file
+      id: run_digest
       if: steps.schedule_check.outputs.run == 'true'
       env:
         client_id : ${{secrets.CLIENT_ID}}
@@ -76,3 +77,18 @@ jobs:
         git_hub_token : ${{secrets.GIT_HUB_TOKEN}}
         aliyun_SECRET : ${{secrets.ALIYUN_SECRET}}
       run: python -u 04.MS365-Weekly-Digest.py
+
+    - name: Notify Enterprise WeChat
+      if: steps.schedule_check.outputs.run == 'true' && steps.run_digest.outcome == 'success'
+      env:
+        QY_WECHAT_API_KEY: ${{ secrets.QY_Wechat_API_Key }}
+      run: |
+        CONTENT='### 14 天家庭总结已生成'
+        RESPONSE=$(curl --fail-with-body --silent --show-error \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg content "$CONTENT" '{msgtype:"markdown",markdown:{content:$content}}')" \
+          "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${QY_WECHAT_API_KEY}")
+        if [ "$(jq -r '.errcode // -1' <<< "$RESPONSE")" != "0" ]; then
+          echo "::error::Enterprise WeChat notification failed: $RESPONSE"
+          exit 1
+        fi

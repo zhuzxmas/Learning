@@ -440,7 +440,6 @@ if response.status_code == 200:
     output_text_reasoning_content = result['choices'][0]['message']['reasoning_content']
     # output_text = f"📅 时间范围：{last_14days_date[:10]} 至 {today_date[:10]}\n\n" + "推理过程：" + output_text_reasoning_content + "\n--a-a-a-a-a-a-a--\n" + "最终结果：" + output_text_content
     output_text = f"📅 时间范围：{last_14days_date[:10]} 至 {today_date[:10]}\n\n" + output_text_content
-    funcLG.send_Teams_Channel_Message(output_text, headers=http_headers, team_id=Channel_Life_Digest_Team_id, channel_id=Channel_Life_Digest_channel_id, message_id=Channel_Msg_Life_Digest_id) # post the digest summary to the Life_Digest channel in CNMAS team.
     print(output_text)  # Print the assistant's reply
     print("✅ Success: Received response from Qwen model.")
     
