@@ -55,7 +55,7 @@ function encryptPayload(plaintext) {
   ]).toString("base64");
 }
 
-function decryptPayload(encrypted) {
+function decryptBytes(encrypted) {
   const decipher = nodeCrypto.createDecipheriv("aes-256-cbc", KEY_BYTES, IV);
   decipher.setAutoPadding(false);
   const plain = Buffer.concat([
@@ -64,7 +64,16 @@ function decryptPayload(encrypted) {
   ]);
   const pad = plain[plain.length - 1];
   assert.ok(pad >= 1 && pad <= 32);
-  return plain.subarray(0, plain.length - pad).toString("utf8");
+  return plain.subarray(0, plain.length - pad);
+}
+
+function decryptPayload(encrypted) {
+  const plain = decryptBytes(encrypted);
+  assert.ok(plain.length >= 20);
+  const length = plain.readUInt32BE(16);
+  assert.ok(length <= plain.length - 20);
+  assert.equal(plain.subarray(20 + length).toString("utf8"), "");
+  return plain.subarray(20, 20 + length).toString("utf8");
 }
 
 function wrapMessage(message) {

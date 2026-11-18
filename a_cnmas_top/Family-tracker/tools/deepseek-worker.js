@@ -220,10 +220,17 @@ async function wecomDecryptMessage(env, encrypted) {
   return WECOM_TEXT_DECODER.decode(message);
 }
 
+function wecomEnvelope(plaintext) {
+  const message = WECOM_TEXT.encode(plaintext);
+  const length = new Uint8Array(4);
+  new DataView(length.buffer).setUint32(0, message.length, false);
+  return concatBytes(crypto.getRandomValues(new Uint8Array(16)), length, message);
+}
+
 async function wecomEncryptedReply(env, plaintext, nonce) {
   if (!env.WECOM_BOT_TOKEN) throw new Error("WECOM_BOT_TOKEN is not configured");
   const { key, iv } = await loadWeComAes(env);
-  const encrypted = bytesToBase64(await wecomAesEncrypt(key, iv, WECOM_TEXT.encode(plaintext)));
+  const encrypted = bytesToBase64(await wecomAesEncrypt(key, iv, wecomEnvelope(plaintext)));
   const timestamp = Math.floor(Date.now() / 1000);
   const replyNonce = nonce || String(Math.floor(Math.random() * 1e9));
   const signature = await wecomSignature(env.WECOM_BOT_TOKEN, timestamp, replyNonce, encrypted);
@@ -293,8 +300,13 @@ async function handleWeComBot(request, env, ctx) {
     return new Response("WeCom bot is not configured", { status: 500 });
   }
   if (!params.signature || !params.timestamp || !params.nonce) {
+    workerLog("warn", "wecom_bot", { status: "missing_signature_parameters", method: request.method });
     return new Response("Missing signature parameters", { status: 400 });
   }
+  workerLog("info", "wecom_bot", {
+    status: "received", method: request.method,
+    phase: request.method === "GET" ? "verify_url" : "message",
+  });
 
   try {
     if (request.method === "GET") {
