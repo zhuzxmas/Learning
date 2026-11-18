@@ -77,8 +77,8 @@ jobs:
         # Run script, show live output, AND save to file
         python -u 03.OneDrive-BingPic-Personal_OneDrive.py 2>&1 | tee "$LOG_FILE"
     
-        # Capture last 3 lines from the log file
-        TRUNCATED=$(tail -n 3 "$LOG_FILE")
+        # Capture last 1 lines from the log file
+        TRUNCATED=$(tail -n 1 "$LOG_FILE")
     
         # Save to GITHUB_OUTPUT
         echo "LOG_OUTPUT<<EOF" >> "$GITHUB_OUTPUT"

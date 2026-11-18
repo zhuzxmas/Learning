@@ -125,6 +125,7 @@ def main():
     target = "Pictures/life.live/Bing.WallPaper/" + save_img_result[1]
     od.upload_to_path(target, image_content, content_type="image/jpeg")
     print("Image uploaded successfully to personal OneDrive: " + target)
+    print(save_img_result[1] + " uploaded to OneDrive")
 
     os.remove(save_img_result[1])
 
