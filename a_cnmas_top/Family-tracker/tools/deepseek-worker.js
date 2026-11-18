@@ -20,6 +20,14 @@
  *          (PAT scope: repo zhuzxmas/Learning, Contents: Read and write —
  *           this also authorizes repository_dispatch. Used by POST /trigger-stock
  *           to kick off the single-stock finance batch.)
+ *        Name:  WECOM_BOT_TOKEN        Value: <智能机器人 Token>        (Encrypt)
+ *        Name:  WECOM_BOT_AES_KEY      Value: <智能机器人 EncodingAESKey> (Encrypt)
+ *        Name:  WECOM_ALLOWED_USERIDS  Value: <comma-separated userids>  (optional)
+ *        Name:  WECOM_ALLOWED_CHATIDS  Value: <comma-separated chatids>  (optional)
+ *          The bot callback is https://api.cnmas.top/wecom-bot and accepts
+ *          "/run wallpaper" from authorized group members. At least one of the
+ *          two allow-lists must be configured; otherwise every command is
+ *          rejected with the caller's userid/chatid so they can be added.
  *   4. Settings -> Triggers -> Custom Domains -> Add  ->  api.cnmas.top
  *        (Cloudflare must be managing the cnmas.top DNS zone.)
  *   5. Done. The SPA talks to https://api.cnmas.top .
@@ -70,7 +78,17 @@ const GH_DISPATCH_REPO = "zhuzxmas/Learning";
 const GH_STOCK_DISPATCH_EVENT = "finance-batch-stock-event";
 const GH_SCHEDULE_DISPATCH_EVENT = "finance-batch-scheduled-event";
 const GH_DETAIL_MAIL_EVENT = "stock-detail-mail-event";
+const GH_WALLPAPER_DISPATCH_EVENT = "ms-power-automate-event";
 const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
+
+const WECOM_BOT_PATH = "/wecom-bot";
+const WECOM_COMMANDS = {
+  "/run wallpaper": {
+    eventType: GH_WALLPAPER_DISPATCH_EVENT,
+    label: "Bing WallPaper action",
+    url: "https://github.com/" + GH_DISPATCH_REPO + "/actions/workflows/BingWallPaper.yml",
+  },
+};
 
 function workerLog(level, event, fields) {
   const entry = { event, ...fields };
@@ -78,7 +96,296 @@ function workerLog(level, event, fields) {
   console[method](entry);
 }
 
+// ---------------------------------------------------------------------------
+// Enterprise WeChat "智能机器人" API callback support
+// ---------------------------------------------------------------------------
+const WECOM_TEXT = new TextEncoder();
+const WECOM_TEXT_DECODER = new TextDecoder();
+
+function concatBytes(...parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+function xorBytes(a, b) {
+  const out = new Uint8Array(a.length);
+  for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i];
+  return out;
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(String(value));
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function safeEqual(a, b) {
+  const left = String(a);
+  const right = String(b);
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i++) diff |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  return diff === 0;
+}
+
+function csvList(value) {
+  return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+async function loadWeComAes(env) {
+  if (!env.WECOM_BOT_AES_KEY) throw new Error("WECOM_BOT_AES_KEY is not configured");
+  const raw = String(env.WECOM_BOT_AES_KEY);
+  const padded = raw + "=".repeat((4 - raw.length % 4) % 4);
+  const keyBytes = base64ToBytes(padded);
+  if (keyBytes.length !== 32) throw new Error("WECOM_BOT_AES_KEY must decode to 32 bytes");
+  return {
+    key: await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]),
+    iv: keyBytes.slice(0, 16),
+  };
+}
+
+function wecomSignature(token, timestamp, nonce, encrypted) {
+  const raw = [String(token), String(timestamp), String(nonce), String(encrypted)].sort().join("");
+  return crypto.subtle.digest("SHA-1", WECOM_TEXT.encode(raw)).then((digest) =>
+    Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
+}
+
+async function aesBlockEncrypt(key, block) {
+  const output = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-CBC", iv: new Uint8Array(16) }, key, block));
+  return output.slice(0, 16);
+}
+
+// WebCrypto always applies PKCS#7 padding, while WeCom pads to 32 bytes.
+// Decrypt one raw AES block by appending a crafted block that decrypts to a
+// valid full padding block; WebCrypto then strips only that extra block.
+async function aesBlockDecrypt(key, block) {
+  const extra = await aesBlockEncrypt(key, xorBytes(block, new Uint8Array(16).fill(16)));
+  const output = new Uint8Array(await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: new Uint8Array(16) }, key, concatBytes(block, extra)));
+  return output.slice(0, 16);
+}
+
+async function wecomAesDecrypt(key, iv, ciphertext) {
+  if (!ciphertext.length || ciphertext.length % 16 !== 0) throw new Error("invalid ciphertext length");
+  const blocks = [];
+  let previous = iv;
+  for (let offset = 0; offset < ciphertext.length; offset += 16) {
+    const block = ciphertext.slice(offset, offset + 16);
+    blocks.push(xorBytes(await aesBlockDecrypt(key, block), previous));
+    previous = block;
+  }
+  const padded = concatBytes(...blocks);
+  const pad = padded[padded.length - 1];
+  if (pad < 1 || pad > 32 || pad > padded.length) throw new Error("invalid padding");
+  for (let i = padded.length - pad; i < padded.length; i++) {
+    if (padded[i] !== pad) throw new Error("invalid padding");
+  }
+  return padded.slice(0, padded.length - pad);
+}
+
+async function wecomAesEncrypt(key, iv, plaintext) {
+  const pad = 32 - (plaintext.length % 32);
+  const padded = concatBytes(plaintext, new Uint8Array(pad).fill(pad));
+  const output = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-CBC", iv }, key, padded));
+  // Drop WebCrypto's own extra PKCS#7 block.
+  return output.slice(0, padded.length);
+}
+
+async function wecomDecryptMessage(env, encrypted) {
+  const { key, iv } = await loadWeComAes(env);
+  const plain = await wecomAesDecrypt(key, iv, base64ToBytes(encrypted));
+  if (plain.length < 20) throw new Error("decrypted message too short");
+  const messageLength = ((plain[16] << 24) | (plain[17] << 16) | (plain[18] << 8) | plain[19]) >>> 0;
+  if (messageLength > plain.length - 20) throw new Error("invalid message length");
+  const message = plain.slice(20, 20 + messageLength);
+  const receiveId = WECOM_TEXT_DECODER.decode(plain.slice(20 + messageLength));
+  if (receiveId !== "") throw new Error("unexpected receiveid");
+  return WECOM_TEXT_DECODER.decode(message);
+}
+
+async function wecomEncryptedReply(env, plaintext, nonce) {
+  if (!env.WECOM_BOT_TOKEN) throw new Error("WECOM_BOT_TOKEN is not configured");
+  const { key, iv } = await loadWeComAes(env);
+  const encrypted = bytesToBase64(await wecomAesEncrypt(key, iv, WECOM_TEXT.encode(plaintext)));
+  const timestamp = Math.floor(Date.now() / 1000);
+  const replyNonce = nonce || String(Math.floor(Math.random() * 1e9));
+  const signature = await wecomSignature(env.WECOM_BOT_TOKEN, timestamp, replyNonce, encrypted);
+  return new Response(JSON.stringify({
+    encrypt: encrypted, msgsignature: signature, timestamp, nonce: replyNonce,
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
+function wecomCommand(text) {
+  return String(text || "").replace(/@\S+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function wecomAuthorization(env, message) {
+  const users = csvList(env.WECOM_ALLOWED_USERIDS);
+  const chats = csvList(env.WECOM_ALLOWED_CHATIDS);
+  const userid = String((message.from && message.from.userid) || "");
+  const chatid = String(message.chatid || "");
+  const userOk = users.length === 0 ? chatid !== "" : users.includes("*") || users.includes(userid);
+  const chatOk = chats.length === 0 ? true : chats.includes("*") || chats.includes(chatid);
+  return {
+    ok: (users.length > 0 || chats.length > 0) && userOk && chatOk,
+    userid, chatid,
+  };
+}
+
+async function wecomSeenMessage(msgid) {
+  if (!msgid || typeof caches === "undefined" || !caches.default) return false;
+  try {
+    const key = new Request("https://wecom-bot-dedupe.internal/" + encodeURIComponent(msgid));
+    return !!(await caches.default.match(key));
+  } catch {
+    return false;
+  }
+}
+
+async function wecomMarkMessage(msgid) {
+  if (!msgid || typeof caches === "undefined" || !caches.default) return;
+  try {
+    await caches.default.put(
+      new Request("https://wecom-bot-dedupe.internal/" + encodeURIComponent(msgid)),
+      new Response("1", { headers: { "Cache-Control": "max-age=600" } }));
+  } catch {
+    // Dedupe is best-effort; GitHub dispatch already succeeded.
+  }
+}
+
+function wecomTextReply(id, content) {
+  return JSON.stringify({
+    msgtype: "stream",
+    stream: { id: String(id || "wecom-bot"), finish: true, content },
+  });
+}
+
+async function handleWeComBot(request, env, ctx) {
+  const url = new URL(request.url);
+  const params = {
+    signature: url.searchParams.get("msg_signature") || "",
+    timestamp: url.searchParams.get("timestamp") || "",
+    nonce: url.searchParams.get("nonce") || "",
+    echostr: url.searchParams.get("echostr") || "",
+  };
+  if (!env.WECOM_BOT_TOKEN || !env.WECOM_BOT_AES_KEY) {
+    workerLog("error", "wecom_bot", { status: "configuration_error" });
+    return new Response("WeCom bot is not configured", { status: 500 });
+  }
+  if (!params.signature || !params.timestamp || !params.nonce) {
+    return new Response("Missing signature parameters", { status: 400 });
+  }
+
+  try {
+    if (request.method === "GET") {
+      if (!params.echostr) return new Response("Missing echostr", { status: 400 });
+      const expected = await wecomSignature(
+        env.WECOM_BOT_TOKEN, params.timestamp, params.nonce, params.echostr);
+      if (!safeEqual(expected, params.signature)) {
+        workerLog("warn", "wecom_bot", { status: "signature_rejected", phase: "verify_url" });
+        return new Response("Invalid signature", { status: 403 });
+      }
+      const plaintext = await wecomDecryptMessage(env, params.echostr);
+      return new Response(plaintext, {
+        status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+
+    if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    const rawBody = await request.text();
+    if (rawBody.length > 65536) return new Response("Payload too large", { status: 413 });
+    let body;
+    try { body = JSON.parse(rawBody); } catch { return new Response("Invalid JSON", { status: 400 }); }
+    if (!body || typeof body.encrypt !== "string") {
+      return new Response("Missing encrypt", { status: 400 });
+    }
+    const expected = await wecomSignature(
+      env.WECOM_BOT_TOKEN, params.timestamp, params.nonce, body.encrypt);
+    if (!safeEqual(expected, params.signature)) {
+      workerLog("warn", "wecom_bot", { status: "signature_rejected", phase: "message" });
+      return new Response("Invalid signature", { status: 403 });
+    }
+
+    const plaintext = await wecomDecryptMessage(env, body.encrypt);
+    let message;
+    try { message = JSON.parse(plaintext); } catch { return new Response("Invalid message", { status: 400 }); }
+    if (!message) return new Response("Invalid message", { status: 400 });
+    if (message.msgtype !== "text") {
+      // Events such as enter_chat and template-card clicks have no command.
+      // Acknowledge without replying so WeCom does not treat it as an error.
+      return new Response(null, { status: 204 });
+    }
+
+    const command = wecomCommand(message.text && message.text.content).slice(0, 80);
+    const auth = wecomAuthorization(env, message);
+    if (!auth.ok) {
+      workerLog("warn", "wecom_bot", {
+        status: "authorization_denied", command,
+        configured: !!(env.WECOM_ALLOWED_USERIDS || env.WECOM_ALLOWED_CHATIDS),
+      });
+      return wecomEncryptedReply(env, wecomTextReply(message.msgid,
+        "未授权。\nuserid: " + (auth.userid || "(empty)") +
+        "\nchatid: " + (auth.chatid || "(empty)") +
+        "\n请把上面的 userid 或 chatid 加入 Worker 的 WECOM_ALLOWED_USERIDS / WECOM_ALLOWED_CHATIDS。"),
+        params.nonce);
+    }
+
+    if (await wecomSeenMessage(message.msgid)) {
+      return wecomEncryptedReply(env, wecomTextReply(message.msgid, "该请求已处理，请勿重复发送。"), params.nonce);
+    }
+
+    const action = WECOM_COMMANDS[command];
+    if (!action) {
+      workerLog("info", "wecom_bot", { status: "unknown_command", command });
+      return wecomEncryptedReply(env, wecomTextReply(message.msgid,
+        "可用命令：\n/run wallpaper"), params.nonce);
+    }
+
+    try {
+      await dispatchGitHub(env, action.eventType, { source: "wecom-bot" });
+      await wecomMarkMessage(message.msgid);
+      workerLog("info", "wecom_bot", {
+        status: "dispatched", command, dispatch_type: "wallpaper",
+      });
+      return wecomEncryptedReply(env, wecomTextReply(message.msgid,
+        "已提交 " + action.label + "。\n" + action.url), params.nonce);
+    } catch (error) {
+      workerLog("error", "wecom_bot", {
+        status: "dispatch_failed", command, dispatch_type: "wallpaper",
+      });
+      return wecomEncryptedReply(env, wecomTextReply(message.msgid,
+        "触发失败：" + ((error && error.message) || error)), params.nonce);
+    }
+  } catch (error) {
+    workerLog("error", "wecom_bot", { status: "error", message: String(error && error.message || error).slice(0, 200) });
+    return new Response("WeCom bot error", { status: 500 });
+  }
+}
+
 function dispatchLogFields(eventType, payload) {
+  if (eventType === GH_WALLPAPER_DISPATCH_EVENT && payload.source === "wecom-bot") {
+    return { dispatch_type: "wallpaper" };
+  }
   if (eventType === GH_STOCK_DISPATCH_EVENT || eventType === GH_DETAIL_MAIL_EVENT) {
     return {
       dispatch_type: eventType === GH_DETAIL_MAIL_EVENT ? "stock_detail_mail" : "stock",
@@ -235,6 +542,13 @@ export default {
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || ALLOWED_ORIGINS[0];
+    const pathname = new URL(request.url).pathname;
+
+    // Enterprise WeChat intelligent-bot callback: authenticated by WeCom's
+    // encrypted signature, not by the Microsoft Graph bearer token below.
+    if (pathname === WECOM_BOT_PATH) {
+      return handleWeComBot(request, env, ctx);
+    }
 
     // CORS preflight.
     if (request.method === "OPTIONS") {

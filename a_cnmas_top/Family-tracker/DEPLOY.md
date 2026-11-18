@@ -106,3 +106,73 @@ mail steps, but other repository workflows still reference them.
 After deploying the code and configuring the SMTP password, use the stock detail
 page's “发送邮件” button to verify receipt at the existing recipient address.
 Scheduled ranking delivery keeps its existing trigger and non-fatal failure behavior.
+
+## Enterprise WeChat intelligent bot — `/run wallpaper`
+
+The Cloudflare Worker (`tools/deepseek-worker.js`) exposes
+`https://api.cnmas.top/wecom-bot` for an Enterprise WeChat **智能机器人 → API 模式**
+callback. In a group chat, an authorized member sends:
+
+```text
+@机器人 /run wallpaper
+```
+
+The Worker verifies WeCom's encrypted callback, triggers the existing
+`BingWallPaper.yml` GitHub Actions workflow through `repository_dispatch`
+(`ms-power-automate-event`), and replies with the Actions link.
+
+### 1. Deploy the Worker code first
+
+Paste the latest `tools/deepseek-worker.js` into the `api.cnmas.top` Worker and
+deploy it **before** saving the bot callback URL. WeCom verifies the URL
+immediately when you click Save.
+
+### 2. Add Worker secrets
+
+In Cloudflare → the `api.cnmas.top` Worker → **Settings → Variables and Secrets**,
+add encrypted secrets:
+
+| Worker secret | Value |
+| --- | --- |
+| `WECOM_BOT_TOKEN` | Same Token as WeCom; use the random Token shown in WeCom or a 3–32 character letters/numbers string |
+| `WECOM_BOT_AES_KEY` | Same EncodingAESKey as WeCom; exactly 43 characters (use WeCom's “随机获取”) |
+| `WECOM_ALLOWED_USERIDS` | Optional comma-separated WeCom userids allowed to run commands |
+| `WECOM_ALLOWED_CHATIDS` | Optional comma-separated group chatids allowed to run commands |
+
+At least one of `WECOM_ALLOWED_USERIDS` or `WECOM_ALLOWED_CHATIDS` must be set.
+Setting only `WECOM_ALLOWED_CHATIDS` allows any member of those groups. Setting
+`WECOM_ALLOWED_USERIDS` restricts commands to those users; add `WECOM_ALLOWED_CHATIDS`
+too if the bot is in more than one group.
+
+If your WeCom account is not the enterprise super administrator, the callback's
+`userid` may be an encrypted ID instead of the plain userid. In that case copy the
+ID printed by the bot's “未授权” reply into the allow-list.
+
+### 3. Fill the three WeCom fields
+
+In the intelligent bot's **API 设置**:
+
+| Field | Value |
+| --- | --- |
+| `URL` | `https://api.cnmas.top/wecom-bot` |
+| `Token` | Same value as Worker secret `WECOM_BOT_TOKEN` |
+| `EncodingAESKey` | Same 43-character value as Worker secret `WECOM_BOT_AES_KEY` (click 随机获取 and copy it) |
+
+Click **保存**. WeCom sends a `GET` verification request to the URL; the Worker
+must return the decrypted `echostr` for the save to succeed.
+
+### 4. Test
+
+Add the bot to the target group, then send:
+
+```text
+@机器人 /run wallpaper
+```
+
+Expected reply: `已提交 Bing WallPaper action。` plus the Actions link. Confirm a
+new `Bing WallPaper action` run appears in GitHub Actions with event type
+`repository_dispatch`.
+
+Available commands are deliberately allow-listed in `WECOM_COMMANDS`. Only
+`/run wallpaper` is currently enabled; unsupported commands do not trigger any
+workflow.

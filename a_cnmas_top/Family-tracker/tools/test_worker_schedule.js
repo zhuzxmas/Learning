@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -14,6 +15,9 @@ const context = {
     warn(value) { logs.push({ level: "warn", value }); },
     error(value) { logs.push({ level: "error", value }); },
   },
+  crypto: crypto.webcrypto,
+  atob,
+  btoa,
   Date,
   JSON,
   Response,
@@ -21,6 +25,7 @@ const context = {
   TransformStream,
   Headers,
   TextEncoder,
+  TextDecoder,
   URL,
   setTimeout,
   fetch: async (url, options) => {
