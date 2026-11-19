@@ -1303,6 +1303,13 @@ button.blog-tag:hover { background: #dbeafe; }
 }
 .podcast-review-heading { margin-bottom: 5px; color: #0369a1; font-size: 13px; font-weight: 800; }
 .podcast-review-preview .blog-body { font-size: 13px; }
+.podcast-review-body.is-collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+.podcast-review-toggle { margin-top: 7px; }
 .podcast-review-box {
   grid-column: 1 / -1;
   margin-top: 12px; padding: 12px; border: 1px solid #bfdbfe;

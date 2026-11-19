@@ -5434,16 +5434,30 @@ function podcastRender() {
       } finally { saveReviewBtn.disabled = false; }
     };
     let savedReview = null;
+    let reviewBody = null;
+    let reviewToggle = null;
     if (record.review) {
       savedReview = document.createElement("div");
       savedReview.className = "podcast-review-preview";
       const reviewHeading = document.createElement("div");
       reviewHeading.className = "podcast-review-heading";
       reviewHeading.textContent = "我的评价";
-      const reviewBody = document.createElement("div");
-      reviewBody.className = "blog-body";
+      reviewBody = document.createElement("div");
+      reviewBody.className = "blog-body podcast-review-body is-collapsed";
       reviewBody.innerHTML = blogRenderMarkdown(record.review);
-      savedReview.appendChild(reviewHeading); savedReview.appendChild(reviewBody);
+      reviewToggle = document.createElement("button");
+      reviewToggle.type = "button";
+      reviewToggle.className = "btn btn-mini btn-ghost podcast-review-toggle hidden";
+      reviewToggle.textContent = "展开评价";
+      reviewToggle.setAttribute("aria-expanded", "false");
+      reviewToggle.onclick = () => {
+        const collapsed = reviewBody.classList.toggle("is-collapsed");
+        reviewToggle.textContent = collapsed ? "展开评价" : "收起评价";
+        reviewToggle.setAttribute("aria-expanded", String(!collapsed));
+      };
+      savedReview.appendChild(reviewHeading);
+      savedReview.appendChild(reviewBody);
+      savedReview.appendChild(reviewToggle);
     }
     main.appendChild(title);
     main.appendChild(meta);
@@ -5455,6 +5469,9 @@ function podcastRender() {
     if (savedReview) item.appendChild(savedReview);
     item.appendChild(reviewBox);
     els.podcastList.appendChild(item);
+    if (reviewBody && reviewToggle && reviewBody.scrollHeight > reviewBody.clientHeight + 1) {
+      reviewToggle.classList.remove("hidden");
+    }
   });
 }
 
