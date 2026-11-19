@@ -88,7 +88,6 @@ const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
 
 const PODCAST_PATH = "/podcast";
 const PODCAST_MAX_BODY_BYTES = 8192;
-const PODCAST_DEDUPE_SECONDS = 600;
 
 const WECOM_BOT_PATH = "/wecom-bot";
 const WECOM_COMMANDS = {
@@ -560,26 +559,6 @@ async function authorizePodcast(request, env) {
   return { ok: true, via: "graph", email };
 }
 
-function podcastDedupeRequest(episodeId) {
-  return new Request("https://podcast-dedupe.internal/apple/" + encodeURIComponent(episodeId));
-}
-
-async function podcastAlreadyDispatched(episodeId) {
-  const cache = globalThis.caches && globalThis.caches.default;
-  if (!cache) return false;
-  try { return !!(await cache.match(podcastDedupeRequest(episodeId))); } catch { return false; }
-}
-
-async function markPodcastDispatched(episodeId) {
-  const cache = globalThis.caches && globalThis.caches.default;
-  if (!cache) return;
-  try {
-    await cache.put(podcastDedupeRequest(episodeId), new Response("1", {
-      headers: { "Cache-Control": "max-age=" + PODCAST_DEDUPE_SECONDS },
-    }));
-  } catch { /* best-effort only */ }
-}
-
 // Validate the caller by using their token against Microsoft Graph.
 // Returns the lower-cased email if allowed, otherwise null.
 async function authorize(token) {
@@ -688,12 +667,6 @@ export default {
       if (!/^[a-z0-9-]{1,32}$/.test(source)) {
         return jsonError(400, "source 格式不合法。", origin);
       }
-      if (await podcastAlreadyDispatched(episode.episodeId)) {
-        return new Response(JSON.stringify({ ok: true, duplicate: true, episode_id: episode.episodeId }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
       try {
         await dispatchGitHub(env, GH_PODCAST_EVENT, {
           episode_url: episode.episodeUrl,
@@ -704,7 +677,6 @@ export default {
       } catch (e) {
         return jsonError(502, "GitHub 触发失败：" + ((e && e.message) || e), origin);
       }
-      await markPodcastDispatched(episode.episodeId);
       return new Response(JSON.stringify({
         ok: true, episode_id: episode.episodeId, dispatched: true,
       }), {

@@ -9,6 +9,7 @@ const SOURCE = fs.readFileSync(path.join(__dirname, "deepseek-worker.js"), "utf8
   .replace("export default {", "globalThis.worker = {");
 const requests = [];
 const logs = [];
+const cacheValues = new Map();
 const context = {
   console: {
     log(value) { logs.push({ level: "info", value }); },
@@ -28,6 +29,12 @@ const context = {
   TextDecoder,
   URL,
   setTimeout,
+  caches: {
+    default: {
+      async match(request) { return cacheValues.get(String(request.url)); },
+      async put(request, response) { cacheValues.set(String(request.url), response); },
+    },
+  },
   fetch: async (url, options) => {
     requests.push({ url, options });
     return new Response(null, { status: 204 });
@@ -93,6 +100,11 @@ async function post(body, options) {
   assert.equal(JSON.stringify(logs).includes(SECRET), false);
   assert.equal(JSON.stringify(logs).includes("github-token"), false);
   assert.equal(JSON.stringify(logs).includes("456789"), false);
+
+  const repeated = await post(payload());
+  assert.equal(repeated.status, 202);
+  assert.equal(requests.length, 1);
+  assert.equal(JSON.parse(requests[0].options.body).event_type, "podcast-completed-event");
 
   requests.length = 0;
   context.fetch = async (url) => {
