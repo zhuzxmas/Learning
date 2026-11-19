@@ -52,8 +52,6 @@ jobs:
           ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
           ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
           TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
           QY_WECHAT_API_KEY: ${{ secrets.QY_Wechat_API_Key }}
         run: python -u a_cnmas_top/Family-tracker/automation/podcast_completed.py
 

@@ -19,7 +19,6 @@ DEFAULT_FOLDER_PATH = "/Apps/PodcastTracker"
 LOOKUP_URL = "https://itunes.apple.com/lookup"
 WECOM_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
 HISTORY_URL = "https://a.cnmas.top/?view=podcasts"
-DEEPSEEK_MODEL_DEFAULT = "deepseek-v4-flash"
 USER_AGENT = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
@@ -236,45 +235,6 @@ def collect_metadata(episode):
     return metadata
 
 
-def generate_introduction(metadata):
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
-        print("WARN: DEEPSEEK_API_KEY not set; skipping introduction.")
-        return "", ""
-    model = os.environ.get("DEEPSEEK_MODEL", "").strip() or DEEPSEEK_MODEL_DEFAULT
-    description = str(metadata.get("description") or "")[:6000]
-    prompt = (
-        "请根据下面的播客单集信息，用简体中文写一段 80-140 字的介绍。"
-        "说明这一集主要讲什么、有什么看点或适合谁听。"
-        "只依据提供的信息，不要编造人名、数字、结论或节目中没有的内容。"
-        "不要使用标题、列表或 Markdown，直接输出一段连贯的话。\n\n"
-        "节目：%s\n单集：%s\n原始简介：%s"
-    ) % (metadata.get("showTitle") or "未知节目", metadata.get("title") or "未知单集", description or "（无）")
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "你是一位克制、准确的播客笔记助手。"},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.4,
-        "max_tokens": 320,
-        "stream": False,
-    }
-    try:
-        response = requests.post(
-            summarize.DEEPSEEK_URL,
-            headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
-            data=json.dumps(payload),
-            timeout=90,
-        )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        return one_line(content), model
-    except Exception as exc:
-        print("WARN: introduction generation failed:", exc)
-        return "", ""
-
-
 def read_history(token, base):
     response = requests.get(
         "%s:/%s:/content" % (base, FILE_NAME),
@@ -306,7 +266,14 @@ def save_record(token, base, record):
         data, etag = read_history(token, base)
         if find_record(data, record["episodeId"]):
             return None
-        records = data.get("records") or []
+        records = []
+        for existing in data.get("records") or []:
+            if not isinstance(existing, dict):
+                continue
+            existing = dict(existing)
+            existing.pop("introduction", None)
+            existing.pop("introductionModel", None)
+            records.append(existing)
         records.append(record)
         records.sort(key=lambda item: str(item.get("completedAt") or ""), reverse=True)
         data["version"] = 1
@@ -415,7 +382,6 @@ def main():
 
     metadata = collect_metadata(episode)
     print("Metadata:", metadata.get("showTitle") or "-", "/", metadata.get("title") or "-")
-    introduction, model = generate_introduction(metadata)
     record = {
         "id": "apple:" + episode["episode_id"],
         "source": "apple-podcasts",
@@ -425,8 +391,6 @@ def main():
         "showTitle": metadata.get("showTitle") or "",
         "artworkUrl": metadata.get("artworkUrl") or "",
         "description": metadata.get("description") or "",
-        "introduction": introduction,
-        "introductionModel": model if introduction else "",
         "publishedAt": metadata.get("publishedAt") or "",
         "durationSeconds": metadata.get("durationSeconds"),
         "completedAt": completed_at,

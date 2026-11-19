@@ -42,14 +42,5 @@ class PodcastParsingTests(unittest.TestCase):
         self.assertEqual(metadata["title"], "Apple Podcasts 单集 123")
         self.assertEqual(metadata["description"], "")
 
-    @patch.object(podcast_completed.requests, "post", side_effect=RuntimeError("offline"))
-    def test_introduction_failure_is_non_fatal(self, _post):
-        with patch.dict("os.environ", {"DEEPSEEK_API_KEY": "key"}):
-            introduction, model = podcast_completed.generate_introduction(
-                {"title": "Title", "showTitle": "Show", "description": "Description"})
-        self.assertEqual(introduction, "")
-        self.assertEqual(model, "")
-
-
 if __name__ == "__main__":
     unittest.main()

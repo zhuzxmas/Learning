@@ -88,7 +88,7 @@
   <link rel="stylesheet" href="style.css?v=80" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
   <noscript><link rel="stylesheet" href="style.css?v=80" /></noscript>
   <link rel="preload" href="msal-browser.min.js" as="script" />
-  <link rel="preload" href="app.js?v=124" as="script" />
+  <link rel="preload" href="app.js?v=126" as="script" />
 </head>
 <body>
   <header class="topbar">
@@ -2291,7 +2291,7 @@
         <div class="tab-panel hidden" id="podcastTabAdd">
           <div class="card">
             <h2>记录已听完的播客</h2>
-            <p class="muted">粘贴 Apple Podcasts 单集链接，链接中必须包含 <code>?i=</code> 单集编号。后台会自动抓取节目信息、生成简介并保存到 OneDrive。</p>
+            <p class="muted">粘贴 Apple Podcasts 单集链接，链接中必须包含 <code>?i=</code> 单集编号。后台会保存 Apple 提供的标题、节目、封面和单集简介。</p>
             <form id="podcastForm">
               <div class="field field-wide">
                 <label for="podcastUrlInput">Apple Podcasts 单集链接</label>
@@ -2357,6 +2357,6 @@
   <script defer src="borrow-people.js?v=2"></script>
   <script defer src="valuation.js?v=3"></script>
   <script defer src="page-refresh.js?v=3"></script>
-  <script defer src="app.js?v=124" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="app.js?v=126" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>

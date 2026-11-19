@@ -4989,9 +4989,11 @@ function podcastRepairText(value) {
 
 function podcastRepairRecord(record) {
   const repaired = { ...record };
-  ["title", "showTitle", "description", "introduction"].forEach((key) => {
+  ["title", "showTitle", "description"].forEach((key) => {
     repaired[key] = podcastRepairText(repaired[key]);
   });
+  delete repaired.introduction;
+  delete repaired.introductionModel;
   return repaired;
 }
 
@@ -5162,7 +5164,7 @@ function podcastRender() {
       if (podcastShowFilter && String(record.showTitle || "") !== podcastShowFilter) return false;
       if (podcastYearFilter && podcastYearOf(record.completedAt) !== podcastYearFilter) return false;
       if (!q) return true;
-      return [record.title, record.showTitle, record.introduction, record.description]
+      return [record.title, record.showTitle, record.description]
         .map((value) => String(value || "").toLowerCase())
         .join(" ")
         .includes(q);
@@ -5197,7 +5199,7 @@ function podcastRender() {
       .filter(Boolean).join(" · ");
     const preview = document.createElement("p");
     preview.className = "podcast-preview";
-    preview.textContent = record.introduction || record.description || "暂无简介";
+    preview.textContent = record.description || "暂无简介";
     const actions = document.createElement("div");
     actions.className = "podcast-actions";
     const link = document.createElement("a");
@@ -5205,34 +5207,24 @@ function podcastRender() {
     link.href = record.episodeUrl || "#";
     link.target = "_blank";
     link.rel = "noopener";
-    link.textContent = "在 Apple Podcasts 打开";
+    link.textContent = "在播客App打开";
     if (!record.episodeUrl) link.classList.add("hidden");
     actions.appendChild(link);
     let details = null;
-    if (record.introduction || record.description) {
+    if (record.description) {
       const toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "btn btn-mini btn-ghost";
       toggle.textContent = "展开";
       details = document.createElement("div");
       details.className = "podcast-details hidden";
-      if (record.introduction) {
-        const h = document.createElement("h4");
-        h.textContent = "AI 简介";
-        const p = document.createElement("p");
-        p.textContent = record.introduction;
-        details.appendChild(h);
-        details.appendChild(p);
-      }
-      if (record.description) {
-        const h = document.createElement("h4");
-        h.textContent = "原始简介";
-        const p = document.createElement("p");
-        p.className = "podcast-original";
-        p.textContent = record.description;
-        details.appendChild(h);
-        details.appendChild(p);
-      }
+      const h = document.createElement("h4");
+      h.textContent = "Apple 单集简介";
+      const p = document.createElement("p");
+      p.className = "podcast-original";
+      p.textContent = record.description;
+      details.appendChild(h);
+      details.appendChild(p);
       toggle.onclick = () => {
         const expanded = !details.classList.toggle("hidden");
         toggle.textContent = expanded ? "收起" : "展开";
