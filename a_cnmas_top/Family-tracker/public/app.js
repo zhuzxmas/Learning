@@ -5339,7 +5339,7 @@ function podcastRender() {
     if (Number(record.durationSeconds) > 0) {
       const duration = document.createElement("div");
       duration.className = "podcast-duration";
-      duration.textContent = "时长 " + Math.max(1, Math.round(Number(record.durationSeconds) / 60)) + " min";
+      duration.textContent = Math.max(1, Math.round(Number(record.durationSeconds) / 60)) + " min";
       side.appendChild(duration);
     }
     const main = document.createElement("div");
