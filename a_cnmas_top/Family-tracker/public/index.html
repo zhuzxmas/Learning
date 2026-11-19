@@ -85,10 +85,10 @@
       }, 800);
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=80" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
-  <noscript><link rel="stylesheet" href="style.css?v=80" /></noscript>
+  <link rel="stylesheet" href="style.css?v=83" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
+  <noscript><link rel="stylesheet" href="style.css?v=83" /></noscript>
   <link rel="preload" href="msal-browser.min.js" as="script" />
-  <link rel="preload" href="app.js?v=126" as="script" />
+  <link rel="preload" href="app.js?v=130" as="script" />
 </head>
 <body>
   <header class="topbar">
@@ -2271,6 +2271,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab-btn active" id="podcastTabListBtn">历史</button>
           <button type="button" class="tab-btn" id="podcastTabAddBtn">记录一集</button>
+          <button type="button" class="tab-btn" id="podcastTabSettingsBtn">设置</button>
         </div>
 
         <div class="tab-panel" id="podcastTabList">
@@ -2303,6 +2304,34 @@
               </div>
             </form>
             <p class="muted" id="podcastSubmitHint"></p>
+          </div>
+        </div>
+
+        <div class="tab-panel hidden" id="podcastTabSettings">
+          <div class="card podcast-settings">
+            <h2>Podcast 记录本</h2>
+            <p>本功能只保存 Apple Podcasts 提供的单集信息和你自己写的评价，不下载或复制音频。</p>
+            <h3>工作流程</h3>
+            <ol>
+              <li>网页或 iPhone Shortcut 将带有 <code>?i=单集编号</code> 的 Apple Podcasts 链接提交到 <code>https://api.cnmas.top/podcast</code>。</li>
+              <li>Cloudflare Worker 校验链接和身份，并触发 GitHub Actions 的 <code>Podcast completed</code> workflow。</li>
+              <li>workflow 从 Apple 获取标题、节目名、封面、原始简介、发布时间和时长，写入 OneDrive 的 <code>Apps/PodcastTracker/podcast-history.json</code>。</li>
+              <li>单集以 <code>apple:&lt;episode_id&gt;</code> 去重。删除后可以重新提交。</li>
+              <li>在历史卡片左侧封面下点击“写评价”，可使用与博客相同的 Markdown 工具栏。评价会显示在 Podcast 卡片中，并同步为博客中的一篇“播客评价”文章。</li>
+              <li>同一单集始终对应同一篇博客文章，修改评价会更新原文章，不会重复新建。博客中的播客评价为只读，应回到 Podcast 页面编辑。</li>
+            </ol>
+            <h3>新建 iOS Shortcut</h3>
+            <ol>
+              <li>在“快捷指令”中新建快捷指令，命名为“记录播客”，打开“在共享表单中显示”，接收“URL”和“文本”。</li>
+              <li>添加“获取输入中的文本”，再添加“匹配文本”，正则填写 <code>https://podcasts\.apple\.com/[^\s]+</code>。</li>
+              <li>添加“从列表中获取项目”，选择“第一个项目”，命名变量为 <code>EpisodeURL</code>。</li>
+              <li>添加“获取 URL 内容”，URL 填写 <code>https://api.cnmas.top/podcast</code>，方法选择 <code>POST</code>，请求正文选择 <code>JSON</code>。</li>
+              <li>请求头添加 <code>Content-Type: application/json</code> 和 <code>X-Podcast-Ingest-Key: 你的 PODCAST_INGEST_SECRET</code>。</li>
+              <li>JSON 添加：<code>episode_url</code> = <code>EpisodeURL</code>，<code>completed_at</code> = 当前日期（ISO 8601），<code>source</code> = <code>ios-shortcut</code>。</li>
+              <li>最后添加“显示通知”，内容为“Podcast 已提交”。在 Apple Podcasts 单集页面点“分享”并运行此快捷指令。</li>
+            </ol>
+            <p class="muted">提示：如果需要对照完整配置，可以到 <code>App/Podcast/</code> 文件夹查看 iOS Shortcut 的步骤截图。</p>
+            <p class="muted">请勿公开分享包含 <code>PODCAST_INGEST_SECRET</code> 的快捷指令。提交成功的 HTTP 状态是 <code>202</code>；GitHub workflow 完成后刷新历史列表。</p>
           </div>
         </div>
       </div><!-- /#podcastApp -->
@@ -2357,6 +2386,6 @@
   <script defer src="borrow-people.js?v=2"></script>
   <script defer src="valuation.js?v=3"></script>
   <script defer src="page-refresh.js?v=3"></script>
-  <script defer src="app.js?v=126" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="app.js?v=130" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>

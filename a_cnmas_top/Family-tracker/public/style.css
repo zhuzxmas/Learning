@@ -1279,6 +1279,8 @@ button.blog-tag:hover { background: #dbeafe; }
   justify-content: center; font-size: 26px; font-weight: 800;
 }
 .podcast-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.podcast-side { display: flex; flex-direction: column; align-items: stretch; gap: 7px; }
+.podcast-review-btn { width: 76px; padding-left: 4px; padding-right: 4px; }
 .podcast-main { min-width: 0; }
 .podcast-title { margin: 0; font-size: 15px; line-height: 1.35; color: #1b3a12; }
 .podcast-meta { margin: 3px 0 5px; font-size: 12px; color: #6b7280; }
@@ -1293,6 +1295,35 @@ button.blog-tag:hover { background: #dbeafe; }
 .podcast-details p { margin: 0; font-size: 13px; line-height: 1.65; color: #4b5563; white-space: pre-line; }
 .podcast-details .podcast-original { max-height: 260px; overflow-y: auto; }
 #podcastTabAdd .field code { background: #f3f4f6; border-radius: 4px; padding: 1px 4px; }
+#podcastTabAdd .form-actions { margin-top: 16px; }
+.podcast-review-preview {
+  grid-column: 1 / -1;
+  margin-top: 12px; padding: 10px 12px; border-left: 4px solid #118dff;
+  border-radius: 8px; background: #f6faff;
+}
+.podcast-review-heading { margin-bottom: 5px; color: #0369a1; font-size: 13px; font-weight: 800; }
+.podcast-review-preview .blog-body { font-size: 13px; }
+.podcast-review-box {
+  grid-column: 1 / -1;
+  margin-top: 12px; padding: 12px; border: 1px solid #bfdbfe;
+  border-radius: 10px; background: #f8fbff;
+}
+.podcast-md-toolbar { margin-bottom: 8px; }
+.podcast-review-box textarea {
+  display: block; width: 100%; min-height: 110px; resize: vertical;
+  padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+  font: inherit; line-height: 1.6; background: #fff;
+}
+.podcast-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.podcast-settings { line-height: 1.7; }
+.podcast-settings h2 { margin-top: 0; }
+.podcast-settings h3 { margin: 18px 0 6px; font-size: 16px; color: #1b3a12; }
+.podcast-settings ol { margin: 7px 0; padding-left: 24px; }
+.podcast-settings li { margin: 6px 0; }
+.podcast-settings code {
+  padding: 1px 5px; border-radius: 4px; background: #eef2f7;
+  font-family: ui-monospace, Consolas, monospace; font-size: 90%; word-break: break-word;
+}
 @media (max-width: 640px) {
   .podcast-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .podcast-toolbar input[type="search"] { grid-column: 1 / -1; width: 100%; }
@@ -1300,6 +1331,7 @@ button.blog-tag:hover { background: #dbeafe; }
   .podcast-toolbar #podcastCount { grid-column: 1 / -1; margin-left: 0; }
   .podcast-item { grid-template-columns: 64px minmax(0, 1fr); gap: 10px; padding: 10px; }
   .podcast-art { width: 64px; height: 64px; }
+  .podcast-review-btn { width: 64px; font-size: 12px; }
 }
 
 /* Rendered Markdown body */

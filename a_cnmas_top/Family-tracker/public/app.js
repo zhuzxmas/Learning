@@ -371,8 +371,10 @@ const els = {
   podcastApp: $("podcastApp"),
   podcastTabListBtn: $("podcastTabListBtn"),
   podcastTabAddBtn: $("podcastTabAddBtn"),
+  podcastTabSettingsBtn: $("podcastTabSettingsBtn"),
   podcastTabList: $("podcastTabList"),
   podcastTabAdd: $("podcastTabAdd"),
+  podcastTabSettings: $("podcastTabSettings"),
   podcastSearch: $("podcastSearch"),
   podcastShowFilter: $("podcastShowFilter"),
   podcastYearFilter: $("podcastYearFilter"),
@@ -4989,7 +4991,7 @@ function podcastRepairText(value) {
 
 function podcastRepairRecord(record) {
   const repaired = { ...record };
-  ["title", "showTitle", "description"].forEach((key) => {
+  ["title", "showTitle", "description", "review"].forEach((key) => {
     repaired[key] = podcastRepairText(repaired[key]);
   });
   delete repaired.introduction;
@@ -5114,6 +5116,8 @@ async function podcastDelete(record) {
         podcastRecords = next;
         podcastEtag = nextEtag;
         podcastRender();
+        try { await podcastDeleteBlogReview(token, record); }
+        catch (error) { console.warn("Podcast blog review cleanup:", error); }
         setStatus("Podcast 记录已删除。", "ok", 2500);
         return;
       }
@@ -5127,6 +5131,147 @@ async function podcastDelete(record) {
     podcastRender();
     setStatus("删除失败：" + (error.message || error), "error");
   }
+}
+
+function podcastReviewBlogId(record) {
+  return "podcast-" + String(record.episodeId || record.id || "").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function podcastReviewDate(record) {
+  const formatted = formatBeijingTime(record.completedAt);
+  const match = formatted.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : todayStr();
+}
+
+function podcastReviewBody(record) {
+  const lines = [
+    "> 节目：" + (record.showTitle || "未知节目"),
+    "> 单集：[" + (record.title || "未知单集") + "](" + (record.episodeUrl || "https://podcasts.apple.com/") + ")",
+    "> 听完时间：" + formatBeijingTime(record.completedAt),
+    "",
+    "---",
+    "",
+    record.review || "",
+  ];
+  return lines.join("\n");
+}
+
+async function podcastWriteBlogIndex(token, posts, etag) {
+  const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+  if (etag) headers["If-Match"] = etag; else headers["If-None-Match"] = "*";
+  return fetch(blogContentUrl(BLOG_INDEX_FILE), {
+    method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ posts }),
+  });
+}
+
+async function podcastSyncReviewToBlog(token, record) {
+  await blogResolveFolder(token);
+  const id = podcastReviewBlogId(record);
+  const body = podcastReviewBody(record);
+  await blogWriteText(token, "posts/" + id + ".md", body);
+  const now = new Date().toISOString();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const fresh = await blogReadIndex(token);
+    const old = fresh.posts.find((post) => post.id === id);
+    const entry = {
+      id,
+      title: "[播客评价] " + (record.title || "未知单集"),
+      date: podcastReviewDate(record),
+      tags: ["播客", "播客评价"],
+      created: (old && old.created) || record.reviewCreatedAt || now,
+      modified: now,
+      excerpt: blogMakeExcerpt(record.review || ""),
+      searchText: [record.showTitle, record.title, record.review].filter(Boolean).join(" ").slice(0, 2000),
+      images: 0,
+      podcastEpisodeId: record.episodeId || "",
+    };
+    const posts = fresh.posts.filter((post) => post.id !== id).concat(entry).sort(blogCmp);
+    const res = await podcastWriteBlogIndex(token, posts, fresh.etag);
+    if (res.ok) {
+      if (blogLoaded) {
+        blogPosts = posts;
+        blogIndexEtag = (await res.json()).eTag || null;
+        blogRenderList();
+      }
+      return;
+    }
+    if (res.status !== 409 && res.status !== 412) {
+      throw new Error("同步博客索引失败：" + res.status + " " + (await res.text()));
+    }
+  }
+  throw new Error("同步博客索引冲突，重试多次仍失败。");
+}
+
+async function podcastDeleteBlogReview(token, record) {
+  const id = podcastReviewBlogId(record);
+  await blogResolveFolder(token);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const fresh = await blogReadIndex(token);
+    const posts = fresh.posts.filter((post) => post.id !== id);
+    if (posts.length === fresh.posts.length) return;
+    const res = await podcastWriteBlogIndex(token, posts, fresh.etag);
+    if (res.ok) {
+      await blogDeleteFile(token, "posts/" + id + ".md");
+      if (blogLoaded) { blogPosts = posts; blogIndexEtag = (await res.json()).eTag || null; blogRenderList(); }
+      return;
+    }
+    if (res.status !== 409 && res.status !== 412) throw new Error("删除博客评价失败：" + res.status);
+  }
+}
+
+async function podcastSaveReview(record, text) {
+  const review = String(text || "").trim();
+  if (!review) throw new Error("请填写评价内容。");
+  const token = await getToken();
+  await podcastResolveFolder(token);
+  let saved = null;
+  let persisted = false;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const fresh = await podcastReadHistory(token);
+    const records = fresh.records.map(podcastRepairRecord);
+    const index = records.findIndex((item) => item.id === record.id);
+    if (index < 0) throw new Error("Podcast 记录已不存在，请刷新后重试。");
+    const old = records[index];
+    saved = {
+      ...old,
+      review,
+      reviewCreatedAt: old.reviewCreatedAt || new Date().toISOString(),
+      reviewUpdatedAt: new Date().toISOString(),
+      reviewBlogId: podcastReviewBlogId(old),
+    };
+    records[index] = saved;
+    const nextEtag = await podcastWriteHistory(token, records, fresh.etag);
+    if (nextEtag) {
+      podcastRecords = records;
+      podcastEtag = nextEtag;
+      podcastRender();
+      persisted = true;
+      break;
+    }
+  }
+  if (!saved || !persisted) throw new Error("保存评价冲突，重试多次仍失败。");
+  try { await podcastSyncReviewToBlog(token, saved); }
+  catch (error) { throw new Error("评价已保存，但同步博客失败：" + (error.message || error)); }
+}
+
+function podcastCreateMdToolbar(textarea) {
+  const toolbar = document.createElement("div");
+  toolbar.className = "blog-md-toolbar podcast-md-toolbar";
+  const buttons = [
+    ["bold", "B"], ["italic", "I"], ["underline", "U"], ["h2", "H2"],
+    ["quote", "“”"], ["ul", "• 列表"], ["ol", "1. 列表"],
+    ["link", "链接"], ["code", "</>"], ["hr", "—"],
+  ];
+  buttons.forEach(([action, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "md-btn";
+    button.dataset.md = action;
+    button.textContent = label;
+    button.onclick = () => blogMdAction(action, textarea);
+    toolbar.appendChild(button);
+  });
+  return toolbar;
 }
 
 function podcastYearOf(value) {
@@ -5164,7 +5309,7 @@ function podcastRender() {
       if (podcastShowFilter && String(record.showTitle || "") !== podcastShowFilter) return false;
       if (podcastYearFilter && podcastYearOf(record.completedAt) !== podcastYearFilter) return false;
       if (!q) return true;
-      return [record.title, record.showTitle, record.description]
+      return [record.title, record.showTitle, record.description, record.review]
         .map((value) => String(value || "").toLowerCase())
         .join(" ")
         .includes(q);
@@ -5177,6 +5322,8 @@ function podcastRender() {
   list.forEach((record) => {
     const item = document.createElement("article");
     item.className = "podcast-item";
+    const side = document.createElement("div");
+    side.className = "podcast-side";
     const art = document.createElement("div");
     art.className = "podcast-art";
     if (record.artworkUrl) {
@@ -5188,6 +5335,7 @@ function podcastRender() {
     } else {
       art.textContent = "P";
     }
+    side.appendChild(art);
     const main = document.createElement("div");
     main.className = "podcast-main";
     const title = document.createElement("h3");
@@ -5207,9 +5355,26 @@ function podcastRender() {
     link.href = record.episodeUrl || "#";
     link.target = "_blank";
     link.rel = "noopener";
-    link.textContent = "在播客App打开";
+    link.textContent = "去播客App";
     if (!record.episodeUrl) link.classList.add("hidden");
     actions.appendChild(link);
+    const reviewBtn = document.createElement("button");
+    reviewBtn.type = "button";
+    reviewBtn.className = "btn btn-mini btn-primary podcast-review-btn";
+    reviewBtn.textContent = record.review ? "编辑评价" : "写评价";
+    side.appendChild(reviewBtn);
+    if (record.review) {
+      const blogBtn = document.createElement("button");
+      blogBtn.type = "button";
+      blogBtn.className = "btn btn-mini btn-ghost";
+      blogBtn.textContent = "查看博客";
+      blogBtn.onclick = async () => {
+        await setMode("blog");
+        if (!blogLoaded) await blogLoad();
+        await blogOpen(podcastReviewBlogId(record));
+      };
+      actions.appendChild(blogBtn);
+    }
     let details = null;
     if (record.description) {
       const toggle = document.createElement("button");
@@ -5238,23 +5403,71 @@ function podcastRender() {
     deleteBtn.textContent = "删除";
     deleteBtn.onclick = () => podcastDelete(record);
     actions.appendChild(deleteBtn);
+    const reviewBox = document.createElement("div");
+    reviewBox.className = "podcast-review-box hidden";
+    const textarea = document.createElement("textarea");
+    textarea.rows = 12;
+    textarea.placeholder = "写下你听完后的想法…";
+    textarea.value = record.review || "";
+    const mdToolbar = podcastCreateMdToolbar(textarea);
+    const reviewActions = document.createElement("div");
+    reviewActions.className = "podcast-review-actions";
+    const saveReviewBtn = document.createElement("button");
+    saveReviewBtn.type = "button"; saveReviewBtn.className = "btn btn-primary"; saveReviewBtn.textContent = "保存并同步到博客";
+    const cancelReviewBtn = document.createElement("button");
+    cancelReviewBtn.type = "button"; cancelReviewBtn.className = "btn btn-ghost"; cancelReviewBtn.textContent = "取消";
+    reviewActions.appendChild(saveReviewBtn); reviewActions.appendChild(cancelReviewBtn);
+    reviewBox.appendChild(mdToolbar); reviewBox.appendChild(textarea); reviewBox.appendChild(reviewActions);
+    reviewBtn.onclick = () => {
+      reviewBox.classList.toggle("hidden");
+      if (!reviewBox.classList.contains("hidden")) textarea.focus();
+    };
+    cancelReviewBtn.onclick = () => reviewBox.classList.add("hidden");
+    saveReviewBtn.onclick = async () => {
+      saveReviewBtn.disabled = true;
+      try {
+        setStatus("正在保存评价并同步到博客…");
+        await podcastSaveReview(record, textarea.value);
+        setStatus("评价已保存并同步到博客。", "ok", 3000);
+      } catch (error) {
+        setStatus("评价保存失败：" + (error.message || error), "error");
+      } finally { saveReviewBtn.disabled = false; }
+    };
+    let savedReview = null;
+    if (record.review) {
+      savedReview = document.createElement("div");
+      savedReview.className = "podcast-review-preview";
+      const reviewHeading = document.createElement("div");
+      reviewHeading.className = "podcast-review-heading";
+      reviewHeading.textContent = "我的评价";
+      const reviewBody = document.createElement("div");
+      reviewBody.className = "blog-body";
+      reviewBody.innerHTML = blogRenderMarkdown(record.review);
+      savedReview.appendChild(reviewHeading); savedReview.appendChild(reviewBody);
+    }
     main.appendChild(title);
     main.appendChild(meta);
     main.appendChild(preview);
     main.appendChild(actions);
     if (details) main.appendChild(details);
-    item.appendChild(art);
+    item.appendChild(side);
     item.appendChild(main);
+    if (savedReview) item.appendChild(savedReview);
+    item.appendChild(reviewBox);
     els.podcastList.appendChild(item);
   });
 }
 
 function podcastSetTab(name) {
   const isList = name === "list";
+  const isAdd = name === "add";
+  const isSettings = name === "settings";
   els.podcastTabListBtn.classList.toggle("active", isList);
-  els.podcastTabAddBtn.classList.toggle("active", !isList);
+  els.podcastTabAddBtn.classList.toggle("active", isAdd);
+  els.podcastTabSettingsBtn.classList.toggle("active", isSettings);
   els.podcastTabList.classList.toggle("hidden", !isList);
-  els.podcastTabAdd.classList.toggle("hidden", isList);
+  els.podcastTabAdd.classList.toggle("hidden", !isAdd);
+  els.podcastTabSettings.classList.toggle("hidden", !isSettings);
 }
 
 function podcastResetForm() {
@@ -5311,6 +5524,7 @@ async function podcastSubmit(event) {
 function podcastWireEvents() {
   els.podcastTabListBtn.onclick = () => podcastSetTab("list");
   els.podcastTabAddBtn.onclick = () => podcastSetTab("add");
+  els.podcastTabSettingsBtn.onclick = () => podcastSetTab("settings");
   els.podcastSearch.addEventListener("input", () => {
     podcastSearchText = els.podcastSearch.value;
     podcastRender();
@@ -11355,9 +11569,9 @@ async function blogOpen(id, fromDeepLink) {
   history.replaceState(null, "", deepLinkUrl("blog", id));
   blogSwitchTab("view");
   window.scrollTo({ top: 0, behavior: "auto" });
-  // Summaries are read-only: hide edit/delete controls.
-  els.blogEditThisBtn.classList.toggle("hidden", !!post.isSummary);
-  els.blogDeleteThisBtn.classList.toggle("hidden", !!post.isSummary);
+  const readOnly = !!post.isSummary || !!post.podcastEpisodeId;
+  els.blogEditThisBtn.classList.toggle("hidden", readOnly);
+  els.blogDeleteThisBtn.classList.toggle("hidden", readOnly);
   els.blogSummarySources.classList.toggle("hidden", !post.isSummary);
   els.blogSummarySources.open = false;
   els.blogViewTitle.textContent = post.title || "(无标题)";
