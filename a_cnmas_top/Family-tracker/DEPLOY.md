@@ -107,14 +107,14 @@ After deploying the code and configuring the SMTP password, use the stock detail
 page's “发送邮件” button to verify receipt at the existing recipient address.
 Scheduled ranking delivery keeps its existing trigger and non-fatal failure behavior.
 
-## Enterprise WeChat intelligent bot — `/run wallpaper`
+## Enterprise WeChat intelligent bot — `wallpaper`
 
 The Cloudflare Worker (`tools/deepseek-worker.js`) exposes
 `https://api.cnmas.top/wecom-bot` for an Enterprise WeChat **智能机器人 → API 模式**
 callback. In a group chat, an authorized member sends:
 
 ```text
-@机器人 /run wallpaper
+@机器人 wallpaper
 ```
 
 The Worker verifies WeCom's encrypted callback, triggers the existing
@@ -166,7 +166,7 @@ must return the decrypted `echostr` for the save to succeed.
 Add the bot to the target group, then send:
 
 ```text
-@机器人 /run wallpaper
+@机器人 wallpaper
 ```
 
 Expected reply: `已提交 Bing WallPaper action。` plus the Actions link. Confirm a
@@ -174,5 +174,5 @@ new `Bing WallPaper action` run appears in GitHub Actions with event type
 `repository_dispatch`.
 
 Available commands are deliberately allow-listed in `WECOM_COMMANDS`. Only
-`/run wallpaper` is currently enabled; unsupported commands do not trigger any
+`wallpaper` is currently enabled; unsupported commands do not trigger any
 workflow.

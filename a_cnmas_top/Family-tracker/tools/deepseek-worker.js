@@ -25,7 +25,7 @@
  *        Name:  WECOM_ALLOWED_USERIDS  Value: <comma-separated userids>  (optional)
  *        Name:  WECOM_ALLOWED_CHATIDS  Value: <comma-separated chatids>  (optional)
  *          The bot callback is https://api.cnmas.top/wecom-bot and accepts
- *          "/run wallpaper" from authorized group members. At least one of the
+ *          "wallpaper" from authorized group members. At least one of the
  *          two allow-lists must be configured; otherwise every command is
  *          rejected with the caller's userid/chatid so they can be added.
  *   4. Settings -> Triggers -> Custom Domains -> Add  ->  api.cnmas.top
@@ -83,7 +83,7 @@ const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
 
 const WECOM_BOT_PATH = "/wecom-bot";
 const WECOM_COMMANDS = {
-  "/run wallpaper": {
+  "wallpaper": {
     eventType: GH_WALLPAPER_DISPATCH_EVENT,
     label: "Bing WallPaper action",
     url: "https://github.com/" + GH_DISPATCH_REPO + "/actions/workflows/BingWallPaper.yml",
@@ -370,7 +370,7 @@ async function handleWeComBot(request, env, ctx) {
     if (!action) {
       workerLog("info", "wecom_bot", { status: "unknown_command", command });
       return wecomEncryptedReply(env, wecomTextReply(message.msgid,
-        "可用命令：\n/run wallpaper"), params.nonce);
+        "可用命令：\nwallpaper"), params.nonce);
     }
 
     try {

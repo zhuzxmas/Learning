@@ -148,7 +148,7 @@ async function postMessage(message, options) {
   const wallpaper = await postMessage({
     msgid: "msg-wallpaper", aibotid: "bot", chatid: "chat-1", chattype: "group",
     from: { userid: "zhuzx" }, msgtype: "text",
-    text: { content: "@Robot /run wallpaper" },
+    text: { content: "@Robot wallpaper" },
   });
   assert.equal(wallpaper.response.status, 200);
   const replyEnvelope = await wallpaper.response.json();
@@ -172,7 +172,7 @@ async function postMessage(message, options) {
   const denied = await postMessage({
     msgid: "msg-denied", aibotid: "bot", chatid: "chat-1", chattype: "group",
     from: { userid: "intruder" }, msgtype: "text",
-    text: { content: "/run wallpaper" },
+    text: { content: "wallpaper" },
   });
   const deniedReply = JSON.parse(decryptPayload((await denied.response.json()).encrypt));
   assert.match(deniedReply.stream.content, /未授权/);
@@ -181,10 +181,10 @@ async function postMessage(message, options) {
   const unknown = await postMessage({
     msgid: "msg-unknown", aibotid: "bot", chatid: "chat-1", chattype: "group",
     from: { userid: "zhuzx" }, msgtype: "text",
-    text: { content: "/run other" },
+    text: { content: "/run wallpaper" },
   });
   const unknownReply = JSON.parse(decryptPayload((await unknown.response.json()).encrypt));
-  assert.match(unknownReply.stream.content, /\/run wallpaper/);
+  assert.match(unknownReply.stream.content, /wallpaper/);
   assert.equal(requests.length, 0);
 
   // Exercise every WeCom 32-byte padding length so the WebCrypto raw-block
@@ -206,7 +206,7 @@ async function postMessage(message, options) {
   const encrypted = wrapMessage({
     msgid: "msg-bad-sig", chatid: "chat-1", chattype: "group",
     from: { userid: "zhuzx" }, msgtype: "text",
-    text: { content: "/run wallpaper" },
+    text: { content: "wallpaper" },
   });
   const badSignature = await context.worker.fetch(new Request(
     callbackUrl(1700000000, "nonce-2", encrypted).replace("msg_signature=", "msg_signature=bad"), {

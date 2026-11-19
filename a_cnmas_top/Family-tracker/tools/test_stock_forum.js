@@ -68,7 +68,7 @@ async function main() {
     forumCmp: () => 0,
     fetch: async (url, options) => {
       writes++;
-      const body = JSON.parse(options.body);
+      const body = JSON.parse(options.body.replace(/^\uFEFF/, ""));
       if (body.posts) { topic = body.topic; posts = body.posts; }
       return { ok: true, status: 200, json: async () => ({ eTag: "updated-etag" }) };
     },

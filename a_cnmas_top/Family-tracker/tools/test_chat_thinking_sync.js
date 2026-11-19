@@ -120,7 +120,7 @@ async function testRapidTogglesPersistFinalValue() {
   const h = harness();
   const writes = [];
   h.setFetch(async (_url, options) => {
-    writes.push({ headers: options.headers, body: JSON.parse(options.body) });
+    writes.push({ headers: options.headers, body: JSON.parse(options.body.replace(/^\uFEFF/, "")) });
     return response(200, { eTag: '"etag-' + writes.length + '"' });
   });
   h.context.els.aiThinking.checked = true;
@@ -189,7 +189,7 @@ async function testOfflinePendingRetriesViaMissingCloudFile() {
   await h.settle();
   assert.equal(calls.length, 2);
   assert.equal(calls[1].headers["If-None-Match"], "*");
-  assert.equal(JSON.parse(calls[1].body).thinking, true);
+  assert.equal(JSON.parse(calls[1].body.replace(/^\uFEFF/, "")).thinking, true);
   assert.equal(h.local().pending, false);
 }
 

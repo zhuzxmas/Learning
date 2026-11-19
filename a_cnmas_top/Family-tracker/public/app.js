@@ -1271,6 +1271,8 @@ async function forumReturnToList() {
 }
 
 /* --------------------------- Graph I/O ----------------------------------- */
+// OneDrive JSON file bodies include a UTF-8 BOM so its iOS preview detects
+// Chinese text correctly. Fetch response.json() ignores the BOM when reading.
 // Resolved folder addressing, set once by resolveFolder().
 let driveBase = null;      // Graph URL prefix for the folder holding our files
 let folderMode = null;     // "share" | "own"
@@ -1375,11 +1377,11 @@ async function writeFile(token, name, getList, etag, applyOnConflict) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const headers = {
       Authorization: "Bearer " + token,
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
     };
     if (etag) headers["If-Match"] = etag;
     const list = getList();
-    const body = JSON.stringify({ records: list });
+    const body = "\uFEFF" + JSON.stringify({ records: list });
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -1506,10 +1508,10 @@ async function saveCustomCats() {
   for (let attempt = 0; attempt < 3; attempt++) {
     const headers = {
       Authorization: "Bearer " + token,
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
     };
     if (etagCats) headers["If-Match"] = etagCats;
-    const body = JSON.stringify({ custom: customCats, hidden: hiddenCats, secretExpiry });
+    const body = "\uFEFF" + JSON.stringify({ custom: customCats, hidden: hiddenCats, secretExpiry });
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -2943,7 +2945,7 @@ async function incWriteJson(token, name, getData, etag, applyOnConflict) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
     const data = getData();
-    const body = JSON.stringify(data);
+    const body = "\uFEFF" + JSON.stringify(data);
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -3681,11 +3683,11 @@ async function sbtMutateStockSettings(code, mutate) {
     const updated = mutate(current);
     if (updated && Object.keys(updated).length) next.stocks[code] = updated;
     else delete next.stocks[code];
-    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json; charset=utf-8" };
     if (sbtValuationEtag) headers["If-Match"] = sbtValuationEtag;
     else headers["If-None-Match"] = "*";
     const res = await fetch(sbtChildUrl(SBT_VALUATION_SETTINGS_FILE, ":/content"), {
-      method: "PUT", headers, body: JSON.stringify(next),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify(next),
     });
     if (res.ok) {
       const item = await res.json(); sbtValuationSettings = next; sbtValuationEtag = item.eTag || null; return;
@@ -5447,7 +5449,7 @@ async function stkWriteJson(token, name, getData, etag, applyOnConflict) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
     const data = getData();
-    const body = JSON.stringify(data);
+    const body = "\uFEFF" + JSON.stringify(data);
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -5599,10 +5601,10 @@ async function stkReconcileIncome() {
     }
     const merged = manual.concat(desired);
     const { content } = incFileUrls(INCOME_RECORDS_FILE);
-    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+    const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json; charset=utf-8" };
     if (current.etag) headers["If-Match"] = current.etag;
     const res = await fetch(content, {
-      method: "PUT", headers, body: JSON.stringify({ records: merged }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ records: merged }),
     });
     if (res.ok) {
       const item = await res.json();
@@ -5717,7 +5719,7 @@ async function stkReconcileForum() {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (topicData.etag) headers["If-Match"] = topicData.etag;
     const writeTopic = await fetch(forumContentUrl("forum/" + topicId + ".json"), {
-      method: "PUT", headers, body: JSON.stringify({ topic: nextTopic, posts }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ topic: nextTopic, posts }),
     });
     if (writeTopic.status === 412) continue;
     if (!writeTopic.ok) throw new Error("同步股票收益主题失败：" + writeTopic.status + " " + (await writeTopic.text()));
@@ -5730,7 +5732,7 @@ async function stkReconcileForum() {
     const idxHeaders = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (freshIdx.etag) idxHeaders["If-Match"] = freshIdx.etag;
     const writeIndex = await fetch(forumContentUrl(FORUM_INDEX_FILE), {
-      method: "PUT", headers: idxHeaders, body: JSON.stringify({ topics }),
+      method: "PUT", headers: idxHeaders, body: "\uFEFF" + JSON.stringify({ topics }),
     });
     if (writeIndex.status === 412) continue;
     if (!writeIndex.ok) throw new Error("同步股票收益索引失败：" + writeIndex.status + " " + (await writeIndex.text()));
@@ -6870,7 +6872,7 @@ async function medWriteJson(token, name, getData, etag, applyOnConflict) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
     const data = getData();
-    const body = JSON.stringify(data);
+    const body = "\uFEFF" + JSON.stringify(data);
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -7477,7 +7479,7 @@ async function xtWriteJson(token, name, getData, etag, applyOnConflict, onMerge)
   for (let attempt = 0; attempt < 4; attempt++) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
-    const body = JSON.stringify(getData());
+    const body = "\uFEFF" + JSON.stringify(getData());
     const res = await fetch(content, { method: "PUT", headers, body });
     if (res.ok) {
       const item = await res.json();
@@ -10431,7 +10433,7 @@ async function blogSaveTagCandidates() {
   for (let attempt = 0; attempt < 4; attempt++) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (blogTagsEtag) headers["If-Match"] = blogTagsEtag;
-    const res = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: JSON.stringify({ tags: blogTagCandidates }) });
+    const res = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ tags: blogTagCandidates }) });
     if (res.ok) { blogTagsEtag = (await res.json()).eTag || null; return; }
     if (res.status === 412) {
       const fresh = await fetch(blogContentUrl(BLOG_TAGS_FILE), { headers: { Authorization: "Bearer " + token } });
@@ -10453,7 +10455,7 @@ async function blogDeleteTagCandidate(tag) {
     const next = remote.filter((x) => x !== tag);
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     const etag = res.headers.get("ETag"); if (etag) headers["If-Match"] = etag;
-    const put = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: JSON.stringify({ tags: next }) });
+    const put = await fetch(blogContentUrl(BLOG_TAGS_FILE), { method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ tags: next }) });
     if (put.ok) { blogTagCandidates = next; blogTagsEtag = (await put.json()).eTag || null; blogRenderTagOptions(); return; }
     if (put.status === 409 || put.status === 412) continue;
     throw new Error("删除标签失败：" + put.status);
@@ -10582,7 +10584,7 @@ async function saveSummaryModel() {
       if (etag) headers["If-Match"] = etag;
       const res = await fetch(blogContentUrl(SUMMARY_SETTINGS_FILE), {
         method: "PUT", headers,
-        body: JSON.stringify({ model, modified: new Date().toISOString() }),
+        body: "\uFEFF" + JSON.stringify({ model, modified: new Date().toISOString() }),
       });
       if (res.ok) {
         const item = await res.json();
@@ -10635,7 +10637,7 @@ async function blogSaveReceipt(token, ids) {
     const seen = [...new Set(remote.concat(ids))];
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     const etag = res.headers.get("ETag"); if (etag) headers["If-Match"] = etag; else headers["If-None-Match"] = "*";
-    const put = await fetch(blogContentUrl(path), { method: "PUT", headers, body: JSON.stringify({ seenCommentIds: seen, modified: new Date().toISOString() }) });
+    const put = await fetch(blogContentUrl(path), { method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ seenCommentIds: seen, modified: new Date().toISOString() }) });
     if (put.ok) { blogReadCommentIds = new Set(seen); blogReadReceiptEtag = (await put.json()).eTag || null; return; }
     if (put.status === 409 || put.status === 412) continue;
     throw new Error("保存评论已读状态失败：" + put.status);
@@ -10747,7 +10749,7 @@ async function blogMutateComments(token, articleId, mutate) {
     if (fresh.etag) headers["If-Match"] = fresh.etag;
     else headers["If-None-Match"] = "*";
     const res = await fetch(blogContentUrl(blogCommentPath(articleId)), {
-      method: "PUT", headers, body: JSON.stringify({ articleId, comments }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ articleId, comments }),
     });
     if (res.ok) { blogCommentsData = comments; blogCommentsEtag = (await res.json()).eTag || null; return; }
     if (res.status === 409 || res.status === 412) continue;
@@ -10771,7 +10773,7 @@ async function blogWriteIndex(token) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (blogIndexEtag) headers["If-Match"] = blogIndexEtag;
     const res = await fetch(blogContentUrl(BLOG_INDEX_FILE), {
-      method: "PUT", headers, body: JSON.stringify({ posts: blogPosts }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ posts: blogPosts }),
     });
     if (res.ok) { const it = await res.json(); blogIndexEtag = it.eTag; return; }
     if (res.status === 412) { // someone else changed it — reload & keep our edits by id
@@ -11920,7 +11922,7 @@ async function forumWriteIndex(token) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (forumIndexEtag) headers["If-Match"] = forumIndexEtag;
     const res = await fetch(forumContentUrl(FORUM_INDEX_FILE), {
-      method: "PUT", headers, body: JSON.stringify({ topics: forumTopics }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ topics: forumTopics }),
     });
     if (res.ok) { const it = await res.json(); forumIndexEtag = it.eTag; return; }
     if (res.status === 412) { // someone else changed it — reload & keep our edits by id
@@ -11982,7 +11984,7 @@ async function forumWriteTopic(token, topic, posts) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (forumCurEtag) headers["If-Match"] = forumCurEtag;
     const res = await fetch(forumContentUrl("forum/" + topic.id + ".json"), {
-      method: "PUT", headers, body: JSON.stringify({ topic, posts }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ topic, posts }),
     });
     if (res.ok) { const it = await res.json(); forumCurEtag = it.eTag; return; }
     if (res.status === 412) { // concurrent reply — merge posts by id, retry
@@ -12658,7 +12660,7 @@ async function travelWrite(token) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (travelEtag) headers["If-Match"] = travelEtag;
     const res = await fetch(travelContentUrl(TRAVEL_RECORDS_FILE), {
-      method: "PUT", headers, body: JSON.stringify({ records: travelRecords, customPeople: travelCustomPeople }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ records: travelRecords, customPeople: travelCustomPeople }),
     });
     if (res.ok) { const it = await res.json(); travelEtag = it.eTag; return; }
     if (res.status === 412) { // merge by id, keep our edits
@@ -12720,7 +12722,7 @@ async function forumMutateTopic(token, topic, mutate) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (fresh.etag) headers["If-Match"] = fresh.etag;
     const res = await fetch(forumContentUrl("forum/" + topic.id + ".json"), {
-      method: "PUT", headers, body: JSON.stringify({ topic, posts: next }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ topic, posts: next }),
     });
     if (res.ok) {
       forumCurPosts = next;
@@ -13496,7 +13498,7 @@ async function chatSyncThinking(token, username, desired, revision) {
     else headers["If-None-Match"] = "*";
     const res = await fetch(chatContentUrl(path), {
       method: "PUT", headers,
-      body: JSON.stringify({ version: 1, thinking: desired.thinking, modified: desired.modified }),
+      body: "\uFEFF" + JSON.stringify({ version: 1, thinking: desired.thinking, modified: desired.modified }),
     });
     if (res.ok) {
       const item = await res.json();
@@ -13593,7 +13595,7 @@ async function chatWriteIndex(token) {
     const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
     if (chatIndexEtag) headers["If-Match"] = chatIndexEtag;
     const res = await fetch(chatContentUrl(CHAT_INDEX_FILE), {
-      method: "PUT", headers, body: JSON.stringify({ convs: chatConvs }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ convs: chatConvs }),
     });
     if (res.ok) { const it = await res.json(); chatIndexEtag = it.eTag; return; }
     if (res.status === 412) { // merge by id, keep our edits
@@ -13630,12 +13632,12 @@ async function chatWriteConv(token, id) {
   const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
   if (chatCurEtag) headers["If-Match"] = chatCurEtag;
   const res = await fetch(chatContentUrl("chats/" + id + ".json"), {
-    method: "PUT", headers, body: JSON.stringify({ messages: chatMessages }),
+    method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ messages: chatMessages }),
   });
   if (res.status === 412) { // conflict: overwrite without If-Match (last write wins for a single chat)
     delete headers["If-Match"];
     const res2 = await fetch(chatContentUrl("chats/" + id + ".json"), {
-      method: "PUT", headers, body: JSON.stringify({ messages: chatMessages }),
+      method: "PUT", headers, body: "\uFEFF" + JSON.stringify({ messages: chatMessages }),
     });
     if (!res2.ok) throw new Error("保存对话失败：" + res2.status);
     const it2 = await res2.json(); chatCurEtag = it2.eTag; chatCacheSet(id, it2.eTag, chatMessages); return;
@@ -14117,7 +14119,7 @@ async function chatSyncCustomModelsChange(token, change, username) {
     }
     const res = await fetch(chatContentUrl(CHAT_MODELS_FILE), {
       method: "PUT", headers,
-      body: JSON.stringify({ custom: resolved.custom, removed: resolved.removed }),
+      body: "\uFEFF" + JSON.stringify({ custom: resolved.custom, removed: resolved.removed }),
     });
     if (res.ok) {
       const it = await res.json();

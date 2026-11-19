@@ -53,7 +53,7 @@ function harness(localCustom, localRemoved, steps) {
       const step = steps.shift();
       if (!step) throw new Error("Unexpected request");
       if (options && options.method === "PUT") {
-        writes.push({ headers: options.headers, body: JSON.parse(options.body) });
+        writes.push({ headers: options.headers, rawBody: options.body, body: JSON.parse(options.body.replace(/^\uFEFF/, "")) });
       }
       return response(step.status, step.data, step.etag);
     },
@@ -85,6 +85,7 @@ function harness(localCustom, localRemoved, steps) {
     type: "delete-custom", name: "deleted",
   }, "a@example.com");
   assert.deepEqual(deletion.writes[0].body, { custom: ["keep"], removed: [] });
+  assert.equal(deletion.writes[0].rawBody.charCodeAt(0), 0xFEFF);
   assert.equal(deletion.writes[0].headers["If-Match"], '"v1"');
   assert.deepEqual(deletion.custom(), ["keep"]);
 
@@ -160,7 +161,7 @@ function harness(localCustom, localRemoved, steps) {
   const duringRead = harness(["old"], [], []);
   duringRead.context.fetch = async (_url, options) => {
     if (options && options.method === "PUT") {
-      duringRead.writes.push({ headers: options.headers, body: JSON.parse(options.body) });
+      duringRead.writes.push({ headers: options.headers, rawBody: options.body, body: JSON.parse(options.body.replace(/^\uFEFF/, "")) });
       return response(200, { eTag: '"saved"' });
     }
     return read.promise;
