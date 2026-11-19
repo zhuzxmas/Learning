@@ -33,6 +33,13 @@ class PodcastParsingTests(unittest.TestCase):
         broken = original.encode("utf-8").decode("latin-1")
         self.assertEqual(podcast_completed.repair_mojibake(broken), original)
 
+    def test_description_text_preserves_paragraphs(self):
+        source = "<p>第一段<br>第二行</p><p>第二段 &amp; 内容</p>"
+        self.assertEqual(
+            podcast_completed.description_text(source),
+            "第一段\n第二行\n\n第二段 & 内容",
+        )
+
     @patch.object(podcast_completed, "scrape_episode_page", return_value={})
     @patch.object(podcast_completed, "lookup_itunes")
     def test_metadata_falls_back_to_default_title(self, lookup, _page):
@@ -41,6 +48,15 @@ class PodcastParsingTests(unittest.TestCase):
             {"episode_id": "123", "country": "us", "url": "https://podcasts.apple.com/x?i=123"})
         self.assertEqual(metadata["title"], "Apple Podcasts 单集 123")
         self.assertEqual(metadata["description"], "")
+
+    @patch.object(podcast_completed, "scrape_episode_page")
+    @patch.object(podcast_completed, "lookup_itunes")
+    def test_metadata_prefers_longer_page_description(self, lookup, page):
+        lookup.return_value = {"title": "单集", "description": "开头简介"}
+        page.return_value = {"description": "第一段\n\n第二段完整内容"}
+        metadata = podcast_completed.collect_metadata(
+            {"episode_id": "123", "country": "us", "url": "https://podcasts.apple.com/x?i=123"})
+        self.assertEqual(metadata["description"], "第一段\n\n第二段完整内容")
 
 if __name__ == "__main__":
     unittest.main()

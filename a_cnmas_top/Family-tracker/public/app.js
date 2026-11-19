@@ -5336,6 +5336,12 @@ function podcastRender() {
       art.textContent = "P";
     }
     side.appendChild(art);
+    if (Number(record.durationSeconds) > 0) {
+      const duration = document.createElement("div");
+      duration.className = "podcast-duration";
+      duration.textContent = "时长 " + Math.max(1, Math.round(Number(record.durationSeconds) / 60)) + " min";
+      side.appendChild(duration);
+    }
     const main = document.createElement("div");
     main.className = "podcast-main";
     const title = document.createElement("h3");

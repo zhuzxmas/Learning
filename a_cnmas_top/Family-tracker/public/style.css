@@ -1280,6 +1280,7 @@ button.blog-tag:hover { background: #dbeafe; }
 }
 .podcast-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .podcast-side { display: flex; flex-direction: column; align-items: stretch; gap: 7px; }
+.podcast-duration { text-align: center; color: #6b7280; font-size: 12px; line-height: 1.2; }
 .podcast-review-btn { width: 76px; padding-left: 4px; padding-right: 4px; }
 .podcast-main { min-width: 0; }
 .podcast-title { margin: 0; font-size: 15px; line-height: 1.35; color: #1b3a12; }
@@ -1306,7 +1307,7 @@ button.blog-tag:hover { background: #dbeafe; }
 .podcast-review-body.is-collapsed {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 3;
   overflow: hidden;
 }
 .podcast-review-toggle { margin-top: 7px; }

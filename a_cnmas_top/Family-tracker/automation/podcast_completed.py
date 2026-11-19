@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import time
+from html.parser import HTMLParser
 from urllib.parse import urlparse
 
 import requests
@@ -34,9 +35,31 @@ def one_line(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def strip_html(value):
-    text = re.sub(r"<[^>]+>", " ", str(value or ""))
-    return one_line(html.unescape(text))
+class DescriptionParser(HTMLParser):
+    BLOCK_TAGS = {"article", "blockquote", "div", "h1", "h2", "h3", "h4", "li", "p", "section"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def handle_starttag(self, tag, _attrs):
+        if tag.lower() in self.BLOCK_TAGS or tag.lower() == "br":
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag.lower() in self.BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+
+def description_text(value):
+    parser = DescriptionParser()
+    parser.feed(str(value or ""))
+    text = html.unescape("".join(parser.parts)).replace("\r\n", "\n").replace("\r", "\n")
+    lines = [re.sub(r"[ \t\f\v]+", " ", line).strip() for line in text.split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
 def repair_mojibake(value):
@@ -153,7 +176,7 @@ def lookup_itunes(episode_id, country):
             "title": one_line(item.get("trackName")),
             "showTitle": one_line(item.get("collectionName")),
             "artworkUrl": item.get("artworkUrl600") or item.get("artworkUrl160") or "",
-            "description": strip_html(item.get("description")),
+            "description": description_text(item.get("description")),
             "publishedAt": normalize_time(item.get("releaseDate")),
             "durationSeconds": (
                 int(item["trackTimeMillis"] // 1000)
@@ -195,7 +218,7 @@ def scrape_episode_page(url):
             series = node.get("partOfSeries") if isinstance(node.get("partOfSeries"), dict) else {}
             result.setdefault("title", one_line(node.get("name") or node.get("headline")))
             result.setdefault("showTitle", one_line(series.get("name")))
-            result.setdefault("description", strip_html(node.get("description")))
+            result.setdefault("description", description_text(node.get("description")))
             result.setdefault("publishedAt", normalize_time(node.get("datePublished")))
             result.setdefault(
                 "durationSeconds",
@@ -208,7 +231,7 @@ def scrape_episode_page(url):
             break
     tags = meta_tags(text)
     result.setdefault("title", one_line(tags.get("og:title")))
-    result.setdefault("description", strip_html(tags.get("og:description") or tags.get("description")))
+    result.setdefault("description", description_text(tags.get("og:description") or tags.get("description")))
     result.setdefault("artworkUrl", tags.get("og:image") or "")
     if not result.get("title"):
         match = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
@@ -223,6 +246,8 @@ def collect_metadata(episode):
     for key, value in page.items():
         if not metadata.get(key):
             metadata[key] = value
+    descriptions = [metadata.get("description") or "", page.get("description") or ""]
+    metadata["description"] = max(descriptions, key=len)
     if not metadata.get("title"):
         metadata["title"] = "Apple Podcasts 单集 " + episode["episode_id"]
     metadata.setdefault("showTitle", "")
@@ -261,20 +286,54 @@ def find_record(data, episode_id):
     return None
 
 
-def save_record(token, base, record):
+def refresh_descriptions(data, target_episode_id=None):
+    updates = {}
+    for record in data.get("records") or []:
+        if not isinstance(record, dict) or record.get("source") != "apple-podcasts":
+            continue
+        episode = parse_episode_url(record.get("episodeUrl"))
+        if not episode or episode["episode_id"] == str(target_episode_id or ""):
+            continue
+        try:
+            description = collect_metadata(episode).get("description") or ""
+        except Exception as exc:
+            print("WARN: cannot refresh apple:%s description: %s" % (episode["episode_id"], exc))
+            continue
+        if description:
+            updates[episode["episode_id"]] = description
+    return updates
+
+
+def save_record(token, base, record, description_updates=None):
+    description_updates = description_updates or {}
     for attempt in range(5):
         data, etag = read_history(token, base)
-        if find_record(data, record["episodeId"]):
-            return None
         records = []
+        found = False
+        changed = False
         for existing in data.get("records") or []:
             if not isinstance(existing, dict):
                 continue
             existing = dict(existing)
             existing.pop("introduction", None)
             existing.pop("introductionModel", None)
+            episode_id = str(existing.get("episodeId") or "")
+            if episode_id == record["episodeId"]:
+                found = True
+                for key in ("title", "showTitle", "artworkUrl", "description", "publishedAt", "durationSeconds"):
+                    value = record.get(key)
+                    if value not in (None, "") and existing.get(key) != value:
+                        existing[key] = value
+                        changed = True
+            elif description_updates.get(episode_id) and existing.get("description") != description_updates[episode_id]:
+                existing["description"] = description_updates[episode_id]
+                changed = True
             records.append(existing)
-        records.append(record)
+        if not found:
+            records.append(record)
+            changed = True
+        if not changed:
+            return {"created": False, "changed": False}
         records.sort(key=lambda item: str(item.get("completedAt") or ""), reverse=True)
         data["version"] = 1
         data["records"] = records
@@ -293,7 +352,7 @@ def save_record(token, base, record):
             data=body.encode("utf-8"),
         )
         if response.ok:
-            return response.json()
+            return {"created": not found, "changed": True, "item": response.json()}
         if response.status_code in (409, 412):
             time.sleep(0.8 * (attempt + 1))
             continue
@@ -376,9 +435,6 @@ def main():
     token = authenticate()
     base = resolve_base(token)
     current, _ = read_history(token, base)
-    if find_record(current, episode["episode_id"]):
-        print("DUPLICATE apple:%s" % episode["episode_id"])
-        return
 
     metadata = collect_metadata(episode)
     print("Metadata:", metadata.get("showTitle") or "-", "/", metadata.get("title") or "-")
@@ -397,8 +453,11 @@ def main():
         "recordedAt": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "recordedBy": source,
     }
-    saved = save_record(token, base, record)
-    if saved is None:
+    description_updates = refresh_descriptions(current, episode["episode_id"])
+    saved = save_record(token, base, record, description_updates)
+    if not saved["created"]:
+        if saved["changed"]:
+            print("UPDATED descriptions for %s saved Podcast records" % (len(description_updates) + 1))
         print("DUPLICATE apple:%s" % episode["episode_id"])
         return
     print("RECORDED apple:%s" % episode["episode_id"])
