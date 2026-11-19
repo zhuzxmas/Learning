@@ -286,7 +286,10 @@ def find_record(data, episode_id):
     return None
 
 
-def refresh_descriptions(data, target_episode_id=None):
+METADATA_KEYS = ("title", "showTitle", "artworkUrl", "description", "publishedAt", "durationSeconds")
+
+
+def refresh_metadata(data, target_episode_id=None):
     updates = {}
     for record in data.get("records") or []:
         if not isinstance(record, dict) or record.get("source") != "apple-podcasts":
@@ -295,17 +298,26 @@ def refresh_descriptions(data, target_episode_id=None):
         if not episode or episode["episode_id"] == str(target_episode_id or ""):
             continue
         try:
-            description = collect_metadata(episode).get("description") or ""
+            metadata = collect_metadata(episode)
         except Exception as exc:
-            print("WARN: cannot refresh apple:%s description: %s" % (episode["episode_id"], exc))
+            print("WARN: cannot refresh apple:%s metadata: %s" % (episode["episode_id"], exc))
             continue
-        if description:
-            updates[episode["episode_id"]] = description
+        updates[episode["episode_id"]] = metadata
     return updates
 
 
-def save_record(token, base, record, description_updates=None):
-    description_updates = description_updates or {}
+def update_record_metadata(record, metadata):
+    changed = False
+    for key in METADATA_KEYS:
+        value = metadata.get(key)
+        if value not in (None, "") and record.get(key) != value:
+            record[key] = value
+            changed = True
+    return changed
+
+
+def save_record(token, base, record, metadata_updates=None):
+    metadata_updates = metadata_updates or {}
     for attempt in range(5):
         data, etag = read_history(token, base)
         records = []
@@ -320,14 +332,9 @@ def save_record(token, base, record, description_updates=None):
             episode_id = str(existing.get("episodeId") or "")
             if episode_id == record["episodeId"]:
                 found = True
-                for key in ("title", "showTitle", "artworkUrl", "description", "publishedAt", "durationSeconds"):
-                    value = record.get(key)
-                    if value not in (None, "") and existing.get(key) != value:
-                        existing[key] = value
-                        changed = True
-            elif description_updates.get(episode_id) and existing.get("description") != description_updates[episode_id]:
-                existing["description"] = description_updates[episode_id]
-                changed = True
+                changed = update_record_metadata(existing, record) or changed
+            elif metadata_updates.get(episode_id):
+                changed = update_record_metadata(existing, metadata_updates[episode_id]) or changed
             records.append(existing)
         if not found:
             records.append(record)
@@ -453,11 +460,11 @@ def main():
         "recordedAt": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "recordedBy": source,
     }
-    description_updates = refresh_descriptions(current, episode["episode_id"])
-    saved = save_record(token, base, record, description_updates)
+    metadata_updates = refresh_metadata(current, episode["episode_id"])
+    saved = save_record(token, base, record, metadata_updates)
     if not saved["created"]:
         if saved["changed"]:
-            print("UPDATED descriptions for %s saved Podcast records" % (len(description_updates) + 1))
+            print("UPDATED metadata for %s saved Podcast records" % (len(metadata_updates) + 1))
         print("DUPLICATE apple:%s" % episode["episode_id"])
         return
     print("RECORDED apple:%s" % episode["episode_id"])

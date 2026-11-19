@@ -58,5 +58,17 @@ class PodcastParsingTests(unittest.TestCase):
             {"episode_id": "123", "country": "us", "url": "https://podcasts.apple.com/x?i=123"})
         self.assertEqual(metadata["description"], "第一段\n\n第二段完整内容")
 
+    def test_update_record_metadata_adds_duration_without_overwriting_review(self):
+        record = {"durationSeconds": None, "description": "旧简介", "review": "我的评价"}
+        changed = podcast_completed.update_record_metadata(record, {
+            "durationSeconds": 3723,
+            "description": "完整简介",
+            "review": "不应覆盖",
+        })
+        self.assertTrue(changed)
+        self.assertEqual(record["durationSeconds"], 3723)
+        self.assertEqual(record["description"], "完整简介")
+        self.assertEqual(record["review"], "我的评价")
+
 if __name__ == "__main__":
     unittest.main()
