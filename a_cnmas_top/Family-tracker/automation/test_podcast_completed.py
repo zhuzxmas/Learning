@@ -28,6 +28,11 @@ class PodcastParsingTests(unittest.TestCase):
             "2026-11-19T12:30:00Z",
         )
 
+    def test_repair_utf8_decoded_as_latin1(self):
+        original = "西西弗高速"
+        broken = original.encode("utf-8").decode("latin-1")
+        self.assertEqual(podcast_completed.repair_mojibake(broken), original)
+
     @patch.object(podcast_completed, "scrape_episode_page", return_value={})
     @patch.object(podcast_completed, "lookup_itunes")
     def test_metadata_falls_back_to_default_title(self, lookup, _page):

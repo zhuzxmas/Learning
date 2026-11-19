@@ -40,6 +40,18 @@ def strip_html(value):
     return one_line(html.unescape(text))
 
 
+def repair_mojibake(value):
+    if not isinstance(value, str) or not value:
+        return value
+    try:
+        repaired = value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
+    original_cjk = len(re.findall(r"[\u3400-\u9fff]", value))
+    repaired_cjk = len(re.findall(r"[\u3400-\u9fff]", repaired))
+    return repaired if repaired_cjk > original_cjk else value
+
+
 def parse_episode_url(value):
     try:
         parsed = urlparse(str(value or ""))
@@ -131,7 +143,7 @@ def lookup_itunes(episode_id, country):
     try:
         response = requests.get(LOOKUP_URL, params=params, timeout=25)
         response.raise_for_status()
-        results = response.json().get("results") or []
+        results = json.loads(response.content.decode("utf-8-sig")).get("results") or []
     except Exception as exc:
         print("WARN: iTunes lookup failed:", exc)
         return {}
@@ -164,7 +176,7 @@ def scrape_episode_page(url):
     except Exception as exc:
         print("WARN: Apple episode page fetch failed:", exc)
         return {}
-    text = response.text
+    text = response.content.decode("utf-8-sig", errors="replace")
     result = {}
     for block in re.findall(
         r"<script[^>]+type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
@@ -219,6 +231,8 @@ def collect_metadata(episode):
     metadata.setdefault("description", "")
     metadata.setdefault("publishedAt", "")
     metadata.setdefault("durationSeconds", None)
+    for key in ("title", "showTitle", "description"):
+        metadata[key] = repair_mojibake(metadata.get(key) or "")
     return metadata
 
 

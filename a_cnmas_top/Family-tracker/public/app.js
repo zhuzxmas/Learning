@@ -4960,6 +4960,7 @@ let podcastFolderMode = "";
 let podcastLoaded = false;
 let podcastLoadPromise = null;
 let podcastRecords = [];
+let podcastEtag = null;
 let podcastSearchText = "";
 let podcastShowFilter = "";
 let podcastYearFilter = "";
@@ -4973,6 +4974,25 @@ function podcastNormalizeAppleUrl(value) {
   if (!/^\d{1,20}$/.test(episodeId)) return null;
   url.hash = "";
   return { url: url.toString(), episodeId };
+}
+
+function podcastRepairText(value) {
+  const text = String(value || "");
+  if (!text || !/[\u0080-\u00ff]/.test(text)) return text;
+  try {
+    const bytes = Uint8Array.from(text, (char) => char.charCodeAt(0));
+    const repaired = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const cjk = (input) => (input.match(/[\u3400-\u9fff]/g) || []).length;
+    return cjk(repaired) > cjk(text) ? repaired : text;
+  } catch { return text; }
+}
+
+function podcastRepairRecord(record) {
+  const repaired = { ...record };
+  ["title", "showTitle", "description", "introduction"].forEach((key) => {
+    repaired[key] = podcastRepairText(repaired[key]);
+  });
+  return repaired;
 }
 
 async function podcastResolveFolder(token) {
@@ -5031,7 +5051,8 @@ async function podcastLoad(force) {
     const token = await getToken();
     await podcastResolveFolder(token);
     const data = await podcastReadHistory(token);
-    podcastRecords = data.records.slice();
+    podcastRecords = data.records.map(podcastRepairRecord);
+    podcastEtag = data.etag;
     podcastLoaded = true;
     podcastRender();
     setStatus("已载入 " + podcastRecords.length + " 集 Podcast。", "ok", 2000);
@@ -5039,6 +5060,71 @@ async function podcastLoad(force) {
   try { await podcastLoadPromise; }
   catch (e) { podcastLoaded = false; throw e; }
   finally { podcastLoadPromise = null; }
+}
+
+async function podcastWriteHistory(token, records, etag) {
+  if (!etag) throw new Error("无法读取 Podcast 文件版本，请刷新后重试。");
+  const { content, meta } = podcastFileUrls(PODCAST_HISTORY_FILE);
+  const headers = {
+    Authorization: "Bearer " + token,
+    "Content-Type": "application/json; charset=utf-8",
+  };
+  headers["If-Match"] = etag;
+  const body = "\uFEFF" + JSON.stringify({ version: 1, records });
+  const res = await fetch(content, { method: "PUT", headers, body });
+  if (res.status === 412) return null;
+  if (!res.ok) throw new Error("保存 Podcast 历史失败：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  if (item.eTag) return item.eTag;
+  const metaRes = await fetch(meta, { headers: { Authorization: "Bearer " + token } });
+  return metaRes.ok ? (await metaRes.json()).eTag || null : null;
+}
+
+async function podcastDelete(record) {
+  const id = String(record.id || "");
+  if (!id) return;
+  if (!confirm("确定删除这条 Podcast 记录吗？\n" + (record.title || id))) return;
+  const snapshot = podcastRecords.slice();
+  podcastRecords = podcastRecords.filter((item) => item.id !== id);
+  podcastRender();
+  try {
+    setStatus("正在删除 Podcast 记录…");
+    const token = await getToken();
+    await podcastResolveFolder(token);
+    let records = snapshot;
+    let etag = podcastEtag;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (!etag) {
+        const fresh = await podcastReadHistory(token);
+        records = fresh.records.map(podcastRepairRecord);
+        etag = fresh.etag;
+      }
+      const next = records.filter((item) => item.id !== id);
+      if (next.length === records.length) {
+        podcastRecords = records;
+        podcastEtag = etag;
+        podcastRender();
+        setStatus("该 Podcast 记录已被删除。", "ok", 2500);
+        return;
+      }
+      const nextEtag = await podcastWriteHistory(token, next, etag);
+      if (nextEtag) {
+        podcastRecords = next;
+        podcastEtag = nextEtag;
+        podcastRender();
+        setStatus("Podcast 记录已删除。", "ok", 2500);
+        return;
+      }
+      const fresh = await podcastReadHistory(token);
+      records = fresh.records.map(podcastRepairRecord);
+      etag = fresh.etag;
+    }
+    throw new Error("保存冲突，重试多次仍失败。");
+  } catch (error) {
+    podcastRecords = snapshot;
+    podcastRender();
+    setStatus("删除失败：" + (error.message || error), "error");
+  }
 }
 
 function podcastYearOf(value) {
@@ -5154,6 +5240,12 @@ function podcastRender() {
       };
       actions.appendChild(toggle);
     }
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "btn btn-mini btn-danger";
+    deleteBtn.textContent = "删除";
+    deleteBtn.onclick = () => podcastDelete(record);
+    actions.appendChild(deleteBtn);
     main.appendChild(title);
     main.appendChild(meta);
     main.appendChild(preview);
