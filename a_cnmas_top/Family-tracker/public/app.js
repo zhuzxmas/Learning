@@ -140,6 +140,14 @@ const TRAVEL_RECORDS_FILE = "travel.json";
 const TENCENT_MAP_KEY = "X4DBZ-ZKUCQ-UCE5T-4ARHR-2DF67-BZBKL";
 const TENCENT_MAP_LIB_URL = "https://map.qq.com/api/gljs?v=1.exp&libraries=geometry,service&key=";
 
+/* --------------------------- PODCAST CONFIG ------------------------------ */
+// Podcast history lives in its own OneDrive folder: /Apps/PodcastTracker.
+// Paste the folder's 1drv.ms "Can edit" share link here so both accounts can
+// read it. Leave "" to use the signed-in owner's own /Apps/PodcastTracker.
+const PODCAST_FOLDER_SHARE_URL = "https://1drv.ms/f/c/7f804b34b24d36bb/IgAJ-dsthXBsT5hnIGnbNL-CAcBnA74C_DXvRDqm14gQ7wI?e=YMq36B";
+const PODCAST_FOLDER_PATH = "/Apps/PodcastTracker";
+const PODCAST_HISTORY_FILE = "podcast-history.json";
+
 /* --------------------------- BLOG CONFIG -------------------------------- */
 // The blog/life-journal lives in its OWN dedicated OneDrive shared folder.
 // Structure inside it:  blog-index.json  +  posts/<id>.md  +  images/<file>
@@ -359,6 +367,25 @@ const els = {
   incHiddenPayees: $("incHiddenPayees"),
   // --- stock mode ---
   modeBlogBtn: $("modeBlogBtn"),
+  modePodcastBtn: $("modePodcastBtn"),
+  podcastApp: $("podcastApp"),
+  podcastTabListBtn: $("podcastTabListBtn"),
+  podcastTabAddBtn: $("podcastTabAddBtn"),
+  podcastTabList: $("podcastTabList"),
+  podcastTabAdd: $("podcastTabAdd"),
+  podcastSearch: $("podcastSearch"),
+  podcastShowFilter: $("podcastShowFilter"),
+  podcastYearFilter: $("podcastYearFilter"),
+  podcastClearFilterBtn: $("podcastClearFilterBtn"),
+  podcastRefreshBtn: $("podcastRefreshBtn"),
+  podcastCount: $("podcastCount"),
+  podcastList: $("podcastList"),
+  podcastEmpty: $("podcastEmpty"),
+  podcastForm: $("podcastForm"),
+  podcastUrlInput: $("podcastUrlInput"),
+  podcastSubmitBtn: $("podcastSubmitBtn"),
+  podcastCancelBtn: $("podcastCancelBtn"),
+  podcastSubmitHint: $("podcastSubmitHint"),
   stockApp: $("stockApp"),
   // --- 股票基本面 (StockBatchTracker) mode ---
   stocksApp: $("stocksApp"),
@@ -1107,7 +1134,15 @@ async function onSignedIn() {
   // Lazily load whichever mode is active (defaults to 支出). Each mode's data
   // is fetched once and cached; switching modes never reloads.
   const deepLink = readDeepLink();
-  await setMode(deepLink ? "blog" : mode, { skipLoad: !!deepLink, preserveDeepLink: !!deepLink });
+  const podcastView = !deepLink && new URLSearchParams(window.location.search).get("view") === "podcasts";
+  await setMode(deepLink ? "blog" : (podcastView ? "podcast" : mode), {
+    skipLoad: !!deepLink, preserveDeepLink: !!deepLink,
+  });
+  if (podcastView) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
   // Reminders are independent from the visible mode. Load them silently in the
   // background so opening 支出 never waits for or shows blog loading status.
   if (!deepLink) blogLoadCommentRemindersSilently();
@@ -4920,6 +4955,304 @@ async function sbtRemoveStock(code) {
   }
 }
 
+let podcastDriveBase = "";
+let podcastFolderMode = "";
+let podcastLoaded = false;
+let podcastLoadPromise = null;
+let podcastRecords = [];
+let podcastSearchText = "";
+let podcastShowFilter = "";
+let podcastYearFilter = "";
+
+function podcastNormalizeAppleUrl(value) {
+  let url;
+  try { url = new URL(String(value || "").trim()); } catch { return null; }
+  if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "podcasts.apple.com") return null;
+  if (url.username || url.password) return null;
+  const episodeId = String(url.searchParams.get("i") || "").trim();
+  if (!/^\d{1,20}$/.test(episodeId)) return null;
+  url.hash = "";
+  return { url: url.toString(), episodeId };
+}
+
+async function podcastResolveFolder(token) {
+  if (podcastDriveBase) return;
+  if (PODCAST_FOLDER_SHARE_URL) {
+    const sid = encodeShareUrl(PODCAST_FOLDER_SHARE_URL);
+    const res = await fetch(
+      `${GRAPH}/shares/${sid}/driveItem?$select=id,parentReference`,
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!res.ok) throw new Error("无法访问 Podcast 文件夹：" + res.status + " " + (await res.text()));
+    const item = await res.json();
+    const driveId = item.parentReference && item.parentReference.driveId;
+    podcastDriveBase = `${GRAPH}/drives/${driveId}/items/${item.id}`;
+    podcastFolderMode = "share";
+  } else {
+    podcastDriveBase = `${GRAPH}/me/drive/root:${encodeURI(PODCAST_FOLDER_PATH)}`;
+    podcastFolderMode = "own";
+  }
+}
+
+function podcastFileUrls(name) {
+  if (podcastFolderMode === "share") {
+    return {
+      content: `${podcastDriveBase}:/${name}:/content`,
+      meta: `${podcastDriveBase}:/${name}?$select=id,eTag`,
+    };
+  }
+  return {
+    content: `${podcastDriveBase}/${name}:/content`,
+    meta: `${podcastDriveBase}/${name}?$select=id,eTag`,
+  };
+}
+
+async function podcastReadHistory(token) {
+  const { content, meta } = podcastFileUrls(PODCAST_HISTORY_FILE);
+  const res = await fetch(content, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { records: [], etag: null };
+  if (!res.ok) throw new Error("载入 Podcast 历史失败：" + res.status + " " + (await res.text()));
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  const records = data && Array.isArray(data.records) ? data.records : [];
+  let etag = res.headers.get("ETag");
+  if (!etag) {
+    const metaRes = await fetch(meta, { headers: { Authorization: "Bearer " + token } });
+    if (metaRes.ok) etag = (await metaRes.json()).eTag || null;
+  }
+  return { records, etag };
+}
+
+async function podcastLoad(force) {
+  if (!force && podcastLoaded) return;
+  if (podcastLoadPromise) return podcastLoadPromise;
+  podcastLoadPromise = (async () => {
+    setStatus("正在载入 Podcast 历史…");
+    const token = await getToken();
+    await podcastResolveFolder(token);
+    const data = await podcastReadHistory(token);
+    podcastRecords = data.records.slice();
+    podcastLoaded = true;
+    podcastRender();
+    setStatus("已载入 " + podcastRecords.length + " 集 Podcast。", "ok", 2000);
+  })();
+  try { await podcastLoadPromise; }
+  catch (e) { podcastLoaded = false; throw e; }
+  finally { podcastLoadPromise = null; }
+}
+
+function podcastYearOf(value) {
+  const formatted = formatBeijingTime(value);
+  return /^\d{4}/.test(formatted) ? formatted.slice(0, 4) : "";
+}
+
+function podcastFillSelect(select, values, selected, allLabel) {
+  select.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = allLabel;
+  select.appendChild(all);
+  values.forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+  select.value = values.includes(selected) ? selected : "";
+  return select.value;
+}
+
+function podcastRender() {
+  const q = podcastSearchText.trim().toLowerCase();
+  const shows = [...new Set(podcastRecords.map((r) => String(r.showTitle || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const years = [...new Set(podcastRecords.map((r) => podcastYearOf(r.completedAt)).filter(Boolean))]
+    .sort((a, b) => b.localeCompare(a));
+  podcastShowFilter = podcastFillSelect(els.podcastShowFilter, shows, podcastShowFilter, "全部节目");
+  podcastYearFilter = podcastFillSelect(els.podcastYearFilter, years, podcastYearFilter, "全部年份");
+  const list = podcastRecords.slice()
+    .sort((a, b) => String(b.completedAt || "").localeCompare(String(a.completedAt || "")))
+    .filter((record) => {
+      if (podcastShowFilter && String(record.showTitle || "") !== podcastShowFilter) return false;
+      if (podcastYearFilter && podcastYearOf(record.completedAt) !== podcastYearFilter) return false;
+      if (!q) return true;
+      return [record.title, record.showTitle, record.introduction, record.description]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ")
+        .includes(q);
+    });
+  els.podcastCount.textContent = "共 " + list.length + " 集";
+  els.podcastEmpty.classList.toggle("hidden", list.length > 0);
+  els.podcastClearFilterBtn.classList.toggle(
+    "hidden", !q && !podcastShowFilter && !podcastYearFilter);
+  els.podcastList.innerHTML = "";
+  list.forEach((record) => {
+    const item = document.createElement("article");
+    item.className = "podcast-item";
+    const art = document.createElement("div");
+    art.className = "podcast-art";
+    if (record.artworkUrl) {
+      const img = document.createElement("img");
+      img.src = record.artworkUrl;
+      img.alt = "";
+      img.loading = "lazy";
+      art.appendChild(img);
+    } else {
+      art.textContent = "P";
+    }
+    const main = document.createElement("div");
+    main.className = "podcast-main";
+    const title = document.createElement("h3");
+    title.className = "podcast-title";
+    title.textContent = record.title || "未知单集";
+    const meta = document.createElement("p");
+    meta.className = "podcast-meta";
+    meta.textContent = [record.showTitle, record.completedAt ? "听完于 " + formatBeijingTime(record.completedAt) : ""]
+      .filter(Boolean).join(" · ");
+    const preview = document.createElement("p");
+    preview.className = "podcast-preview";
+    preview.textContent = record.introduction || record.description || "暂无简介";
+    const actions = document.createElement("div");
+    actions.className = "podcast-actions";
+    const link = document.createElement("a");
+    link.className = "btn btn-mini btn-ghost";
+    link.href = record.episodeUrl || "#";
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "在 Apple Podcasts 打开";
+    if (!record.episodeUrl) link.classList.add("hidden");
+    actions.appendChild(link);
+    let details = null;
+    if (record.introduction || record.description) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "btn btn-mini btn-ghost";
+      toggle.textContent = "展开";
+      details = document.createElement("div");
+      details.className = "podcast-details hidden";
+      if (record.introduction) {
+        const h = document.createElement("h4");
+        h.textContent = "AI 简介";
+        const p = document.createElement("p");
+        p.textContent = record.introduction;
+        details.appendChild(h);
+        details.appendChild(p);
+      }
+      if (record.description) {
+        const h = document.createElement("h4");
+        h.textContent = "原始简介";
+        const p = document.createElement("p");
+        p.className = "podcast-original";
+        p.textContent = record.description;
+        details.appendChild(h);
+        details.appendChild(p);
+      }
+      toggle.onclick = () => {
+        const expanded = !details.classList.toggle("hidden");
+        toggle.textContent = expanded ? "收起" : "展开";
+        preview.classList.toggle("hidden", expanded);
+      };
+      actions.appendChild(toggle);
+    }
+    main.appendChild(title);
+    main.appendChild(meta);
+    main.appendChild(preview);
+    main.appendChild(actions);
+    if (details) main.appendChild(details);
+    item.appendChild(art);
+    item.appendChild(main);
+    els.podcastList.appendChild(item);
+  });
+}
+
+function podcastSetTab(name) {
+  const isList = name === "list";
+  els.podcastTabListBtn.classList.toggle("active", isList);
+  els.podcastTabAddBtn.classList.toggle("active", !isList);
+  els.podcastTabList.classList.toggle("hidden", !isList);
+  els.podcastTabAdd.classList.toggle("hidden", isList);
+}
+
+function podcastResetForm() {
+  els.podcastUrlInput.value = "";
+  els.podcastSubmitHint.textContent = "";
+  els.podcastSubmitBtn.disabled = false;
+}
+
+async function podcastSubmit(event) {
+  event.preventDefault();
+  const normalized = podcastNormalizeAppleUrl(els.podcastUrlInput.value);
+  if (!normalized) {
+    els.podcastSubmitHint.textContent = "请输入包含数字 i 单集编号的 https://podcasts.apple.com 链接。";
+    return;
+  }
+  const existing = podcastRecords.find((record) => String(record.episodeId || "") === normalized.episodeId);
+  if (existing) {
+    els.podcastSubmitHint.textContent = "Already recorded：" + (existing.title || normalized.episodeId);
+    return;
+  }
+  els.podcastSubmitBtn.disabled = true;
+  els.podcastSubmitHint.textContent = "正在提交…";
+  try {
+    const token = await getToken();
+    const res = await fetch(`${CHAT_API_URL}/podcast`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        episode_url: normalized.url,
+        episode_id: normalized.episodeId,
+        completed_at: new Date().toISOString(),
+        source: "website",
+      }),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      throw new Error((data && data.error) || ("HTTP " + res.status));
+    }
+    if (data && data.duplicate) {
+      els.podcastSubmitHint.textContent = "Already recorded（刚刚已提交过）。";
+    } else {
+      els.podcastSubmitHint.textContent = "已提交，后台通常 1 分钟内完成。稍后点「刷新」即可看到。";
+      els.podcastUrlInput.value = "";
+      setTimeout(() => { podcastLoad(true).catch(() => {}); }, 20000);
+    }
+  } catch (e) {
+    els.podcastSubmitHint.textContent = "提交失败：" + (e.message || e);
+  } finally {
+    els.podcastSubmitBtn.disabled = false;
+  }
+}
+
+function podcastWireEvents() {
+  els.podcastTabListBtn.onclick = () => podcastSetTab("list");
+  els.podcastTabAddBtn.onclick = () => podcastSetTab("add");
+  els.podcastSearch.addEventListener("input", () => {
+    podcastSearchText = els.podcastSearch.value;
+    podcastRender();
+  });
+  els.podcastShowFilter.addEventListener("change", () => {
+    podcastShowFilter = els.podcastShowFilter.value;
+    podcastRender();
+  });
+  els.podcastYearFilter.addEventListener("change", () => {
+    podcastYearFilter = els.podcastYearFilter.value;
+    podcastRender();
+  });
+  els.podcastClearFilterBtn.onclick = () => {
+    podcastSearchText = "";
+    podcastShowFilter = "";
+    podcastYearFilter = "";
+    els.podcastSearch.value = "";
+    podcastRender();
+  };
+  els.podcastRefreshBtn.onclick = () => {
+    podcastLoad(true).catch((e) => setStatus("Podcast 刷新失败：" + (e.message || e), "error"));
+  };
+  els.podcastForm.addEventListener("submit", podcastSubmit);
+  els.podcastCancelBtn.onclick = podcastResetForm;
+}
+
 /* --------------------------- Mode switch --------------------------------- */
 async function setMode(next, options) {
   options = options || {};
@@ -4935,6 +5268,7 @@ async function setMode(next, options) {
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeChatBtn.classList.toggle("active", next === "ai");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
+  if (els.modePodcastBtn) els.modePodcastBtn.classList.toggle("active", next === "podcast");
   if (els.modeStocksBtn) els.modeStocksBtn.classList.toggle("active", next === "stocks");
 els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "travel");
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
@@ -4952,6 +5286,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   els.vehicleApp.classList.toggle("hidden", next !== "vehicle");
   els.healthApp.classList.toggle("hidden", next !== "health");
   els.blogApp.classList.toggle("hidden", next !== "blog");
+  els.podcastApp.classList.toggle("hidden", next !== "podcast");
   els.aiApp.classList.toggle("hidden", next !== "ai");
   els.travelApp.classList.toggle("hidden", next !== "travel");
   els.modeMoreMenu.classList.add("hidden");
@@ -4995,6 +5330,9 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   } else if (next === "blog" && !options.skipLoad) {
     try { await blogLoad(); }
     catch (e) { setStatus("博客数据载入失败：" + (e.message || e), "error"); }
+  } else if (next === "podcast") {
+    try { await podcastLoad(); }
+    catch (e) { setStatus("Podcast 数据载入失败：" + (e.message || e), "error"); }
 } else if (next === "ai") {
     chatRestoreLocalThinking();
     try { await chatLoad(); }
@@ -5016,6 +5354,7 @@ function incWireEvents() {
   if (els.modeStocksBtn) els.modeStocksBtn.onclick = () => setMode("stocks");
   els.modeChatBtn.onclick = () => setMode("ai");
   els.modeBlogBtn.onclick = () => setMode("blog");
+  if (els.modePodcastBtn) els.modePodcastBtn.onclick = () => setMode("podcast");
 
   // 更多 ▾ dropdown: toggle menu, pick a mode, close on outside-click.
   els.modeMoreBtn.onclick = (e) => {
@@ -6722,6 +7061,7 @@ function ensureModuleUI(next) {
     case "vehicle": vehWireEvents(); vehResetForm(); els.vehFilterDate.value = todayStr(); break;
     case "health": heaWireEvents(); hwResetForm(); hbResetForm(); els.hwFilterDate.value = todayStr(); els.hbFilterDate.value = todayStr(); break;
     case "blog": blogWireEvents(); blogResetForm(); forumWireEvents(); break;
+    case "podcast": podcastWireEvents(); podcastResetForm(); podcastSetTab("list"); break;
     case "travel": travelWireEvents(); break;
     case "ai": chatWireEvents(); break;
   }

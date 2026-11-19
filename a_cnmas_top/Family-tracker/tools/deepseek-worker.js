@@ -28,6 +28,10 @@
  *          "wallpaper" from authorized group members. At least one of the
  *          two allow-lists must be configured; otherwise every command is
  *          rejected with the caller's userid/chatid so they can be added.
+ *        Name:  PODCAST_INGEST_SECRET  Value: <random long string>       (Encrypt)
+ *          Shared secret used by the iPhone Shortcut when it posts an Apple
+ *          Podcasts episode URL to /podcast. Browser submissions from
+ *          a.cnmas.top use the Microsoft Graph bearer token instead.
  *   4. Settings -> Triggers -> Custom Domains -> Add  ->  api.cnmas.top
  *        (Cloudflare must be managing the cnmas.top DNS zone.)
  *   5. Done. The SPA talks to https://api.cnmas.top .
@@ -65,7 +69,7 @@ function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Podcast-Ingest-Key",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
@@ -79,7 +83,12 @@ const GH_STOCK_DISPATCH_EVENT = "finance-batch-stock-event";
 const GH_SCHEDULE_DISPATCH_EVENT = "finance-batch-scheduled-event";
 const GH_DETAIL_MAIL_EVENT = "stock-detail-mail-event";
 const GH_WALLPAPER_DISPATCH_EVENT = "ms-power-automate-event";
+const GH_PODCAST_EVENT = "podcast-completed-event";
 const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
+
+const PODCAST_PATH = "/podcast";
+const PODCAST_MAX_BODY_BYTES = 8192;
+const PODCAST_DEDUPE_SECONDS = 600;
 
 const WECOM_BOT_PATH = "/wecom-bot";
 const WECOM_COMMANDS = {
@@ -398,6 +407,12 @@ function dispatchLogFields(eventType, payload) {
   if (eventType === GH_WALLPAPER_DISPATCH_EVENT && payload.source === "wecom-bot") {
     return { dispatch_type: "wallpaper" };
   }
+  if (eventType === GH_PODCAST_EVENT) {
+    return {
+      dispatch_type: "podcast",
+      source: payload.source,
+    };
+  }
   if (eventType === GH_STOCK_DISPATCH_EVENT || eventType === GH_DETAIL_MAIL_EVENT) {
     return {
       dispatch_type: eventType === GH_DETAIL_MAIL_EVENT ? "stock_detail_mail" : "stock",
@@ -488,6 +503,83 @@ function jsonError(status, message, origin) {
   });
 }
 
+function parseApplePodcastUrl(value) {
+  let url;
+  try { url = new URL(String(value || "")); } catch { return null; }
+  if (url.protocol !== "https:") return null;
+  if (url.hostname.toLowerCase() !== "podcasts.apple.com") return null;
+  if (url.username || url.password) return null;
+  const episodeId = String(url.searchParams.get("i") || "").trim();
+  if (!/^\d{1,20}$/.test(episodeId)) return null;
+  url.hash = "";
+  return { episodeUrl: url.toString(), episodeId };
+}
+
+function normalizeCompletedAt(value) {
+  if (!value) return new Date().toISOString();
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+async function readPodcastBody(request) {
+  const declared = Number(request.headers.get("Content-Length") || 0);
+  if (declared > PODCAST_MAX_BODY_BYTES) {
+    return { error: "请求体过大。", status: 413 };
+  }
+  let text;
+  try { text = await request.text(); } catch { return { error: "无法读取请求体。", status: 400 }; }
+  if (new TextEncoder().encode(text).length > PODCAST_MAX_BODY_BYTES) {
+    return { error: "请求体过大。", status: 413 };
+  }
+  let body;
+  try { body = JSON.parse(text); } catch { return { error: "请求体不是合法 JSON。", status: 400 }; }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { error: "请求体必须是 JSON 对象。", status: 400 };
+  }
+  return { body };
+}
+
+async function authorizePodcast(request, env) {
+  const ingestKey = request.headers.get("X-Podcast-Ingest-Key") || "";
+  if (ingestKey) {
+    if (!env.PODCAST_INGEST_SECRET) {
+      return { ok: false, status: 500, message: "服务端未配置 PODCAST_INGEST_SECRET。" };
+    }
+    if (!safeEqual(ingestKey, env.PODCAST_INGEST_SECRET)) {
+      return { ok: false, status: 403, message: "未授权：Podcast 记录密钥无效。" };
+    }
+    return { ok: true, via: "secret" };
+  }
+  const auth = request.headers.get("Authorization") || "";
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  const email = await authorize(token);
+  if (!email) {
+    return { ok: false, status: 403, message: "未授权：此账号无权记录 Podcast。" };
+  }
+  return { ok: true, via: "graph", email };
+}
+
+function podcastDedupeRequest(episodeId) {
+  return new Request("https://podcast-dedupe.internal/apple/" + encodeURIComponent(episodeId));
+}
+
+async function podcastAlreadyDispatched(episodeId) {
+  const cache = globalThis.caches && globalThis.caches.default;
+  if (!cache) return false;
+  try { return !!(await cache.match(podcastDedupeRequest(episodeId))); } catch { return false; }
+}
+
+async function markPodcastDispatched(episodeId) {
+  const cache = globalThis.caches && globalThis.caches.default;
+  if (!cache) return;
+  try {
+    await cache.put(podcastDedupeRequest(episodeId), new Response("1", {
+      headers: { "Cache-Control": "max-age=" + PODCAST_DEDUPE_SECONDS },
+    }));
+  } catch { /* best-effort only */ }
+}
+
 // Validate the caller by using their token against Microsoft Graph.
 // Returns the lower-cased email if allowed, otherwise null.
 async function authorize(token) {
@@ -568,6 +660,57 @@ export default {
     }
     if (request.method !== "POST") {
       return jsonError(405, "Method not allowed", origin);
+    }
+
+    if (pathname === PODCAST_PATH) {
+      const caller = await authorizePodcast(request, env);
+      if (!caller.ok) {
+        workerLog("warn", "authorization", { status: "denied", route: PODCAST_PATH });
+        return jsonError(caller.status || 403, caller.message || "未授权。", origin);
+      }
+      const parsedBody = await readPodcastBody(request);
+      if (parsedBody.error) {
+        return jsonError(parsedBody.status || 400, parsedBody.error, origin);
+      }
+      const body = parsedBody.body;
+      const episode = parseApplePodcastUrl(body.episode_url);
+      if (!episode) {
+        return jsonError(400, "请提供包含数字 i 单集编号的 https://podcasts.apple.com 链接。", origin);
+      }
+      if (body.episode_id != null && String(body.episode_id).trim() !== episode.episodeId) {
+        return jsonError(400, "episode_id 与链接中的 i 参数不一致。", origin);
+      }
+      const completedAt = normalizeCompletedAt(body.completed_at);
+      if (!completedAt) {
+        return jsonError(400, "completed_at 不是合法时间。", origin);
+      }
+      const source = String(body.source || "ios-shortcut").trim().toLowerCase();
+      if (!/^[a-z0-9-]{1,32}$/.test(source)) {
+        return jsonError(400, "source 格式不合法。", origin);
+      }
+      if (await podcastAlreadyDispatched(episode.episodeId)) {
+        return new Response(JSON.stringify({ ok: true, duplicate: true, episode_id: episode.episodeId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+      try {
+        await dispatchGitHub(env, GH_PODCAST_EVENT, {
+          episode_url: episode.episodeUrl,
+          episode_id: episode.episodeId,
+          completed_at: completedAt,
+          source,
+        });
+      } catch (e) {
+        return jsonError(502, "GitHub 触发失败：" + ((e && e.message) || e), origin);
+      }
+      await markPodcastDispatched(episode.episodeId);
+      return new Response(JSON.stringify({
+        ok: true, episode_id: episode.episodeId, dispatched: true,
+      }), {
+        status: 202,
+        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      });
     }
 
     // Extract the bearer token and authorize the caller.

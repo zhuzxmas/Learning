@@ -1,0 +1,88 @@
+name: Podcast completed
+
+on:
+  workflow_dispatch:
+    inputs:
+      episode_url:
+        description: 'Apple Podcasts episode URL (must contain ?i=<episode id>)'
+        required: true
+        type: string
+      completed_at:
+        description: 'Completion time (ISO 8601; blank = now)'
+        required: false
+        type: string
+      source:
+        description: 'Source label'
+        required: false
+        default: 'ios-shortcut'
+        type: string
+  repository_dispatch:
+    types: [podcast-completed-event]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onedrive-token
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r a_cnmas_top/Family-tracker/automation/requirements.txt
+
+      - name: Record podcast
+        id: record
+        env:
+          EPISODE_URL: ${{ github.event.client_payload.episode_url || github.event.inputs.episode_url }}
+          EPISODE_ID: ${{ github.event.client_payload.episode_id }}
+          COMPLETED_AT: ${{ github.event.client_payload.completed_at || github.event.inputs.completed_at }}
+          SOURCE: ${{ github.event.client_payload.source || github.event.inputs.source || 'ios-shortcut' }}
+          PODCAST_FOLDER_SHARE_URL: ${{ secrets.PODCAST_FOLDER_SHARE_URL }}
+          ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+          ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+          TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
+          QY_WECHAT_API_KEY: ${{ secrets.QY_Wechat_API_Key }}
+        run: python -u a_cnmas_top/Family-tracker/automation/podcast_completed.py
+
+      - name: Commit rotated refresh token
+        if: always()
+        run: |
+          rt="a_cnmas_top/Family-tracker/automation/rt.enc"
+          if ! git diff --quiet -- "$rt"; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add "$rt"
+            git commit -m "chore: rotate OneDrive refresh token [skip ci]"
+            git push
+          else
+            echo "rt.enc unchanged; nothing to commit."
+          fi
+
+      - name: Notify failure
+        if: failure()
+        env:
+          QY_WECHAT_API_KEY: ${{ secrets.QY_Wechat_API_Key }}
+        run: |
+          CONTENT=$(printf '### Podcast 记录失败\n\n**工作流：** %s\n\n[查看运行日志](https://github.com/%s/actions/runs/%s)' \
+            "${{ github.workflow }}" "${{ github.repository }}" "${{ github.run_id }}")
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg content "$CONTENT" '{msgtype:"markdown",markdown:{content:$content}}')" \
+            "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${QY_WECHAT_API_KEY}")
+          if [ "$(jq -r '.errcode // -1' <<< "$RESPONSE")" != "0" ]; then
+            echo "::error::Enterprise WeChat notification failed: $RESPONSE"
+            exit 1
+          fi

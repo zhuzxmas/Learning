@@ -85,10 +85,10 @@
       }, 800);
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=79" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
-  <noscript><link rel="stylesheet" href="style.css?v=79" /></noscript>
+  <link rel="stylesheet" href="style.css?v=80" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
+  <noscript><link rel="stylesheet" href="style.css?v=80" /></noscript>
   <link rel="preload" href="msal-browser.min.js" as="script" />
-  <link rel="preload" href="app.js?v=122" as="script" />
+  <link rel="preload" href="app.js?v=123" as="script" />
 </head>
 <body>
   <header class="topbar">
@@ -142,6 +142,7 @@
           <button type="button" class="mode-btn" id="modeStocksBtn">选股</button>
           <button type="button" class="mode-btn" id="modeChatBtn">聊天</button>
           <button type="button" class="mode-btn" id="modeBlogBtn">博客</button>
+          <button type="button" class="mode-btn" id="modePodcastBtn">播客</button>
         </div>
         <div class="mode-more" id="modeMoreWrap">
           <button type="button" class="mode-btn mode-more-btn" id="modeMoreBtn">更多 ▾</button>
@@ -2265,6 +2266,47 @@
       <div id="videoPicker" class="blog-img-picker hidden"><div class="blog-img-picker-bar"><span class="muted" id="videoPickerCount"></span><button type="button" class="btn btn-ghost" id="videoPickerClose">关闭</button></div><div id="videoPickerList" class="audio-picker-list"></div></div>
       <div id="blogLightbox" class="blog-lightbox hidden"><img id="blogLightboxImg" alt="" /></div>
 
+      <!-- ============ Podcast History APP ============ -->
+      <div id="podcastApp" class="hidden">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab-btn active" id="podcastTabListBtn">历史</button>
+          <button type="button" class="tab-btn" id="podcastTabAddBtn">记录一集</button>
+        </div>
+
+        <div class="tab-panel" id="podcastTabList">
+          <div class="card">
+            <div class="podcast-toolbar">
+              <input type="search" id="podcastSearch" placeholder="搜索单集、节目或简介" autocomplete="off" />
+              <select id="podcastShowFilter"><option value="">全部节目</option></select>
+              <select id="podcastYearFilter"><option value="">全部年份</option></select>
+              <button type="button" class="btn btn-ghost hidden" id="podcastClearFilterBtn">清除筛选</button>
+              <button type="button" class="btn btn-ghost" id="podcastRefreshBtn">刷新</button>
+              <span class="muted" id="podcastCount"></span>
+            </div>
+            <div id="podcastList" class="podcast-list"></div>
+            <p class="muted hidden" id="podcastEmpty">暂无 Podcast 记录。</p>
+          </div>
+        </div>
+
+        <div class="tab-panel hidden" id="podcastTabAdd">
+          <div class="card">
+            <h2>记录已听完的播客</h2>
+            <p class="muted">粘贴 Apple Podcasts 单集链接，链接中必须包含 <code>?i=</code> 单集编号。后台会自动抓取节目信息、生成简介并保存到 OneDrive。</p>
+            <form id="podcastForm">
+              <div class="field field-wide">
+                <label for="podcastUrlInput">Apple Podcasts 单集链接</label>
+                <input type="url" id="podcastUrlInput" autocomplete="off" required placeholder="https://podcasts.apple.com/...?i=1234567890" />
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="podcastSubmitBtn">提交记录</button>
+                <button type="button" class="btn btn-ghost" id="podcastCancelBtn">清空</button>
+              </div>
+            </form>
+            <p class="muted" id="podcastSubmitHint"></p>
+          </div>
+        </div>
+      </div><!-- /#podcastApp -->
+
       <!-- ============ AI 对话 (chat) APP ============ -->
       <div id="aiApp" class="hidden">
         <div class="ai-layout">
@@ -2315,6 +2357,6 @@
   <script defer src="borrow-people.js?v=2"></script>
   <script defer src="valuation.js?v=3"></script>
   <script defer src="page-refresh.js?v=3"></script>
-  <script defer src="app.js?v=122" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="app.js?v=123" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>
