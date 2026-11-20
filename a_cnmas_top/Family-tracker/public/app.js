@@ -5369,18 +5369,6 @@ function podcastRender() {
     reviewBtn.className = "btn btn-mini btn-primary podcast-review-btn";
     reviewBtn.textContent = record.review ? "编辑评价" : "写评价";
     side.appendChild(reviewBtn);
-    if (record.review) {
-      const blogBtn = document.createElement("button");
-      blogBtn.type = "button";
-      blogBtn.className = "btn btn-mini btn-ghost";
-      blogBtn.textContent = "查看博客";
-      blogBtn.onclick = async () => {
-        await setMode("blog");
-        if (!blogLoaded) await blogLoad();
-        await blogOpen(podcastReviewBlogId(record));
-      };
-      actions.appendChild(blogBtn);
-    }
     let details = null;
     if (record.description) {
       const toggle = document.createElement("button");
