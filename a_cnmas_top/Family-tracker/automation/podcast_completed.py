@@ -54,12 +54,48 @@ class DescriptionParser(HTMLParser):
         self.parts.append(data)
 
 
+class AppleParagraphsParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if not self.depth:
+            if tag.lower() == "div" and attrs.get("data-testid") == "paragraphs":
+                self.depth = 1
+            return
+        if tag.lower() == "div":
+            self.depth += 1
+        if tag.lower() in DescriptionParser.BLOCK_TAGS or tag.lower() == "br":
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if not self.depth:
+            return
+        if tag.lower() in DescriptionParser.BLOCK_TAGS:
+            self.parts.append("\n")
+        if tag.lower() == "div":
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth:
+            self.parts.append(data)
+
+
 def description_text(value):
     parser = DescriptionParser()
     parser.feed(str(value or ""))
     text = html.unescape("".join(parser.parts)).replace("\r\n", "\n").replace("\r", "\n")
     lines = [re.sub(r"[ \t\f\v]+", " ", line).strip() for line in text.split("\n")]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def apple_page_description(value):
+    parser = AppleParagraphsParser()
+    parser.feed(str(value or ""))
+    return description_text("".join(parser.parts))
 
 
 def repair_mojibake(value):
@@ -233,6 +269,9 @@ def scrape_episode_page(url):
     result.setdefault("title", one_line(tags.get("og:title")))
     result.setdefault("description", description_text(tags.get("og:description") or tags.get("description")))
     result.setdefault("artworkUrl", tags.get("og:image") or "")
+    full_description = apple_page_description(text)
+    if full_description:
+        result["description"] = full_description
     if not result.get("title"):
         match = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
         if match:

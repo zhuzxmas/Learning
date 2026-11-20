@@ -40,6 +40,20 @@ class PodcastParsingTests(unittest.TestCase):
             "第一段\n第二行\n\n第二段 & 内容",
         )
 
+    def test_apple_page_description_reads_all_paragraphs(self):
+        source = """
+        <html><meta name="description" content="只有开头">
+        <div data-testid="paragraphs" class="paragraph-wrapper">
+          <p>第一段完整内容。</p>
+          <p><strong>主要话题</strong></p>
+          <p>[01:52] 第一项<br>补充内容</p>
+        </div><div>后续页面内容</div></html>
+        """
+        self.assertEqual(
+            podcast_completed.apple_page_description(source),
+            "第一段完整内容。\n\n主要话题\n\n[01:52] 第一项\n补充内容",
+        )
+
     @patch.object(podcast_completed, "scrape_episode_page", return_value={})
     @patch.object(podcast_completed, "lookup_itunes")
     def test_metadata_falls_back_to_default_title(self, lookup, _page):
