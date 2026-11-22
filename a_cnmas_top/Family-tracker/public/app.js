@@ -440,7 +440,6 @@ const els = {
   sbtOpportunitySaveBtn: $("sbtOpportunitySaveBtn"),
   // --- 聊天 (chat) mode ---
   modeChatBtn: $("modeChatBtn"),
-  modeDeepSeekBtn: $("modeDeepSeekBtn"),
   aiApp: $("aiApp"),
   deepSeekApp: $("deepSeekApp"),
   deepSeekFrame: $("deepSeekFrame"),
@@ -5581,11 +5580,10 @@ async function setMode(next, options) {
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeChatBtn.classList.toggle("active", next === "ai");
-  els.modeDeepSeekBtn.classList.toggle("active", next === "deepseek");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
   if (els.modePodcastBtn) els.modePodcastBtn.classList.toggle("active", next === "podcast");
   if (els.modeStocksBtn) els.modeStocksBtn.classList.toggle("active", next === "stocks");
-els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "travel");
+els.modeMoreBtn.classList.toggle("active", isCel || next === "deepseek" || next === "borrow" || next === "invest" || next === "cards" || next === "vehicle" || next === "health" || next === "medical" || isStk || next === "travel");
   els.modeMoreMenu.querySelectorAll(".mode-more-item").forEach((it) =>
     it.classList.toggle("active", it.dataset.mode === next));
   els.spendingApp.classList.toggle("hidden", !isSpend);
@@ -5671,7 +5669,6 @@ function incWireEvents() {
   els.modeIncomeBtn.onclick = () => setMode("income");
   if (els.modeStocksBtn) els.modeStocksBtn.onclick = () => setMode("stocks");
   els.modeChatBtn.onclick = () => setMode("ai");
-  els.modeDeepSeekBtn.onclick = () => setMode("deepseek");
   els.modeBlogBtn.onclick = () => setMode("blog");
   if (els.modePodcastBtn) els.modePodcastBtn.onclick = () => setMode("podcast");
 

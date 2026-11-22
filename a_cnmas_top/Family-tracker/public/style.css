@@ -1673,7 +1673,7 @@ button.blog-tag:hover { background: #dbeafe; }
   min-height: 560px;
   border: 1px solid #dfe3ea;
   border-radius: 14px;
-  background: #fff;
+  background: #f3f4f6;
 }
 
 .ai-layout { display: flex; gap: 12px; height: 72vh; min-height: 420px; position: relative; }

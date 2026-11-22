@@ -57,6 +57,10 @@ const ALLOWED_ORIGINS = [
 ];
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+// Official DeepSeek Anthropic-compatible Messages API. Used by the official
+// chat page so server tools such as deepseek_web_search/deepseek_read_url and
+// the title extension remain available without exposing the provider key.
+const DEEPSEEK_ANTHROPIC_URL = "https://api.deepseek.com/anthropic/v1/messages";
 // Aliyun Bailian (DashScope) OpenAI-compatible endpoint, default workspace.
 // Dedicated Bailian workspace gateway. This Worker sends OpenAI-compatible
 // chat-completion payloads, so use the compatible-mode base (NOT /api/v1,
@@ -88,6 +92,7 @@ const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
 
 const PODCAST_PATH = "/podcast";
 const DEEPSEEK_CHAT_PATH = "/deepseek-chat";
+const DEEPSEEK_ANTHROPIC_PATH = "/deepseek-anthropic";
 const PODCAST_MAX_BODY_BYTES = 8192;
 
 const WECOM_BOT_PATH = "/wecom-bot";
@@ -610,6 +615,90 @@ function resolveUpstream(payload, env) {
   return { url: DEEPSEEK_URL, key: env.DEEPSEEK_API_KEY, body };
 }
 
+// Proxy the official Anthropic-compatible Messages stream. The browser sends
+// its Graph token for authorization; DeepSeek receives only the Worker secret.
+async function handleDeepSeekAnthropic(request, env, ctx, origin) {
+  if (!env.DEEPSEEK_API_KEY) {
+    return jsonError(500, "服务端未配置 DEEPSEEK_API_KEY。", origin);
+  }
+  let bodyText;
+  try {
+    bodyText = await request.text();
+  } catch {
+    return jsonError(400, "无法读取请求体。", origin);
+  }
+  let payload;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch {
+    return jsonError(400, "请求体不是合法 JSON。", origin);
+  }
+  if (!payload || !Array.isArray(payload.messages)) {
+    return jsonError(400, "缺少 messages。", origin);
+  }
+
+  const started = Date.now();
+  const { readable, writable } = new TransformStream();
+  const headers = new Headers(corsHeaders(origin));
+  headers.set("Content-Type", "text/event-stream; charset=utf-8");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Connection", "keep-alive");
+
+  const pump = (async () => {
+    const writer = writable.getWriter();
+    const enc = new TextEncoder();
+    try {
+      const upstream = await fetch(DEEPSEEK_ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": env.DEEPSEEK_API_KEY,
+        },
+        body: bodyText,
+      });
+      if (!upstream.ok || !upstream.body) {
+        let detail = "";
+        try { detail = await upstream.text(); } catch {}
+        const message = "DeepSeek 返回错误 " + upstream.status +
+          (detail ? "：" + detail.slice(0, 500) : "");
+        workerLog("error", "ai_chat", {
+          status: "upstream_error", provider: "deepseek-anthropic",
+          upstream_status: upstream.status, duration_ms: Date.now() - started,
+        });
+        await writer.write(enc.encode(
+          "data: " + JSON.stringify({ type: "error", error: { message } }) + "\n\n"));
+        await writer.close();
+        return;
+      }
+      const reader = upstream.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) await writer.write(value);
+      }
+      await writer.close();
+      workerLog("info", "ai_chat", {
+        status: "completed", provider: "deepseek-anthropic",
+        upstream_status: upstream.status, duration_ms: Date.now() - started,
+      });
+    } catch (error) {
+      const message = "代理流出错：" + ((error && error.message) || error);
+      workerLog("error", "ai_chat", {
+        status: "stream_error", provider: "deepseek-anthropic",
+        duration_ms: Date.now() - started,
+      });
+      try {
+        await writer.write(enc.encode(
+          "data: " + JSON.stringify({ type: "error", error: { message } }) + "\n\n"));
+      } catch {}
+      try { await writer.close(); } catch {}
+    }
+  })();
+  ctx.waitUntil(pump);
+
+  return new Response(readable, { status: 200, headers });
+}
+
 export default {
   async scheduled(controller, env, ctx) {
     const payload = beijingSchedule(controller.scheduledTime);
@@ -693,6 +782,10 @@ export default {
     if (!email) {
       workerLog("warn", "authorization", { status: "denied", route: new URL(request.url).pathname });
       return jsonError(403, "未授权：此账号无权使用 AI 对话。", origin);
+    }
+
+    if (pathname === DEEPSEEK_ANTHROPIC_PATH) {
+      return handleDeepSeekAnthropic(request, env, ctx, origin);
     }
 
     if (pathname !== DEEPSEEK_CHAT_PATH && pathname !== "/" &&
