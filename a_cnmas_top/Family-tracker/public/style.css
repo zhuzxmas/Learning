@@ -1666,6 +1666,16 @@ button.blog-tag:hover { background: #dbeafe; }
 #travelTabEdit .form-actions { margin-top: 14px; }
 
 /* ===================== AI 对话 (chat) module ============================ */
+.deepseek-frame {
+  display: block;
+  width: 100%;
+  height: calc(100dvh - 190px);
+  min-height: 560px;
+  border: 1px solid #dfe3ea;
+  border-radius: 14px;
+  background: #fff;
+}
+
 .ai-layout { display: flex; gap: 12px; height: 72vh; min-height: 420px; position: relative; }
 .ai-sidebar {
   width: 220px; flex: 0 0 220px; display: flex; flex-direction: column;
@@ -1771,6 +1781,14 @@ button.blog-tag:hover { background: #dbeafe; }
 .ai-backdrop { display: none; }
 
 @media (max-width: 700px) {
+  .deepseek-frame {
+    width: calc(100% + 32px);
+    height: calc(100dvh - 142px);
+    min-height: 480px;
+    margin: 0 -16px;
+    border-width: 1px 0 0;
+    border-radius: 0;
+  }
   .ai-layout { height: 76vh; }
   .ai-sidebar {
     position: absolute; z-index: 30; left: 0; top: 0; bottom: 0;

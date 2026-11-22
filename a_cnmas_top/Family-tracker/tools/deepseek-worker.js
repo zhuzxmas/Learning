@@ -87,6 +87,7 @@ const GH_PODCAST_EVENT = "podcast-completed-event";
 const STOCK_ADMIN_EMAIL = "zhuzx2006@outlook.com";
 
 const PODCAST_PATH = "/podcast";
+const DEEPSEEK_CHAT_PATH = "/deepseek-chat";
 const PODCAST_MAX_BODY_BYTES = 8192;
 
 const WECOM_BOT_PATH = "/wecom-bot";
@@ -692,6 +693,11 @@ export default {
     if (!email) {
       workerLog("warn", "authorization", { status: "denied", route: new URL(request.url).pathname });
       return jsonError(403, "未授权：此账号无权使用 AI 对话。", origin);
+    }
+
+    if (pathname !== DEEPSEEK_CHAT_PATH && pathname !== "/" &&
+        pathname !== "/trigger-stock" && pathname !== "/send-stock-detail-email") {
+      return jsonError(404, "Not found", origin);
     }
 
     // -------- Single-stock finance-batch trigger (GitHub repository_dispatch) --------

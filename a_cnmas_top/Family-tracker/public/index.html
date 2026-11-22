@@ -141,6 +141,7 @@
           <button type="button" class="mode-btn" id="modeIncomeBtn">收入</button>
           <button type="button" class="mode-btn" id="modeStocksBtn">选股</button>
           <button type="button" class="mode-btn" id="modeChatBtn">聊天</button>
+          <button type="button" class="mode-btn" id="modeDeepSeekBtn">DeepSeek</button>
           <button type="button" class="mode-btn" id="modeBlogBtn">博客</button>
           <button type="button" class="mode-btn" id="modePodcastBtn">播客</button>
         </div>
@@ -2365,6 +2366,17 @@
           </div>
         </div>
       </div><!-- /#aiApp -->
+      <!-- The official DeepSeek React app is isolated in a same-origin frame so
+           its global styles and document-body portals cannot affect this SPA. -->
+      <div id="deepSeekApp" class="hidden">
+        <iframe
+          id="deepSeekFrame"
+          class="deepseek-frame"
+          title="DeepSeek 官方聊天"
+          data-src="deepseek-chat/index.html"
+          allow="clipboard-read; clipboard-write"
+        ></iframe>
+      </div><!-- /#deepSeekApp -->
       <div id="aiConvMenu" class="ai-conv-menu hidden">
         <button type="button" class="ai-conv-menu-item" data-act="rename">重命名</button>
         <button type="button" class="ai-conv-menu-item ai-conv-menu-del" data-act="delete">删除</button>
@@ -2386,6 +2398,6 @@
   <script defer src="borrow-people.js?v=2"></script>
   <script defer src="valuation.js?v=3"></script>
   <script defer src="page-refresh.js?v=3"></script>
-  <script defer src="app.js?v=134" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="app.js?v=135" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>

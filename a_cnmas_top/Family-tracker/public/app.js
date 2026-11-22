@@ -174,6 +174,8 @@ const CHAT_INDEX_FILE = "chat-index.json";
 // User-defined custom model names are synced across devices in this file
 // (stored in the same Chats folder). Shape: { "custom": ["Qwen-xxx", ...] }.
 const CHAT_MODELS_FILE = "chat-models.json";
+const DEEPSEEK_INDEX_FILE = "deepseek-chat-index.json";
+const DEEPSEEK_SESSION_PREFIX = "deepseek-chat-";
 // Model choices shown in the dropdown. Default is the first.
 // A "Qwen-" prefix marks an Aliyun Bailian (DashScope) model; the front-end
 // strips the prefix to get the real model name and tells the Worker to route to
@@ -438,7 +440,10 @@ const els = {
   sbtOpportunitySaveBtn: $("sbtOpportunitySaveBtn"),
   // --- 聊天 (chat) mode ---
   modeChatBtn: $("modeChatBtn"),
+  modeDeepSeekBtn: $("modeDeepSeekBtn"),
   aiApp: $("aiApp"),
+  deepSeekApp: $("deepSeekApp"),
+  deepSeekFrame: $("deepSeekFrame"),
   aiConvList: $("aiConvList"),
   aiConvSearch: $("aiConvSearch"),
   aiConvMenu: $("aiConvMenu"),
@@ -5576,6 +5581,7 @@ async function setMode(next, options) {
   els.modeSpendingBtn.classList.toggle("active", isSpend);
   els.modeIncomeBtn.classList.toggle("active", isInc);
   els.modeChatBtn.classList.toggle("active", next === "ai");
+  els.modeDeepSeekBtn.classList.toggle("active", next === "deepseek");
   els.modeBlogBtn.classList.toggle("active", next === "blog");
   if (els.modePodcastBtn) els.modePodcastBtn.classList.toggle("active", next === "podcast");
   if (els.modeStocksBtn) els.modeStocksBtn.classList.toggle("active", next === "stocks");
@@ -5597,6 +5603,7 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
   els.blogApp.classList.toggle("hidden", next !== "blog");
   els.podcastApp.classList.toggle("hidden", next !== "podcast");
   els.aiApp.classList.toggle("hidden", next !== "ai");
+  els.deepSeekApp.classList.toggle("hidden", next !== "deepseek");
   els.travelApp.classList.toggle("hidden", next !== "travel");
   els.modeMoreMenu.classList.add("hidden");
   requestAnimationFrame(blogUpdateTopButton);
@@ -5646,6 +5653,8 @@ els.modeMoreBtn.classList.toggle("active", isCel || next === "borrow" || next ==
     chatRestoreLocalThinking();
     try { await chatLoad(); }
     catch (e) { setStatus("聊天载入失败：" + (e.message || e), "error"); }
+  } else if (next === "deepseek") {
+    deepSeekLoadFrame();
   } else if (next === "travel") {
     try { await travelLoad(); travelSwitchTab("map"); }
     catch (e) { setStatus("旅行数据载入失败：" + (e.message || e), "error"); }
@@ -5662,6 +5671,7 @@ function incWireEvents() {
   els.modeIncomeBtn.onclick = () => setMode("income");
   if (els.modeStocksBtn) els.modeStocksBtn.onclick = () => setMode("stocks");
   els.modeChatBtn.onclick = () => setMode("ai");
+  els.modeDeepSeekBtn.onclick = () => setMode("deepseek");
   els.modeBlogBtn.onclick = () => setMode("blog");
   if (els.modePodcastBtn) els.modePodcastBtn.onclick = () => setMode("podcast");
 
@@ -7373,6 +7383,7 @@ function ensureModuleUI(next) {
     case "podcast": podcastWireEvents(); podcastResetForm(); podcastSetTab("list"); break;
     case "travel": travelWireEvents(); break;
     case "ai": chatWireEvents(); break;
+    case "deepseek": deepSeekWireBridge(); break;
   }
   initializedModuleUI.add(next);
 }
@@ -14038,6 +14049,203 @@ function travelWireEvents() {
  *   DeepSeek is reached through the Cloudflare Worker at CHAT_API_URL, which   *
  *   injects the secret API key and only serves the allowed accounts.          *
  * ========================================================================= */
+// ---- official DeepSeek page bridge ---------------------------------------
+// The iframe keeps the official React app isolated. This parent bridge owns
+// Microsoft authentication and Graph I/O, so neither concern is duplicated in
+// the child bundle and no provider credential is exposed to browser storage.
+var deepSeekBridgeWired = false;
+var deepSeekIndexEtag = null;
+var deepSeekSessionEtags = {};
+
+function deepSeekLoadFrame() {
+  const frame = els.deepSeekFrame;
+  if (frame && !frame.src) frame.src = frame.dataset.src;
+}
+
+function deepSeekSessionPath(id) {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(String(id || ""))) throw new Error("对话 ID 不合法。");
+  return DEEPSEEK_SESSION_PREFIX + id + ".json";
+}
+
+// Never start a redirect inside the iframe: that would navigate only the child
+// document and break the parent bridge. If silent renewal fails, ask the user to
+// reload the parent page so its normal full-page login flow can run.
+async function deepSeekGetToken() {
+  if (!account) throw new Error("请先登录 Microsoft 账户。");
+  try {
+    const res = await msalApp.acquireTokenSilent({ scopes: SCOPES, account });
+    return res.accessToken;
+  } catch {
+    throw new Error("Microsoft 登录已过期，请刷新页面重新登录。");
+  }
+}
+
+async function deepSeekReadJson(token, path) {
+  const res = await fetch(chatContentUrl(path), { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 404) return { value: null, etag: null };
+  if (!res.ok) throw new Error("读取 DeepSeek 对话失败：" + res.status);
+  return { value: await res.json(), etag: res.headers.get("ETag") };
+}
+
+async function deepSeekPutJson(token, path, value, etag) {
+  const headers = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+  if (etag) headers["If-Match"] = etag;
+  else headers["If-None-Match"] = "*";
+  const res = await fetch(chatContentUrl(path), {
+    method: "PUT", headers, body: "\uFEFF" + JSON.stringify(value),
+  });
+  if (res.status === 409 || res.status === 412) {
+    throw new Error("对话已在另一台设备更新，请重新打开 DeepSeek 页面后再试。");
+  }
+  if (!res.ok) throw new Error("保存 DeepSeek 对话失败：" + res.status + " " + (await res.text()));
+  const item = await res.json();
+  return item.eTag || res.headers.get("ETag") || null;
+}
+
+async function deepSeekReadIndex(token) {
+  const result = await deepSeekReadJson(token, DEEPSEEK_INDEX_FILE);
+  const sessions = result.value && Array.isArray(result.value.sessions) ? result.value.sessions : [];
+  deepSeekIndexEtag = result.etag;
+  return sessions;
+}
+
+async function deepSeekWriteIndex(token, mutate) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const current = await deepSeekReadIndex(token);
+    const sessions = mutate(current.slice());
+    try {
+      deepSeekIndexEtag = await deepSeekPutJson(
+        token, DEEPSEEK_INDEX_FILE, { version: 1, sessions }, deepSeekIndexEtag);
+      return;
+    } catch (error) {
+      if (attempt === 3 || !String(error.message || error).includes("另一台设备")) throw error;
+    }
+  }
+}
+
+async function deepSeekLoadSessions(token) {
+  await chatResolveFolder(token);
+  const summaries = await deepSeekReadIndex(token);
+  const sessions = [];
+  for (const summary of summaries) {
+    if (!summary || !summary.id) continue;
+    const result = await deepSeekReadJson(token, deepSeekSessionPath(summary.id));
+    if (result.value && Array.isArray(result.value.messages)) {
+      sessions.push(result.value);
+      deepSeekSessionEtags[summary.id] = result.etag;
+    }
+  }
+  return sessions;
+}
+
+async function deepSeekSaveSession(token, session) {
+  if (!session || !session.id || !Array.isArray(session.messages)) throw new Error("对话数据不合法。");
+  await chatResolveFolder(token);
+  const path = deepSeekSessionPath(session.id);
+  let etag = deepSeekSessionEtags[session.id] || null;
+  if (!etag) etag = (await deepSeekReadJson(token, path)).etag;
+  try {
+    deepSeekSessionEtags[session.id] = await deepSeekPutJson(token, path, session, etag);
+  } catch (error) {
+    if (!String(error.message || error).includes("另一台设备")) throw error;
+    // Refresh the ETag and save this device's version, while making the
+    // last-write-wins outcome visible instead of failing every later save.
+    const fresh = await deepSeekReadJson(token, path);
+    deepSeekSessionEtags[session.id] = await deepSeekPutJson(token, path, session, fresh.etag);
+    setStatus("该对话在另一台设备上也有更新，已保留本机版本。", "warn", 5000);
+  }
+  const summary = {
+    id: session.id,
+    title: String(session.title || "").slice(0, 200),
+    createdAt: Number(session.createdAt) || Date.now(),
+    updatedAt: Number(session.updatedAt) || Date.now(),
+  };
+  await deepSeekWriteIndex(token, (current) => {
+    const byId = new Map(current.map((item) => [item.id, item]));
+    byId.set(summary.id, summary);
+    return Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+  });
+}
+
+async function deepSeekDeleteSession(token, id) {
+  await chatResolveFolder(token);
+  const res = await fetch(`${chatDriveBase}:/${chatEncPath(deepSeekSessionPath(id))}`, {
+    method: "DELETE", headers: { Authorization: "Bearer " + token },
+  });
+  if (!res.ok && res.status !== 404) throw new Error("删除 DeepSeek 对话失败：" + res.status);
+  delete deepSeekSessionEtags[id];
+  await deepSeekWriteIndex(token, (current) => current.filter((item) => item.id !== id));
+}
+
+async function deepSeekReplaceSessions(token, sessions) {
+  if (!Array.isArray(sessions) || sessions.some((session) =>
+      !session || !session.id || !Array.isArray(session.messages))) {
+    throw new Error("导入的 DeepSeek 对话数据不合法。");
+  }
+  await chatResolveFolder(token);
+  const old = await deepSeekReadIndex(token);
+  const nextIds = new Set(sessions.map((session) => session.id));
+  for (const session of sessions) {
+    const path = deepSeekSessionPath(session.id);
+    const current = await deepSeekReadJson(token, path);
+    deepSeekSessionEtags[session.id] = await deepSeekPutJson(token, path, session, current.etag);
+  }
+  for (const summary of old) {
+    if (!nextIds.has(summary.id)) {
+      const res = await fetch(`${chatDriveBase}:/${chatEncPath(deepSeekSessionPath(summary.id))}`, {
+        method: "DELETE", headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok && res.status !== 404) throw new Error("清理旧 DeepSeek 对话失败：" + res.status);
+      delete deepSeekSessionEtags[summary.id];
+    }
+  }
+  const summaries = sessions.map((session) => ({
+    id: session.id,
+    title: String(session.title || "").slice(0, 200),
+    createdAt: Number(session.createdAt) || Date.now(),
+    updatedAt: Number(session.updatedAt) || Date.now(),
+  })).sort((a, b) => b.updatedAt - a.updatedAt);
+  const latest = await deepSeekReadJson(token, DEEPSEEK_INDEX_FILE);
+  deepSeekIndexEtag = await deepSeekPutJson(
+    token, DEEPSEEK_INDEX_FILE, { version: 1, sessions: summaries }, latest.etag);
+}
+
+async function deepSeekHandleRequest(message) {
+  const token = message.action === "ready" ? null : await deepSeekGetToken();
+  switch (message.action) {
+    case "ready": return { ready: !!account };
+    case "get-token": return { token };
+    case "load-sessions": return { sessions: await deepSeekLoadSessions(token) };
+    case "save-session": await deepSeekSaveSession(token, message.payload && message.payload.session); return {};
+    case "delete-session": await deepSeekDeleteSession(token, message.payload && message.payload.id); return {};
+    case "replace-sessions": await deepSeekReplaceSessions(
+      token, message.payload && message.payload.sessions); return {};
+    default: throw new Error("未知的 DeepSeek 页面请求。");
+  }
+}
+
+function deepSeekWireBridge() {
+  if (deepSeekBridgeWired) return;
+  deepSeekBridgeWired = true;
+  window.addEventListener("message", async (event) => {
+    const frameWindow = els.deepSeekFrame && els.deepSeekFrame.contentWindow;
+    const message = event.data;
+    if (event.origin !== window.location.origin || event.source !== frameWindow ||
+        !message || message.source !== "deepseek-chat" || message.type !== "deepseek-request") return;
+    try {
+      const result = await deepSeekHandleRequest(message);
+      frameWindow.postMessage({
+        source: "family-tracker", type: "deepseek-response", id: message.id, ok: true, result,
+      }, window.location.origin);
+    } catch (error) {
+      frameWindow.postMessage({
+        source: "family-tracker", type: "deepseek-response", id: message.id, ok: false,
+        error: error && error.message ? error.message : String(error),
+      }, window.location.origin);
+    }
+  });
+}
+
 // NOTE: these use `var` (hoisted, no TDZ) because boot() calls chatWireEvents()
 // -> chatRenderModels() early, before this line executes in source order.
 var chatDriveBase = "";

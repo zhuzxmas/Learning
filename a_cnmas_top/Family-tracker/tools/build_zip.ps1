@@ -1,19 +1,25 @@
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # Repo-relative paths (this script lives in Family-tracker\tools).
 $familyRoot = Split-Path -Parent $PSScriptRoot
 $public     = Join-Path $familyRoot 'public'
 $dest       = Join-Path $familyRoot 'spending-tracker-public.zip'
 
-$tmp = Join-Path $env:TEMP 'st-zip-build'
-if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-New-Item -ItemType Directory -Path $tmp | Out-Null
-
-# Copy the static site (public/*) flat into the archive root.
-Copy-Item (Join-Path $public '*') -Destination $tmp -Recurse
-
 if (Test-Path $dest) { Remove-Item $dest -Force }
-Compress-Archive -Path (Join-Path $tmp '*') -DestinationPath $dest -Force
-Remove-Item $tmp -Recurse -Force
+
+# Cloudflare expects standard ZIP paths. Build entries explicitly with '/'
+# rather than relying on Compress-Archive, which uses backslashes on Windows.
+$zip = [IO.Compression.ZipFile]::Open($dest, [IO.Compression.ZipArchiveMode]::Create)
+try {
+  Get-ChildItem -LiteralPath $public -Recurse -File | ForEach-Object {
+    $relative = $_.FullName.Substring($public.Length + 1).Replace('\', '/')
+    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+      $zip, $_.FullName, $relative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+  }
+} finally {
+  $zip.Dispose()
+}
 
 Write-Output "zip rebuilt (static, no functions): $dest"
