@@ -39,6 +39,12 @@ DEFAULT_STOCK_FOLDER_SHARE_URL = (
     "IgDkv42DfbuDTJfM1C3hWX1FAXlv1jCiXLSpnrL-BqpZhQU?email=celine_mas%40outlook.com&e=F7TDX1")
 
 
+def _loads_json(text, default):
+    """Parse OneDrive JSON text, tolerating a leading UTF-8 BOM."""
+    raw = (text or "").lstrip("\ufeff").strip()
+    return default if not raw else json.loads(raw)
+
+
 def _fmt_pct(v):
     try:
         n = float(v)
@@ -293,17 +299,17 @@ def main():
     os.environ.setdefault("ONEDRIVE_RT_READONLY", "1")
     od = op.OneDrivePersonal(proxies=proxies, rt_readonly=True)
 
-    ranking = json.loads(od.get_text("output/_chip_ranking.json") or "[]")
+    ranking = _loads_json(od.get_text("output/_chip_ranking.json"), [])
     try:
-        summary = json.loads(od.get_text("output/_summary.json") or "[]")
+        summary = _loads_json(od.get_text("output/_summary.json"), [])
         if not isinstance(summary, list):
             summary = []
     except Exception as exc:  # noqa: BLE001
         print("WARN: summary unavailable; using empty flags: {}".format(exc))
         summary = []
     try:
-        settings = _normalize_settings(json.loads(
-            od.get_text("valuation-settings.json") or "{}"))
+        settings = _normalize_settings(_loads_json(
+            od.get_text("valuation-settings.json"), {}))
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         print("WARN: valuation settings invalid; using empty settings: {}".format(exc))
         settings = _normalize_settings(None)
@@ -324,7 +330,8 @@ def main():
     try:
         share_url = os.environ.get(
             "STOCK_FOLDER_SHARE_URL", DEFAULT_STOCK_FOLDER_SHARE_URL).strip()
-        ledger = json.loads(od.get_shared_text(share_url, "stock-records.json") or "{}")
+        ledger = _loads_json(
+            od.get_shared_text(share_url, "stock-records.json"), {})
         holdings = _held_codes((ledger or {}).get("records") or [])
     except Exception as exc:  # noqa: BLE001
         holdings_available = False

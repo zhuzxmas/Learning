@@ -7,7 +7,7 @@ from unittest import mock
 
 import onedrive_personal
 from send_chip_ranking_mail import (_canonical_code, _configured_codes,
-                                    _held_codes, _normalize_settings,
+                                    _held_codes, _loads_json, _normalize_settings,
                                     build_html, build_rows, send_mail)
 
 
@@ -101,6 +101,15 @@ class ChipRankingMailTests(unittest.TestCase):
             holdings_available=False)
         self.assertIn('持仓状态读取失败', rendered)
         self.assertNotIn('*000001.SZ', rendered)
+
+    def test_json_parsing_tolerates_utf8_bom(self):
+        self.assertEqual(_loads_json('\ufeff{"records": []}', {}), {'records': []})
+        self.assertEqual(_loads_json('\ufeff[1, 2]', []), [1, 2])
+        self.assertEqual(_loads_json('', {'fallback': True}), {'fallback': True})
+        self.assertEqual(_loads_json(None, []), [])
+        ledger = _loads_json(
+            '\ufeff{"records": [{"code": "000001测试", "shares": -100}]}', {})
+        self.assertEqual(_held_codes(ledger['records']), {'000001.SZ'})
 
     def test_invalid_settings_fall_back_to_empty(self):
         self.assertEqual(_normalize_settings({'stocks': []})['stocks'], {})
