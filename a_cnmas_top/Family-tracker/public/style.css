@@ -373,6 +373,19 @@ main.sbt-wide { max-width: min(1400px, 96vw); }
   border-bottom-color: var(--card);
 }
 
+/* Stock tabs: keep every label on one line and scroll horizontally if needed. */
+#stockApp > .tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#stockApp > .tabs::-webkit-scrollbar { display: none; }
+#stockApp > .tabs .tab-btn { white-space: nowrap; flex: 0 0 auto; }
+@media (max-width: 480px) {
+  #stockApp > .tabs { gap: 2px; }
+  #stockApp > .tabs .tab-btn { padding: 9px 9px; font-size: 14px; }
+}
+
 /* Table */
 .table-head-row {
   display: flex;
@@ -660,6 +673,91 @@ td:nth-child(6) {
 .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
 .legend-name { color: #333; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .legend-val { color: var(--gray); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+/* Stock holdings: one pie per account, kept side by side on phones. */
+.stk-holdings-pies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin: 4px 0 16px;
+}
+.stk-account-pie-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.stk-account-pie-title {
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stk-account-pie-wrap { display: flex; justify-content: center; }
+.stk-holdings-pies .stk-account-pie {
+  position: relative;
+  width: 100%;
+  max-width: 168px;
+  height: auto;
+  aspect-ratio: 1;
+}
+.stk-fund-pattern {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.85) 0 3px,
+    rgba(255, 255, 255, 0) 3px 7px
+  );
+  pointer-events: none;
+}
+.stk-account-total {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  margin: 8px 0;
+  text-align: left;
+}
+.stk-account-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.stk-account-total-row-sum { border-top: 1px dashed var(--border); margin-top: 2px; padding-top: 4px; }
+.stk-account-total-label { font-size: 11px; color: var(--gray); }
+.stk-account-total-val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stk-account-total-row-sum .stk-account-total-val { font-size: 15px; }
+.stk-account-total-val.neg { color: var(--red); }
+.stk-account-legend { flex: none; width: 100%; max-height: 170px; overflow-y: auto; }
+.stk-account-legend .legend-row { font-size: 11px; gap: 6px; }
+.stk-holding-legend-row { align-items: flex-start; }
+.stk-holding-legend-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stk-holding-legend-title { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.stk-holding-legend-title .legend-name { flex: 0 1 auto; }
+.stk-holding-legend-sub { font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.stk-kind-badge {
+  display: inline-block;
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.stk-kind-stock { background: #e8f2ff; color: #0b5cad; }
+.stk-kind-fund { background: #fff1e8; color: #b34a12; }
+.stk-account-empty { text-align: center; margin: 4px 0 0; }
+@media (max-width: 480px) {
+  .stk-holdings-pies { gap: 8px; }
+  .stk-account-pie-card { padding: 8px; }
+  .stk-account-pie-title { font-size: 12px; }
+  .stk-account-total-label { font-size: 10px; }
+  .stk-account-total-row .stk-account-total-val { font-size: 12px; }
+  .stk-account-total-row-sum .stk-account-total-val { font-size: 13px; }
+}
 
 @media (max-width: 720px) {
   .chart-grid { grid-template-columns: 1fr; }

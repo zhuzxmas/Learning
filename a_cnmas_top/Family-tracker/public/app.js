@@ -461,11 +461,18 @@ const els = {
   stkTabAddBtn: $("stkTabAddBtn"),
   stkTabListBtn: $("stkTabListBtn"),
   stkTabChartBtn: $("stkTabChartBtn"),
+  stkTabHoldingsBtn: $("stkTabHoldingsBtn"),
   stkTabSettingsBtn: $("stkTabSettingsBtn"),
   stkTabAdd: $("stkTabAdd"),
   stkTabList: $("stkTabList"),
   stkTabChart: $("stkTabChart"),
+  stkTabHoldings: $("stkTabHoldings"),
   stkTabSettings: $("stkTabSettings"),
+  stkHoldingsTotal: $("stkHoldingsTotal"),
+  stkHoldingsTotalLabel: $("stkHoldingsTotalLabel"),
+  stkHoldingsPies: $("stkHoldingsPies"),
+  stkHoldingsBody: $("stkHoldingsBody"),
+  stkHoldingsEmpty: $("stkHoldingsEmpty"),
   // --- stock form ---
   stkForm: $("stkForm"),
   stkEditId: $("stkEditId"),
@@ -5728,7 +5735,7 @@ let stkMeta = { codes: { custom: [], hidden: [], deleted: [] }, accounts: { cust
 let stkEtagMeta = null;
 let stkShowAll = false;
 let stkFilterOn = false;
-let stkTab = "add";
+let stkTab = "list";
 let stkSearchText = "";
 let stkCodeFilter = "";
 let stkAccountFilter = "";
@@ -6149,6 +6156,7 @@ async function stkReadLatestRecords(token) {
   incChartStockReady = true;
   if (incomeLoaded && incTab === "chart") incRenderChart();
   if (stockLoaded && stkTab === "chart") stkRenderChart();
+  if (stockLoaded && stkTab === "holdings") stkRenderHoldings();
 }
 
 async function stkLoad() {
@@ -6853,6 +6861,7 @@ function stkFillFilters() {
 function stkRender() {
   if (incomeLoaded && incTab === "chart") incRenderChart();
   if (stkTab === "chart") stkRenderChart();
+  if (stkTab === "holdings") stkRenderHoldings();
   const monthFilter = stkFilterOn && els.stkFilterDate ? els.stkFilterDate.value.slice(0, 7) : "";
   const sorted = [...stockRecords].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const q = stkSearchText.trim().toLowerCase();
@@ -6933,6 +6942,11 @@ const STK_BAR_COLORS = [
   "#118DFF", "#26890D", "#E23DA8", "#F2C80F", "#E66C37",
   "#6B007B", "#3599B8", "#D64550", "#12239E", "#8AD4EB",
 ];
+// Holdings use disjoint palettes so a stock and a fund never share a color.
+const STK_HOLDING_STOCK_COLORS = [
+  "#0B5CAD", "#118DFF", "#42A5F5", "#8AD4EB", "#146C43", "#26890D", "#5FA83A", "#3599B8",
+];
+const STK_FUND_COLORS = ["#C62828", "#E53935", "#F4511E", "#FB8C00", "#F2A900", "#AD1457", "#D81B60", "#8E24AA"];
 
 // Distinct years across all trades, ASCENDING (chronological x-axis).
 function stkYearsAsc() {
@@ -7297,6 +7311,180 @@ function stkRenderChart() {
   stkBuildWaterfall(els.stkFeeBars, feeSteps, { highlightYear: yr, posColor: "#E66C37", negColor: "#D64550" });
 }
 
+/* --------------------------- Stock holdings ------------------------------ */
+// 51xxxx = Shanghai exchange-traded fund, 15xxxx = Shenzhen ETF. Only the
+// security code field is inspected so account numbers can never leak in.
+function stkHoldingKind(code) {
+  const text = String(code || "").toUpperCase();
+  if (/(?:^|\D)51\d{4}(?:\D|$)/.test(text)) return "fund";
+  if (/(?:^|\D)15\d{4}(?:\D|$)/.test(text)) return "fund";
+  return "stock";
+}
+
+function stkHoldingsRows() {
+  if (typeof StockRealization === "undefined" || !StockRealization.deriveHoldings) return [];
+  return StockRealization.deriveHoldings(stockRecords).sort((a, b) =>
+    (b.costBasis - a.costBasis) ||
+    String(a.code).localeCompare(String(b.code)) ||
+    String(a.account).localeCompare(String(b.account)));
+}
+
+// Stocks before funds, then by cost. Used inside every account for both the
+// pie legend/slices and the holdings table.
+function stkHoldingSort(a, b) {
+  const rank = (row) => (stkHoldingKind(row.code) === "fund" ? 1 : 0);
+  return (rank(a) - rank(b)) ||
+    (b.costBasis - a.costBasis) ||
+    String(a.code).localeCompare(String(b.code));
+}
+
+function stkRenderHoldings() {
+  if (!els.stkHoldingsBody || !els.stkHoldingsPies) return;
+  const rows = stkHoldingsRows();
+  const total = round2(rows.reduce((sum, row) => sum + row.costBasis, 0));
+  els.stkHoldingsTotal.textContent = fmtAmount(total);
+  els.stkHoldingsTotal.classList.toggle("neg", total < 0);
+  els.stkHoldingsTotalLabel.textContent = rows.length
+    ? `持仓成本合计（${rows.length} 个股票/账户组合）`
+    : "持仓成本合计";
+  els.stkHoldingsPies.innerHTML = "";
+  els.stkHoldingsBody.innerHTML = "";
+  els.stkHoldingsEmpty.classList.toggle("hidden", rows.length > 0);
+  if (!rows.length) return;
+
+  // One pie per account. Accounts with records but no open positions still
+  // appear with a zero total, so the page always mirrors the user's accounts.
+  const accounts = [...new Set(stockRecords.map((r) => String(r.account || ""))
+    .concat(rows.map((r) => r.account)))].sort((a, b) => a.localeCompare(b, "zh"));
+  const codes = [...new Set(rows.map((row) => row.code))].sort();
+  const kindOf = new Map(codes.map((code) => [code, stkHoldingKind(code)]));
+  const colorOf = new Map();
+  let stockColor = 0, fundColor = 0;
+  for (const code of codes) {
+    if (kindOf.get(code) === "fund") {
+      colorOf.set(code, STK_FUND_COLORS[fundColor++ % STK_FUND_COLORS.length]);
+    } else {
+      colorOf.set(code, STK_HOLDING_STOCK_COLORS[stockColor++ % STK_HOLDING_STOCK_COLORS.length]);
+    }
+  }
+
+  for (const acct of accounts) {
+    const acctRows = rows.filter((row) => row.account === acct).sort(stkHoldingSort);
+    const acctTotal = round2(acctRows.reduce((sum, row) => sum + row.costBasis, 0));
+    const stockTotal = round2(acctRows.reduce((sum, row) =>
+      sum + (stkHoldingKind(row.code) === "stock" ? row.costBasis : 0), 0));
+    const fundTotal = round2(acctTotal - stockTotal);
+    const acctLabel = acct || "(未指定账户)";
+
+    const card = document.createElement("section");
+    card.className = "stk-account-pie-card";
+    const title = document.createElement("div");
+    title.className = "stk-account-pie-title";
+    title.textContent = acctLabel;
+    title.title = acctLabel;
+    card.appendChild(title);
+
+    const pie = document.createElement("div");
+    pie.className = "pie stk-account-pie";
+    pie.setAttribute("role", "img");
+    pie.setAttribute("aria-label", `${acctLabel} 持仓成本占比饼图`);
+    const sum = acctRows.reduce((s, row) => s + Math.max(0, row.costBasis), 0);
+    if (sum > 0) {
+      const stops = [];
+      const fundMask = [];
+      let acc = 0;
+      for (const row of acctRows) {
+        const col = colorOf.get(row.code) || STK_HOLDING_STOCK_COLORS[0];
+        const from = (acc / sum) * 100;
+        acc += Math.max(0, row.costBasis);
+        const to = (acc / sum) * 100;
+        stops.push(`${col} ${from}% ${to}%`);
+        fundMask.push(`${stkHoldingKind(row.code) === "fund" ? "#000" : "transparent"} ${from}% ${to}%`);
+      }
+      pie.style.background = `conic-gradient(${stops.join(",")})`;
+      if (fundMask.some((stop) => stop.startsWith("#000"))) {
+        // Diagonal hatch over fund slices only, so funds never read as stocks
+        // even when two solid colors look similar.
+        const pattern = document.createElement("span");
+        pattern.className = "stk-fund-pattern";
+        const mask = `conic-gradient(${fundMask.join(",")})`;
+        pattern.style.maskImage = mask;
+        pattern.style.webkitMaskImage = mask;
+        pie.appendChild(pattern);
+      }
+    }
+    const pieWrap = document.createElement("div");
+    pieWrap.className = "stk-account-pie-wrap";
+    pieWrap.appendChild(pie);
+    card.appendChild(pieWrap);
+
+    const totalBox = document.createElement("div");
+    totalBox.className = "stk-account-total";
+    totalBox.title = "按当前持仓成本计算";
+    totalBox.innerHTML =
+      `<div class="stk-account-total-row">` +
+        `<span class="stk-account-total-label">股票总成本</span>` +
+        `<strong class="stk-account-total-val${stockTotal < 0 ? " neg" : ""}">${fmtAmount(stockTotal)}</strong>` +
+      `</div>` +
+      `<div class="stk-account-total-row">` +
+        `<span class="stk-account-total-label">基金总成本</span>` +
+        `<strong class="stk-account-total-val${fundTotal < 0 ? " neg" : ""}">${fmtAmount(fundTotal)}</strong>` +
+      `</div>` +
+      `<div class="stk-account-total-row stk-account-total-row-sum">` +
+        `<span class="stk-account-total-label">持仓总成本</span>` +
+        `<strong class="stk-account-total-val${acctTotal < 0 ? " neg" : ""}">${fmtAmount(acctTotal)}</strong>` +
+      `</div>`;
+    card.appendChild(totalBox);
+
+    const legend = document.createElement("div");
+    legend.className = "pie-legend stk-account-legend";
+    if (!acctRows.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted mini stk-account-empty";
+      empty.textContent = "暂无持仓";
+      legend.appendChild(empty);
+    } else {
+      for (const row of acctRows) {
+        const col = colorOf.get(row.code) ||
+          (stkHoldingKind(row.code) === "fund" ? STK_FUND_COLORS[0] : STK_HOLDING_STOCK_COLORS[0]);
+        const kind = stkHoldingKind(row.code);
+        const item = document.createElement("div");
+        item.className = "legend-row stk-holding-legend-row";
+        item.innerHTML =
+          `<span class="legend-dot" style="background:${col}"></span>` +
+          `<span class="stk-holding-legend-main">` +
+            `<span class="stk-holding-legend-title">` +
+              `<span class="legend-name">${escapeHtml(row.code)}</span>` +
+              `<span class="stk-kind-badge ${kind === "fund" ? "stk-kind-fund" : "stk-kind-stock"}">${kind === "fund" ? "基金" : "股票"}</span>` +
+            `</span>` +
+            `<span class="stk-holding-legend-sub">${fmtInt(row.shares)} 股 · 总成本 ${fmtAmount(row.costBasis)}</span>` +
+          `</span>`;
+        legend.appendChild(item);
+      }
+    }
+    card.appendChild(legend);
+    els.stkHoldingsPies.appendChild(card);
+  }
+
+  const sum = total || 1;
+  for (const acct of accounts) {
+    const acctRows = rows.filter((row) => row.account === acct).sort(stkHoldingSort);
+    for (const row of acctRows) {
+      const pct = (Math.max(0, row.costBasis) / sum) * 100;
+      const kind = stkHoldingKind(row.code);
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td><span class="stk-kind-badge ${kind === "fund" ? "stk-kind-fund" : "stk-kind-stock"}">${kind === "fund" ? "基金" : "股票"}</span></td>` +
+        `<td>${escapeHtml(row.code)}</td>` +
+        `<td>${escapeHtml(row.account)}</td>` +
+        `<td class="num">${fmtInt(row.shares)}</td>` +
+        `<td class="num strong">${fmtAmount(row.costBasis)}</td>` +
+        `<td class="num">${pct.toFixed(1)}%</td>`;
+      els.stkHoldingsBody.appendChild(tr);
+    }
+  }
+}
+
 /* ---------------------------- Stock tabs --------------------------------- */
 function stkSwitchTab(name) {
   stkTab = name;
@@ -7304,6 +7492,7 @@ function stkSwitchTab(name) {
     add: { panel: els.stkTabAdd, btn: els.stkTabAddBtn },
     list: { panel: els.stkTabList, btn: els.stkTabListBtn },
     chart: { panel: els.stkTabChart, btn: els.stkTabChartBtn },
+    holdings: { panel: els.stkTabHoldings, btn: els.stkTabHoldingsBtn },
     settings: { panel: els.stkTabSettings, btn: els.stkTabSettingsBtn },
   };
   for (const k in tabs) {
@@ -7312,6 +7501,7 @@ function stkSwitchTab(name) {
     if (tabs[k].btn) tabs[k].btn.classList.toggle("active", active);
   }
   if (name === "chart") stkRenderChart();
+  if (name === "holdings") stkRenderHoldings();
   if (name === "settings") { stkRenderHidden(); stkRenderFees(); }
 }
 
@@ -7319,6 +7509,7 @@ function stkWireEvents() {
   els.stkTabAddBtn.onclick = () => stkSwitchTab("add");
   els.stkTabListBtn.onclick = () => stkSwitchTab("list");
   els.stkTabChartBtn.onclick = () => stkSwitchTab("chart");
+  els.stkTabHoldingsBtn.onclick = () => stkSwitchTab("holdings");
   els.stkTabSettingsBtn.onclick = () => stkSwitchTab("settings");
 
   els.stkForm.addEventListener("submit", stkOnSubmit);

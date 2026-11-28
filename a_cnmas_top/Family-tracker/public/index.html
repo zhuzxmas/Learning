@@ -85,10 +85,10 @@
       }, 800);
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=85" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
-  <noscript><link rel="stylesheet" href="style.css?v=85" /></noscript>
+  <link rel="stylesheet" href="style.css?v=90" media="print" onload="this.media='all'; StartupTiming.stylesLoaded()" onerror="StartupTiming.stylesFailed()" />
+  <noscript><link rel="stylesheet" href="style.css?v=90" /></noscript>
   <link rel="preload" href="msal-browser.min.js" as="script" />
-  <link rel="preload" href="app.js?v=134" as="script" />
+  <link rel="preload" href="app.js?v=141" as="script" />
 </head>
 <body>
   <header class="topbar">
@@ -546,9 +546,10 @@
       <div id="stockApp" class="hidden">
       <!-- Tabs -->
       <div class="tabs" role="tablist">
-        <button type="button" class="tab-btn active" id="stkTabListBtn">交易明细</button>
+        <button type="button" class="tab-btn active" id="stkTabListBtn">明细</button>
         <button type="button" class="tab-btn" id="stkTabAddBtn">新建</button>
-        <button type="button" class="tab-btn" id="stkTabChartBtn">图表</button>
+        <button type="button" class="tab-btn" id="stkTabChartBtn">统计</button>
+        <button type="button" class="tab-btn" id="stkTabHoldingsBtn">持仓</button>
         <button type="button" class="tab-btn" id="stkTabSettingsBtn">设置</button>
       </div>
 
@@ -705,6 +706,43 @@
           <div id="stkFeeBars" class="waterfall"></div>
         </div>
         <p id="stkChartEmpty" class="muted center hidden">暂无交易数据。</p>
+      </div>
+      </div>
+
+      <!-- Stock tab: current holdings -->
+      <div class="tab-panel hidden" id="stkTabHoldings">
+      <div class="card">
+        <div class="chart-header stk-chart-header">
+          <div class="chart-title">
+            <div class="chart-title-year">当前持仓</div>
+          </div>
+          <div class="stk-head-cols">
+            <div class="chart-total-box">
+              <div class="chart-total" id="stkHoldingsTotal">0.00</div>
+              <div class="chart-total-label" id="stkHoldingsTotalLabel">持仓成本合计</div>
+            </div>
+          </div>
+        </div>
+        <div id="stkHoldingsPies" class="stk-holdings-pies"></div>
+        <div class="chart-cell">
+          <div class="chart-cell-title">持仓列表（按持仓成本从高到低；51 开头为沪市基金，15 开头为深市基金）</div>
+          <div class="table-wrap">
+            <table id="stkHoldingsTable">
+              <thead>
+                <tr>
+                  <th>类型</th>
+                  <th>名称</th>
+                  <th>账户</th>
+                  <th class="num">股数</th>
+                  <th class="num">总成本</th>
+                  <th class="num">占比</th>
+                </tr>
+              </thead>
+              <tbody id="stkHoldingsBody"></tbody>
+            </table>
+          </div>
+          <p id="stkHoldingsEmpty" class="muted center hidden">暂无持仓。</p>
+        </div>
       </div>
       </div>
 
@@ -2391,13 +2429,13 @@
   <!-- Libraries -->
   <script defer src="msal-browser.min.js" onerror="StartupTiming.scriptsFailed()"></script>
   <script defer src="categories.js"></script>
-  <script defer src="stock-realization.js?v=2"></script>
+  <script defer src="stock-realization.js?v=3"></script>
   <script defer src="stock-ranking.js?v=2"></script>
   <script defer src="chat-preferences.js?v=1"></script>
   <script defer src="chat-models.js?v=1"></script>
   <script defer src="borrow-people.js?v=2"></script>
   <script defer src="valuation.js?v=3"></script>
   <script defer src="page-refresh.js?v=3"></script>
-  <script defer src="app.js?v=135" onerror="StartupTiming.scriptsFailed()"></script>
+  <script defer src="app.js?v=141" onerror="StartupTiming.scriptsFailed()"></script>
 </body>
 </html>

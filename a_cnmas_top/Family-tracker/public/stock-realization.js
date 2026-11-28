@@ -85,5 +85,49 @@
       String(a.transactionId).localeCompare(String(b.transactionId)));
   }
 
-  return { cashEventTotal, derive, sortTrades };
+  // Current open positions derived from the same moving-average cost model as
+  // derive(). Groups by exact (code, account); dividends do not change holdings.
+  function deriveHoldings(records) {
+    const groups = new Map();
+    for (const record of records) {
+      const key = String(record.code || "") + "\u0000" + String(record.account || "");
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    }
+    const holdings = [];
+    for (const [key, rows] of groups) {
+      const split = key.indexOf("\u0000");
+      const code = key.slice(0, split), account = key.slice(split + 1);
+      let heldShares = 0, heldCost = 0, positionStartDate = "";
+      for (const record of sortTrades(rows)) {
+        const shares = Number(record.shares) || 0;
+        const total = shares === 0 ? cashEventTotal(record) : (Number(record.total) || 0);
+        if (shares < 0) {
+          if (heldShares < 0.5) positionStartDate = String(record.date || "");
+          heldShares += -shares;
+          heldCost += -total;
+          continue;
+        }
+        if (shares > 0) {
+          const averageCost = heldShares > 0 ? heldCost / heldShares : 0;
+          const costBasis = averageCost * shares;
+          const remainingShares = Math.max(0, heldShares - shares);
+          heldShares = remainingShares;
+          heldCost = heldShares < 0.5 ? 0 : Math.max(0, heldCost - costBasis);
+          if (heldShares < 0.5) positionStartDate = "";
+        }
+      }
+      if (heldShares >= 0.5) {
+        holdings.push({
+          code, account, shares: heldShares,
+          costBasis: round2(heldCost),
+          averageCost: round2(heldShares > 0 ? heldCost / heldShares : 0),
+          startDate: positionStartDate,
+        });
+      }
+    }
+    return holdings;
+  }
+
+  return { cashEventTotal, derive, deriveHoldings, sortTrades };
 });
